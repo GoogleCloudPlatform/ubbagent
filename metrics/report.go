@@ -22,6 +22,9 @@ type MetricValue struct {
 	DoubleValue float64
 }
 
+// MetricBatch is a collection of MetricReports.
+type MetricBatch []MetricReport
+
 func (mr *MetricReport) Validate(conf Config) error {
 	def := conf.GetMetricDefinition(mr.Name)
 	if def == nil {
@@ -46,5 +49,5 @@ func (mr *MetricReport) Validate(conf Config) error {
 }
 
 type ReportSender interface {
-	Send([]MetricReport)
+	Send(MetricBatch)
 }

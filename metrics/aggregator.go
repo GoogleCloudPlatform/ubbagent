@@ -6,6 +6,11 @@ import (
 	"reflect"
 	"time"
 	"ubbagent/clock"
+	"ubbagent/persistence"
+)
+
+const (
+	persistenceName = "aggregator"
 )
 
 type addMsg struct {
@@ -17,6 +22,7 @@ type Aggregator struct {
 	clock         clock.Clock
 	config        Config
 	sender        ReportSender
+	persistence   persistence.Persistence
 	currentBucket *bucket
 	pushTimer     *time.Timer
 	quit          chan bool
@@ -25,15 +31,17 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf Config, sender ReportSender) *Aggregator {
+func NewAggregator(conf Config, sender ReportSender, persistence persistence.Persistence) *Aggregator {
 	agg := &Aggregator{
-		config: conf,
-		sender: sender,
-		clock:  clock.NewRealClock(),
-		quit:   make(chan bool, 1),
-		push:   make(chan chan bool),
-		add:    make(chan addMsg),
+		config:      conf,
+		sender:      sender,
+		persistence: persistence,
+		clock:       clock.NewRealClock(),
+		quit:        make(chan bool, 1),
+		push:        make(chan chan bool),
+		add:         make(chan addMsg),
 	}
+	agg.loadState()
 	go agg.run()
 	return agg
 }
@@ -84,7 +92,7 @@ func (h *Aggregator) run() {
 		h.pushBucket()
 		// Set a timer to fire when the current bucket should be pushed.
 		remaining := time.Duration(h.config.BufferSeconds)*time.Second -
-			h.clock.Now().Sub(h.currentBucket.createTime)
+			h.clock.Now().Sub(h.currentBucket.CreateTime)
 		if remaining < 1*time.Second {
 			remaining = 1 * time.Second
 		}
@@ -110,8 +118,16 @@ func (h *Aggregator) run() {
 	// TODO(volkman): push the current bucket prior to the exiting.
 }
 
+func (h *Aggregator) loadState() {
+	if err := h.persistence.Load(persistenceName, &h.currentBucket); err != nil && err != persistence.ErrNotFound {
+		panic(fmt.Sprintf("Error loading aggregator state: %+v", err))
+	}
+}
+
 func (h *Aggregator) persistState() {
-	// TODO(volkman): implement.
+	if err := h.persistence.Store(persistenceName, h.currentBucket); err != nil {
+		panic(fmt.Sprintf("Error persisting aggregator state: %+v", err))
+	}
 }
 
 func (h *Aggregator) pushBucket() {
@@ -121,16 +137,16 @@ func (h *Aggregator) pushBucket() {
 		return
 	}
 
-	deadline := h.currentBucket.createTime.Add(time.Duration(h.config.BufferSeconds) * time.Second)
+	deadline := h.currentBucket.CreateTime.Add(time.Duration(h.config.BufferSeconds) * time.Second)
 	if !now.Before(deadline) { // !Before == After or Equal
-		finishedReports := []MetricReport{}
-		for _, namedReports := range h.currentBucket.reports {
+		var finishedBatch MetricBatch
+		for _, namedReports := range h.currentBucket.Reports {
 			for _, report := range namedReports {
-				finishedReports = append(finishedReports, *report.metricReport())
+				finishedBatch = append(finishedBatch, *report.metricReport())
 			}
 		}
-		if len(finishedReports) > 0 {
-			h.sender.Send(finishedReports)
+		if len(finishedBatch) > 0 {
+			h.sender.Send(finishedBatch)
 		}
 		h.currentBucket = newBucket(now)
 		h.persistState()
@@ -138,8 +154,8 @@ func (h *Aggregator) pushBucket() {
 }
 
 type bucket struct {
-	createTime time.Time
-	reports    map[string][]*aggregatedReport
+	CreateTime time.Time
+	Reports    map[string][]*aggregatedReport
 }
 
 // aggregatedReport is an extension of MetricReport that supports operations for combining reports.
@@ -172,13 +188,13 @@ func (ar *aggregatedReport) metricReport() *MetricReport {
 
 func newBucket(t time.Time) *bucket {
 	return &bucket{
-		reports:    make(map[string][]*aggregatedReport),
-		createTime: t,
+		Reports:    make(map[string][]*aggregatedReport),
+		CreateTime: t,
 	}
 }
 
 func (b *bucket) addReport(mr MetricReport) error {
-	for _, ar := range b.reports[mr.Name] {
+	for _, ar := range b.Reports[mr.Name] {
 		accepted, err := ar.accept(mr)
 		if err != nil {
 			return err
@@ -187,6 +203,6 @@ func (b *bucket) addReport(mr MetricReport) error {
 			return nil
 		}
 	}
-	b.reports[mr.Name] = append(b.reports[mr.Name], (*aggregatedReport)(&mr))
+	b.Reports[mr.Name] = append(b.Reports[mr.Name], (*aggregatedReport)(&mr))
 	return nil
 }
