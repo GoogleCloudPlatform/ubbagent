@@ -13,8 +13,9 @@ type mockSender struct {
 	reports MetricBatch
 }
 
-func (s *mockSender) Send(mb MetricBatch) {
+func (s *mockSender) Send(mb MetricBatch) error {
 	s.reports = mb
+	return nil
 }
 
 func TestNewAggregator(t *testing.T) {

@@ -21,7 +21,7 @@ type addMsg struct {
 type Aggregator struct {
 	clock         clock.Clock
 	config        Config
-	sender        ReportSender
+	sender        MetricSender
 	persistence   persistence.Persistence
 	currentBucket *bucket
 	pushTimer     *time.Timer
@@ -31,7 +31,7 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf Config, sender ReportSender, persistence persistence.Persistence) *Aggregator {
+func NewAggregator(conf Config, sender MetricSender, persistence persistence.Persistence) *Aggregator {
 	agg := &Aggregator{
 		config:      conf,
 		sender:      sender,

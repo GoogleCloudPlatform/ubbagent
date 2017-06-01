@@ -1,8 +1,10 @@
 all: test
 
 deps:
+	go get -d -v github.com/golang/glog
 
 updatedeps:
+	go get -d -v -u github.com/golang/glog
 
 testdeps:
 
