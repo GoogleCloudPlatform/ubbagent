@@ -70,17 +70,16 @@ func (rs *RetryingSender) Send(batch metrics.MetricBatch) error {
 	if report, err = rs.endpoint.BuildReport(batch); err != nil {
 		return err
 	}
+	rs.closeMutex.RLock()
+	defer rs.closeMutex.RUnlock()
+	if rs.closed {
+		return errors.New("RetryingSender: Send called on closed sender")
+	}
 	msg := addMsg{
 		report: report,
 		result: make(chan error),
 	}
-	rs.closeMutex.RLock()
-	if rs.closed {
-		rs.closeMutex.RUnlock()
-		return errors.New("RetryingSender: Send called on closed sender")
-	}
 	rs.add <- msg
-	rs.closeMutex.RUnlock()
 	return <-msg.result
 }
 

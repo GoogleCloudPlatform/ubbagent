@@ -120,6 +120,9 @@ func (mc *mockClock) NewTimer(d time.Duration) Timer {
 		fireAt: mc.now.Add(d),
 	}
 	mc.timers[mt] = true
+
+	// Call maybeFire to handle cases where the given duration is 0 or negative.
+	mt.maybeFire(mc.now)
 	return mt
 }
 
