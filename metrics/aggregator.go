@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 	"ubbagent/clock"
+	"ubbagent/config"
 	"ubbagent/persistence"
 )
 
@@ -22,7 +23,7 @@ type addMsg struct {
 
 type Aggregator struct {
 	clock         clock.Clock
-	config        Config
+	config        config.Metrics
 	sender        MetricSender
 	persistence   persistence.Persistence
 	currentBucket *bucket
@@ -35,11 +36,11 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf Config, sender MetricSender, persistence persistence.Persistence) *Aggregator {
+func NewAggregator(conf config.Metrics, sender MetricSender, persistence persistence.Persistence) *Aggregator {
 	return newAggregator(conf, sender, persistence, clock.NewRealClock())
 }
 
-func newAggregator(conf Config, sender MetricSender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
+func newAggregator(conf config.Metrics, sender MetricSender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		config:      conf,
 		sender:      sender,

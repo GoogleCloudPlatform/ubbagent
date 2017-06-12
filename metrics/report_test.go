@@ -4,13 +4,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"ubbagent/config"
 	"ubbagent/metrics"
 )
 
 func TestMetricReport_Validate(t *testing.T) {
-	conf := metrics.Config{
+	conf := config.Metrics{
 		BufferSeconds: 10,
-		MetricDefinitions: []metrics.MetricDefinition{
+		Definitions: []config.MetricDefinition{
 			{
 				Name: "int-metric",
 				Type: "int",

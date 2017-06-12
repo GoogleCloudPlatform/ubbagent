@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"ubbagent/config"
 )
 
 // Report represents a single time-bound collection of metrics.
@@ -30,7 +31,7 @@ type MetricSender interface {
 	Send(MetricBatch) error
 }
 
-func (mr *MetricReport) Validate(conf Config) error {
+func (mr *MetricReport) Validate(conf config.Metrics) error {
 	def := conf.GetMetricDefinition(mr.Name)
 	if def == nil {
 		return errors.New(fmt.Sprintf("Unknown metric: %v", mr.Name))
@@ -39,12 +40,12 @@ func (mr *MetricReport) Validate(conf Config) error {
 		return errors.New(fmt.Sprintf("Metric %v: StartTime > EndTime: %v > %v", mr.Name, mr.StartTime, mr.EndTime))
 	}
 	switch def.Type {
-	case IntType:
+	case config.IntType:
 		if mr.Value.DoubleValue != 0 {
 			return errors.New(fmt.Sprintf("Metric %v: double value specified for integer metric: %v", mr.Name, mr.Value.DoubleValue))
 		}
 		break
-	case DoubleType:
+	case config.DoubleType:
 		if mr.Value.IntValue != 0 {
 			return errors.New(fmt.Sprintf("Metric %v: integer value specified for double metric: %v", mr.Name, mr.Value.IntValue))
 		}

@@ -1,10 +1,15 @@
+# TODO(volkman): Use a dependency management system (e.g., govendor)
 all: test
 
 deps:
 	go get -d -v github.com/golang/glog
+	go get -d -v gopkg.in/yaml.v2
+	go get -d -v github.com/ghodss/yaml
 
 updatedeps:
 	go get -d -v -u github.com/golang/glog
+	go get -d -v -u gopkg.in/yaml.v2
+	go get -d -v -u github.com/ghodss/yaml
 
 testdeps:
 

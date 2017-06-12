@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 	"ubbagent/clock"
+	"ubbagent/config"
 	"ubbagent/persistence"
 )
 
@@ -51,9 +52,9 @@ func TestNewAggregator(t *testing.T) {
 		// Ensures that a new aggregator loads previous state
 		p := persistence.NewMemoryPersistence()
 
-		conf := Config{
+		conf := config.Metrics{
 			BufferSeconds: 10,
-			MetricDefinitions: []MetricDefinition{
+			Definitions: []config.MetricDefinition{
 				{
 					Name: "int-metric1",
 					Type: "int",
@@ -157,9 +158,9 @@ func TestNewAggregator(t *testing.T) {
 }
 
 func TestAggregator_AddReport(t *testing.T) {
-	conf := Config{
+	conf := config.Metrics{
 		BufferSeconds: 1,
-		MetricDefinitions: []MetricDefinition{
+		Definitions: []config.MetricDefinition{
 			{
 				Name: "int-metric",
 				Type: "int",
