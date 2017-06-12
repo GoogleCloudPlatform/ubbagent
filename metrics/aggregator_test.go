@@ -65,7 +65,7 @@ func TestNewAggregator(t *testing.T) {
 		// Ensures that a new aggregator loads previous state
 		p := persistence.NewMemoryPersistence()
 
-		conf := config.Metrics{
+		conf := &config.Metrics{
 			BufferSeconds: 10,
 			Definitions: []config.MetricDefinition{
 				{
@@ -131,7 +131,6 @@ func TestNewAggregator(t *testing.T) {
 		// the previous state.
 		sender.sendErr = errors.New("send failure")
 		a.Close()
-		a.Join()
 
 		// Construct a new aggregator using the same persistence.
 		a = newAggregator(conf, sender, p, mockClock)
@@ -148,7 +147,6 @@ func TestNewAggregator(t *testing.T) {
 
 		sender.sendErr = errors.New("send failure")
 		a.Close()
-		a.Join()
 
 		// Create one more aggregator and ensure it doesn't start with previous state.
 		a = newAggregator(conf, sender, p, mockClock)
@@ -171,7 +169,7 @@ func TestNewAggregator(t *testing.T) {
 }
 
 func TestAggregator_AddReport(t *testing.T) {
-	conf := config.Metrics{
+	conf := &config.Metrics{
 		BufferSeconds: 1,
 		Definitions: []config.MetricDefinition{
 			{
@@ -482,7 +480,6 @@ func TestAggregator_AddReport(t *testing.T) {
 		}
 
 		a.Close()
-		a.Join()
 
 		if len(sender.reports) == 0 {
 			t.Fatal("Expected push after close, but sender contains no reports")

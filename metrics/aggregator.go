@@ -23,7 +23,7 @@ type addMsg struct {
 
 type Aggregator struct {
 	clock         clock.Clock
-	config        config.Metrics
+	config        *config.Metrics
 	sender        Sender
 	persistence   persistence.Persistence
 	currentBucket *bucket
@@ -36,11 +36,11 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf config.Metrics, sender Sender, persistence persistence.Persistence) *Aggregator {
+func NewAggregator(conf *config.Metrics, sender Sender, persistence persistence.Persistence) *Aggregator {
 	return newAggregator(conf, sender, persistence, clock.NewRealClock())
 }
 
-func newAggregator(conf config.Metrics, sender Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
+func newAggregator(conf *config.Metrics, sender Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		config:      conf,
 		sender:      sender,
@@ -78,20 +78,17 @@ func (h *Aggregator) AddReport(report MetricReport) error {
 }
 
 // Close instructs the Aggregator's goroutine to shutdown. Any currently-aggregated metrics will
-// be reported to the downstream sender as part of this process.
+// be reported to the downstream sender as part of this process. Close blocks until the operation
+// has completed.
 func (h *Aggregator) Close() error {
 	h.closeMutex.Lock()
-	defer h.closeMutex.Unlock()
 	if !h.closed {
 		close(h.add)
 		h.closed = true
 	}
-	return nil
-}
-
-// Join blocks until the Aggregator's goroutine has cleaned up and exited.
-func (h *Aggregator) Join() {
+	h.closeMutex.Unlock()
 	h.wait.Wait()
+	return nil
 }
 
 func (h *Aggregator) run() {

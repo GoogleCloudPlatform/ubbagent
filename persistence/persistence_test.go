@@ -27,7 +27,11 @@ func TestDiskPersistence(t *testing.T) {
 		t.Fatalf("Unable to create temp directory: %+v", err)
 	}
 	defer os.RemoveAll(tmpdir)
-	testPersistence(NewDiskPersistence(tmpdir), t)
+	p, err := NewDiskPersistence(tmpdir)
+	if err != nil {
+		t.Fatalf("Unexpected error creating DiskPersistence: %+v", err)
+	}
+	testPersistence(p, t)
 }
 
 func testPersistence(p Persistence, t *testing.T) {

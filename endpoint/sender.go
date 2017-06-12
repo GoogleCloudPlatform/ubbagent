@@ -37,6 +37,7 @@ type RetryingSender struct {
 	add         chan addMsg
 	closed      bool
 	closeMutex  sync.RWMutex
+	wait        sync.WaitGroup
 }
 
 type addMsg struct {
@@ -64,6 +65,7 @@ func newRetryingSender(endpoint Endpoint, persistence persistence.Persistence, c
 		add:         make(chan addMsg, 1),
 	}
 	rs.loadQueue()
+	rs.wait.Add(1)
 	go rs.run()
 	return rs
 }
@@ -85,14 +87,15 @@ func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (metrics.PreparedSe
 }
 
 // Close instructs the RetryingSender to gracefully shutdown. Any reports that have not yet been
-// sent will be persisted to disk.
+// sent will be persisted to disk. Close blocks until the operation has completed.
 func (rs *RetryingSender) Close() error {
 	rs.closeMutex.Lock()
-	defer rs.closeMutex.Unlock()
 	if !rs.closed {
 		close(rs.add)
 		rs.closed = true
 	}
+	rs.closeMutex.Unlock()
+	rs.wait.Wait()
 	return nil
 }
 
@@ -138,6 +141,7 @@ func (rs *RetryingSender) run() {
 				rs.maybeSend()
 			} else {
 				// Channel was closed.
+				rs.wait.Done()
 				return
 			}
 		case <-timer.GetC():

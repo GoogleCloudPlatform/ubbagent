@@ -30,6 +30,7 @@ type DiskEndpoint struct {
 	quit       chan bool
 	closeOnce  sync.Once
 	clock      clock.Clock
+	wait       sync.WaitGroup
 }
 
 type diskReport struct {
@@ -51,6 +52,7 @@ func newDiskEndpoint(name, path string, expiration time.Duration, clock clock.Cl
 		clock:      clock,
 		quit:       make(chan bool, 1),
 	}
+	ep.wait.Add(1)
 	go ep.run()
 	return ep
 }
@@ -88,6 +90,8 @@ func (*DiskEndpoint) EmptyReport() endpoint.EndpointReport {
 	return diskReport{}
 }
 
+// Close instructs the DiskEndpoint's cleanup goroutine to gracefully shutdown. It blocks until the
+// operation has completed.
 func (ep *DiskEndpoint) Close() error {
 	ep.closeOnce.Do(func() {
 		ep.quit <- true
@@ -102,6 +106,7 @@ func (ep *DiskEndpoint) run() {
 		case <-t.GetC():
 			ep.cleanup()
 		case <-ep.quit:
+			ep.wait.Done()
 			return
 		}
 		t.Stop()

@@ -16,7 +16,6 @@ const (
 
 // Config contains configuration for the agent.
 type Config struct {
-	Daemon    *Daemon    `json:"daemon"`
 	Metrics   *Metrics   `json:"metrics"`
 	Endpoints []Endpoint `json:"endpoints"`
 }
@@ -40,11 +39,6 @@ type MetricDefinition struct {
 	Type string
 }
 
-// Daemon contains configuration related to the daemon process (e.g., the port it listens on).
-type Daemon struct {
-	Port int32 `json:"port"`
-}
-
 // Endpoint describes a single remote endpoint used for sending aggregated metrics.
 type Endpoint struct {
 	Name           string                  `json:"name"`
@@ -54,7 +48,7 @@ type Endpoint struct {
 }
 
 type DiskEndpoint struct {
-	Path          string `json:"path"`
+	ReportDir     string `json:"reportDir"`
 	ExpireSeconds int64  `json:"expireSeconds"`
 }
 
@@ -103,12 +97,6 @@ type Validatable interface {
 }
 
 func (c *Config) Validate() error {
-	if c.Daemon == nil {
-		return errors.New("missing daemon section")
-	}
-	if err := c.Daemon.Validate(); err != nil {
-		return err
-	}
 	if c.Metrics == nil {
 		return errors.New("missing metrics section")
 	}
@@ -148,13 +136,6 @@ func (c *Metrics) Validate() error {
 	return nil
 }
 
-func (d *Daemon) Validate() error {
-	if d.Port <= 1024 || d.Port > 65535 {
-		return errors.New("daemon: port must be greater than 1024 and less than 65536")
-	}
-	return nil
-}
-
 func (e *Endpoint) Validate() error {
 	if e.Name == "" {
 		return errors.New("endpoint: missing name")
@@ -187,8 +168,8 @@ func (e *DiskEndpoint) Validate() error {
 	if e.ExpireSeconds < 0 {
 		return errors.New("disk: expireSeconds must not be negative")
 	}
-	if e.Path == "" {
-		return errors.New("disk: missing path")
+	if e.ReportDir == "" {
+		return errors.New("disk: missing report directory")
 	}
 	return nil
 }

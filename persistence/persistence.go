@@ -35,8 +35,11 @@ type Persistence interface {
 
 // NewDiskPersistence constructs a new Persistence that stores objects as json files under the given
 // directory.
-func NewDiskPersistence(directory string) Persistence {
-	return &diskPersistence{directory: directory}
+func NewDiskPersistence(directory string) (Persistence, error) {
+	if err := os.MkdirAll(directory, directoryMode); err != nil {
+		return nil, errors.New("persistence: could not create directory: " + directory + ": " + err.Error())
+	}
+	return &diskPersistence{directory: directory}, nil
 }
 
 // NewMemoryPersistence constructs a new Persistence that stores objects in memory.

@@ -77,6 +77,9 @@ func TestDiskEndpoint(t *testing.T) {
 	if err := waitForReportCount(tmpdir, 1); err != nil {
 		t.Fatalf("error waiting for 1 files in output path: %+v", err)
 	}
+
+	// Test that close returns successfully.
+	ep.Close()
 }
 
 func parseTime(ts string) time.Time {

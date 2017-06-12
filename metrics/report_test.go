@@ -9,7 +9,7 @@ import (
 )
 
 func TestMetricReport_Validate(t *testing.T) {
-	conf := config.Metrics{
+	conf := &config.Metrics{
 		BufferSeconds: 10,
 		Definitions: []config.MetricDefinition{
 			{

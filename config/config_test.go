@@ -8,8 +8,6 @@ import (
 
 func TestParse(t *testing.T) {
 	text := `
-daemon:
-  port: 3456
 metrics:
   bufferSeconds: 10
   definitions:
@@ -20,7 +18,7 @@ metrics:
 endpoints:
 - name: on_disk
   disk:
-    path: /tmp/disk
+    reportDir: /tmp/disk
     expireSeconds: 3600
 - name: pubsub
   pubsub:
@@ -31,9 +29,6 @@ endpoints:
     keyfile: /tmp/some_key.json
 `
 	expected := &config.Config{
-		Daemon: &config.Daemon{
-			Port: 3456,
-		},
 		Metrics: &config.Metrics{
 			BufferSeconds: 10,
 			Definitions: []config.MetricDefinition{
@@ -51,7 +46,7 @@ endpoints:
 			{
 				Name: "on_disk",
 				Disk: &config.DiskEndpoint{
-					Path:          "/tmp/disk",
+					ReportDir:     "/tmp/disk",
 					ExpireSeconds: 3600,
 				},
 			},
@@ -83,10 +78,6 @@ endpoints:
 
 func TestConfig_Validate(t *testing.T) {
 
-	goodDaemon := &config.Daemon{
-		Port: 3333,
-	}
-
 	goodMetrics := &config.Metrics{
 		BufferSeconds: 10,
 		Definitions: []config.MetricDefinition{
@@ -101,50 +92,14 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			Name: "disk",
 			Disk: &config.DiskEndpoint{
-				Path:          "/tmp/disk",
+				ReportDir:     "/tmp/disk",
 				ExpireSeconds: 3600,
 			},
 		},
 	}
 
-	t.Run("missing daemon", func(t *testing.T) {
-		c := &config.Config{
-			Metrics:   goodMetrics,
-			Endpoints: goodEndpoints,
-		}
-
-		if want, got := "missing daemon section", c.Validate(); got != nil && want != got.Error() {
-			t.Fatalf("wanted: %+v, got: %+v", want, got)
-		}
-	})
-
-	t.Run("bad port", func(t *testing.T) {
-		c := &config.Config{
-			Daemon: &config.Daemon{
-				Port: -1,
-			},
-			Metrics:   goodMetrics,
-			Endpoints: goodEndpoints,
-		}
-
-		if want, got := "daemon: port must be greater than 1024 and less than 65536", c.Validate(); got != nil && want != got.Error() {
-			t.Fatalf("wanted: %+v, got: %+v", want, got)
-		}
-
-		c.Daemon.Port = 65536
-		if want, got := "daemon: port must be greater than 1024 and less than 65536", c.Validate(); got != nil && want != got.Error() {
-			t.Fatalf("wanted: %+v, got: %+v", want, got)
-		}
-
-		c.Daemon.Port = 3600
-		if err := c.Validate(); err != nil {
-			t.Fatalf("Unexpected validation error: +%v", err)
-		}
-	})
-
 	t.Run("missing metrics", func(t *testing.T) {
 		c := &config.Config{
-			Daemon:    goodDaemon,
 			Endpoints: goodEndpoints,
 		}
 
@@ -156,7 +111,6 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("invalid metrics", func(t *testing.T) {
 		// More tests in the TestMetrics_Validate method.
 		c := &config.Config{
-			Daemon:    goodDaemon,
 			Endpoints: goodEndpoints,
 			Metrics: &config.Metrics{
 				Definitions: []config.MetricDefinition{
@@ -171,7 +125,6 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("missing endpoints", func(t *testing.T) {
 		c := &config.Config{
-			Daemon:  goodDaemon,
 			Metrics: goodMetrics,
 		}
 
@@ -182,12 +135,11 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("missing endpoint name", func(t *testing.T) {
 		c := &config.Config{
-			Daemon:  goodDaemon,
 			Metrics: goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Disk: &config.DiskEndpoint{
-						Path:          "/tmp",
+						ReportDir:     "/tmp",
 						ExpireSeconds: 10,
 					},
 				},
@@ -201,7 +153,6 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("missing endpoint type", func(t *testing.T) {
 		c := &config.Config{
-			Daemon:  goodDaemon,
 			Metrics: goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
@@ -217,13 +168,12 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("too many endpoint types", func(t *testing.T) {
 		c := &config.Config{
-			Daemon:  goodDaemon,
 			Metrics: goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
 					Disk: &config.DiskEndpoint{
-						Path:          "/tmp",
+						ReportDir:     "/tmp",
 						ExpireSeconds: 10,
 					},
 					PubSub: &config.PubSubEndpoint{
@@ -241,20 +191,19 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("multiple endpoints with the same name", func(t *testing.T) {
 		c := &config.Config{
-			Daemon:  goodDaemon,
 			Metrics: goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
 					Disk: &config.DiskEndpoint{
-						Path:          "/tmp",
+						ReportDir:     "/tmp",
 						ExpireSeconds: 10,
 					},
 				},
 				{
 					Name: "foo",
 					Disk: &config.DiskEndpoint{
-						Path:          "/tmp",
+						ReportDir:     "/tmp",
 						ExpireSeconds: 10,
 					},
 				},
@@ -268,13 +217,12 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("disk endpoint", func(t *testing.T) {
 		c := &config.Config{
-			Daemon:  goodDaemon,
 			Metrics: goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
 					Disk: &config.DiskEndpoint{
-						Path:          "/tmp",
+						ReportDir:     "/tmp",
 						ExpireSeconds: 10,
 					},
 				},

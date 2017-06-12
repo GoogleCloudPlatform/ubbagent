@@ -26,7 +26,7 @@ type MetricValue struct {
 // MetricBatch is a collection of MetricReports.
 type MetricBatch []MetricReport
 
-func (mr *MetricReport) Validate(conf config.Metrics) error {
+func (mr *MetricReport) Validate(conf *config.Metrics) error {
 	def := conf.GetMetricDefinition(mr.Name)
 	if def == nil {
 		return errors.New(fmt.Sprintf("Unknown metric: %v", mr.Name))
