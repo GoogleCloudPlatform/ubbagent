@@ -21,9 +21,10 @@ const (
 var minRetryDelay = flag.Duration("retrymin", 2*time.Second, "minimum exponential backoff delay")
 var maxRetryDelay = flag.Duration("retrymax", 60*time.Second, "maximum exponential backoff delay")
 
-// RetryingSender is a metrics.MetricSender that buffers reports and retries in the event of a send
-// failure. Retry attempts are subject to exponential backoff, with minimum and maximum delays
-// configurable via the "retrymin" and "retrymax" flags.
+// RetryingSender is a metrics.Sender handles sending batches to remote endpoints.
+// It buffers reports and retries in the event of a send failure, using exponential backoff between
+// retry attempts. Minimum and maximum delays are configurable via the "retrymin" and "retrymax"
+// flags.
 type RetryingSender struct {
 	endpoint    Endpoint
 	persistence persistence.Persistence
@@ -41,6 +42,11 @@ type RetryingSender struct {
 type addMsg struct {
 	report EndpointReport
 	result chan error
+}
+
+type retryingSend struct {
+	rs     *RetryingSender
+	report EndpointReport
 }
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
@@ -62,25 +68,20 @@ func newRetryingSender(endpoint Endpoint, persistence persistence.Persistence, c
 	return rs
 }
 
-// Send persists batch and queues it for sending to this sender's associated Endpoint. A call to
-// Send blocks until the report is persisted.
-func (rs *RetryingSender) Send(batch metrics.MetricBatch) error {
+func (s *retryingSend) Send() error {
+	return s.rs.send(s.report)
+}
+
+func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (metrics.PreparedSend, error) {
 	var report EndpointReport
 	var err error
 	if report, err = rs.endpoint.BuildReport(batch); err != nil {
-		return err
+		return nil, err
 	}
-	rs.closeMutex.RLock()
-	defer rs.closeMutex.RUnlock()
-	if rs.closed {
-		return errors.New("RetryingSender: Send called on closed sender")
-	}
-	msg := addMsg{
+	return &retryingSend{
+		rs:     rs,
 		report: report,
-		result: make(chan error),
-	}
-	rs.add <- msg
-	return <-msg.result
+	}, nil
 }
 
 // Close instructs the RetryingSender to gracefully shutdown. Any reports that have not yet been
@@ -93,6 +94,22 @@ func (rs *RetryingSender) Close() error {
 		rs.closed = true
 	}
 	return nil
+}
+
+// send persists batch and queues it for sending to this sender's associated Endpoint. A call to
+// send blocks until the report is persisted.
+func (rs *RetryingSender) send(report EndpointReport) error {
+	rs.closeMutex.RLock()
+	defer rs.closeMutex.RUnlock()
+	if rs.closed {
+		return errors.New("RetryingSender: Send called on closed sender")
+	}
+	msg := addMsg{
+		report: report,
+		result: make(chan error),
+	}
+	rs.add <- msg
+	return <-msg.result
 }
 
 func (rs *RetryingSender) run() {

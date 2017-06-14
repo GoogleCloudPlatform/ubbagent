@@ -26,11 +26,6 @@ type MetricValue struct {
 // MetricBatch is a collection of MetricReports.
 type MetricBatch []MetricReport
 
-// MetricSender is any object that can send a MetricBatch object.
-type MetricSender interface {
-	Send(MetricBatch) error
-}
-
 func (mr *MetricReport) Validate(conf config.Metrics) error {
 	def := conf.GetMetricDefinition(mr.Name)
 	if def == nil {

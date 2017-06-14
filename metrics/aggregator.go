@@ -24,7 +24,7 @@ type addMsg struct {
 type Aggregator struct {
 	clock         clock.Clock
 	config        config.Metrics
-	sender        MetricSender
+	sender        Sender
 	persistence   persistence.Persistence
 	currentBucket *bucket
 	pushTimer     *time.Timer
@@ -36,11 +36,11 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf config.Metrics, sender MetricSender, persistence persistence.Persistence) *Aggregator {
+func NewAggregator(conf config.Metrics, sender Sender, persistence persistence.Persistence) *Aggregator {
 	return newAggregator(conf, sender, persistence, clock.NewRealClock())
 }
 
-func newAggregator(conf config.Metrics, sender MetricSender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
+func newAggregator(conf config.Metrics, sender Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		config:      conf,
 		sender:      sender,
@@ -158,7 +158,12 @@ func (h *Aggregator) pushBucket() {
 		}
 	}
 	if len(finishedBatch) > 0 {
-		if err := h.sender.Send(finishedBatch); err != nil {
+		ps, err := h.sender.Prepare(finishedBatch)
+		if err != nil {
+			glog.Errorf("aggregator: error preparing finished bucket: %+v", err)
+			return
+		}
+		if err := ps.Send(); err != nil {
 			glog.Errorf("aggregator: error sending finished bucket: %+v", err)
 			return
 		}

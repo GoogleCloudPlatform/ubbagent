@@ -12,6 +12,15 @@ import (
 	"ubbagent/persistence"
 )
 
+type mockPreparedSend struct {
+	ms *mockSender
+	mb MetricBatch
+}
+
+func (ps *mockPreparedSend) Send() error {
+	return ps.ms.send(ps.mb)
+}
+
 type mockSender struct {
 	reports   MetricBatch
 	sendMutex sync.Mutex
@@ -19,7 +28,11 @@ type mockSender struct {
 	waitChan  chan bool
 }
 
-func (s *mockSender) Send(mb MetricBatch) error {
+func (s *mockSender) Prepare(mb MetricBatch) (PreparedSend, error) {
+	return &mockPreparedSend{ms: s, mb: mb}, nil
+}
+
+func (s *mockSender) send(mb MetricBatch) error {
 	s.sendMutex.Lock()
 	s.reports = mb
 	if s.waitChan != nil {

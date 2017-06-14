@@ -109,7 +109,7 @@ func TestRetryingSender(t *testing.T) {
 		endpoint := newMockEndpoint("mockep")
 		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
 		endpoint.buildErr = errors.New("build failure")
-		err := rs.Send(batch1)
+		_, err := rs.Prepare(batch1)
 		if err == nil || err.Error() != endpoint.buildErr.Error() {
 			t.Fatalf("build error: expected: %v, got: %v", endpoint.buildErr, err)
 		}
@@ -121,7 +121,11 @@ func TestRetryingSender(t *testing.T) {
 		endpoint := newMockEndpoint("mockep")
 		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
 		mc.SetNow(time.Unix(2000, 0))
-		if err := rs.Send(batch1); err != nil {
+		ps, err := rs.Prepare(batch1)
+		if err != nil {
+			t.Fatalf("empty queue: unexpected error preparing report: %+v", err)
+		}
+		if err := ps.Send(); err != nil {
 			t.Fatalf("empty queue: unexpected error sending report: %+v", err)
 		}
 		select {
@@ -143,7 +147,11 @@ func TestRetryingSender(t *testing.T) {
 		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
 		now := time.Unix(3000, 0)
 		mc.SetNow(now)
-		if err := rs.Send(batch1); err != nil {
+		ps, err := rs.Prepare(batch1)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		if err := ps.Send(); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 		// Exponential delay minimum is 2 seconds (defined above as testMinDelay)
@@ -167,10 +175,18 @@ func TestRetryingSender(t *testing.T) {
 		endpoint.sendErr = errors.New("Send failure")
 		mc.SetNow(time.Unix(4000, 0))
 
-		if err := rs.Send(batch1); err != nil {
+		ps1, err := rs.Prepare(batch1)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		ps2, err := rs.Prepare(batch2)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		if err := ps1.Send(); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
-		if err := rs.Send(batch2); err != nil {
+		if err := ps2.Send(); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 
@@ -203,7 +219,11 @@ func TestRetryingSender(t *testing.T) {
 		mc.SetNow(time.Unix(5000, 0))
 
 		endpoint.doAndWait(t, func() {
-			if err := rs.Send(batch1); err != nil {
+			ps, err := rs.Prepare(batch1)
+			if err != nil {
+				t.Fatalf("Unexpected prepare error: %+v", err)
+			}
+			if err := ps.Send(); err != nil {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
 		})
