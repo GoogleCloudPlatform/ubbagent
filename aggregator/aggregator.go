@@ -1,4 +1,4 @@
-package metrics
+package aggregator
 
 import (
 	"errors"
@@ -10,6 +10,8 @@ import (
 	"ubbagent/clock"
 	"ubbagent/config"
 	"ubbagent/persistence"
+	"ubbagent/metrics"
+	"ubbagent/sender"
 )
 
 const (
@@ -17,14 +19,17 @@ const (
 )
 
 type addMsg struct {
-	report MetricReport
+	report metrics.MetricReport
 	result chan error
 }
 
+// Aggregator is the head of the metrics reporting pipeline. It accepts reports from the reporting
+// client, buffers and aggregates for a configured amount of time, and sends them downstream.
+// See pipeline.Pipeline.
 type Aggregator struct {
 	clock         clock.Clock
 	config        *config.Metrics
-	sender        Sender
+	sender        sender.Sender
 	persistence   persistence.Persistence
 	currentBucket *bucket
 	pushTimer     *time.Timer
@@ -36,11 +41,11 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf *config.Metrics, sender Sender, persistence persistence.Persistence) *Aggregator {
+func NewAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
 	return newAggregator(conf, sender, persistence, clock.NewRealClock())
 }
 
-func newAggregator(conf *config.Metrics, sender Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
+func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		config:      conf,
 		sender:      sender,
@@ -60,7 +65,7 @@ func newAggregator(conf *config.Metrics, sender Sender, persistence persistence.
 // AddReport adds a report. Reports are aggregated when possible, during a time period defined by
 // the Aggregator's config object. Two reports can be aggregated if they have the same name, contain
 // the same labels, and don't contain overlapping time ranges denoted by StartTime and EndTme.
-func (h *Aggregator) AddReport(report MetricReport) error {
+func (h *Aggregator) AddReport(report metrics.MetricReport) error {
 	if err := report.Validate(h.config); err != nil {
 		return err
 	}
@@ -88,7 +93,9 @@ func (h *Aggregator) Close() error {
 	}
 	h.closeMutex.Unlock()
 	h.wait.Wait()
-	return nil
+
+	// Cascade
+	return h.sender.Close()
 }
 
 func (h *Aggregator) run() {
@@ -148,7 +155,7 @@ func (h *Aggregator) pushBucket() {
 		h.currentBucket = newBucket(now)
 		return
 	}
-	var finishedBatch MetricBatch
+	var finishedBatch metrics.MetricBatch
 	for _, namedReports := range h.currentBucket.Reports {
 		for _, report := range namedReports {
 			finishedBatch = append(finishedBatch, *report.metricReport())
@@ -175,13 +182,13 @@ type bucket struct {
 }
 
 // aggregatedReport is an extension of MetricReport that supports operations for combining reports.
-type aggregatedReport MetricReport
+type aggregatedReport metrics.MetricReport
 
 // accept possibly aggregates the given MetricReport into this aggregatedReport. Returns true
 // if the report was aggregated, or false if the labels or name don't match. Returns an error if the
 // given report could be aggregated (i.e., labels match), but its time range conflicts with the
 // existing aggregated range.
-func (ar *aggregatedReport) accept(mr MetricReport) (bool, error) {
+func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 	if mr.Name != ar.Name || !reflect.DeepEqual(mr.Labels, ar.Labels) {
 		return false, nil
 	}
@@ -198,8 +205,8 @@ func (ar *aggregatedReport) accept(mr MetricReport) (bool, error) {
 	return true, nil
 }
 
-func (ar *aggregatedReport) metricReport() *MetricReport {
-	return (*MetricReport)(ar)
+func (ar *aggregatedReport) metricReport() *metrics.MetricReport {
+	return (*metrics.MetricReport)(ar)
 }
 
 func newBucket(t time.Time) *bucket {
@@ -209,7 +216,7 @@ func newBucket(t time.Time) *bucket {
 	}
 }
 
-func (b *bucket) addReport(mr MetricReport) error {
+func (b *bucket) addReport(mr metrics.MetricReport) error {
 	for _, ar := range b.Reports[mr.Name] {
 		accepted, err := ar.accept(mr)
 		if err != nil {

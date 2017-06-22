@@ -1,6 +1,9 @@
 package endpoint
 
-import "ubbagent/metrics"
+import (
+	"ubbagent/pipeline"
+	"ubbagent/metrics"
+)
 
 // EndpointReport is an Endpoint-specific structure that contains a MetricBatch formatted for
 // consumption by the remote service represented by the Endpoint. A report may contain additional
@@ -11,6 +14,9 @@ type EndpointReport interface{}
 // Endpoint represents a metric reporting endpoint that the agent reports to. For example, Cloud
 // Service Control or PubSub.
 type Endpoint interface {
+	// Endpoint is a pipeline.Component.
+	pipeline.Component
+
 	// Name returns the name of this endpoint. The name must be unique across all endpoints in the
 	// system, and should be constant across restarts of the agent. There can be multiple instances
 	// of the same type of endpoint with different names.

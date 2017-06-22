@@ -7,10 +7,10 @@ import (
 	httplib "net/http"
 	"os"
 	"os/signal"
-	"ubbagent/app"
 	"ubbagent/config"
 	"ubbagent/http"
 	"ubbagent/persistence"
+	"ubbagent/pipeline/builder"
 )
 
 var configPath = flag.String("config", "", "configuration file")
@@ -54,12 +54,12 @@ func main() {
 		}
 	}
 
-	a, err := app.NewApp(cfg, p)
+	pipeline, err := builder.Build(cfg, p)
 	if err != nil {
 		exitf("startup: %+v", err)
 	}
 
-	rest := http.NewHttpInterface(a.Aggregator, *localPort)
+	rest := http.NewHttpInterface(pipeline, *localPort)
 	if err := rest.Start(func(err error) {
 		// Process async http errors (which may be an immediate port in use error).
 		if err != httplib.ErrServerClosed {
@@ -77,7 +77,9 @@ func main() {
 
 	infof("Shutting down...")
 	rest.Shutdown()
-	a.Shutdown()
+	if err := pipeline.Close(); err != nil {
+		glog.Warningf("shutdown: %+v", err)
+	}
 	glog.Flush()
 }
 

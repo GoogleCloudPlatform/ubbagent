@@ -1,11 +1,12 @@
-package endpoint_test
+package sender_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
-	"ubbagent/endpoint"
 	"ubbagent/metrics"
+	"ubbagent/sender"
 )
 
 type mockPreparedSend struct {
@@ -24,12 +25,16 @@ type mockSender struct {
 	sendCalled    bool
 }
 
-func (s *mockSender) Prepare(mb metrics.MetricBatch) (metrics.PreparedSend, error) {
+func (s *mockSender) Prepare(mb metrics.MetricBatch) (sender.PreparedSend, error) {
 	s.prepareCalled = true
 	if s.prepareErr != nil {
 		return nil, s.prepareErr
 	}
 	return &mockPreparedSend{ms: s}, nil
+}
+
+func (s *mockSender) Close() error {
+	return nil
 }
 
 func TestDispatcher(t *testing.T) {
@@ -45,7 +50,7 @@ func TestDispatcher(t *testing.T) {
 	t.Run("all sub-senders are invoked", func(t *testing.T) {
 		ms1 := &mockSender{}
 		ms2 := &mockSender{}
-		ds := endpoint.NewDispatcher([]metrics.Sender{ms1, ms2})
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
 		s, err := ds.Prepare(batch)
 
 		if err != nil {
@@ -73,7 +78,7 @@ func TestDispatcher(t *testing.T) {
 		ms1 := &mockSender{}
 		ms2 := &mockSender{}
 		ms2.prepareErr = errors.New("test")
-		ds := endpoint.NewDispatcher([]metrics.Sender{ms1, ms2})
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
 		s, err := ds.Prepare(batch)
 		if err == nil {
 			t.Fatal("Expected prepare error, got none")
@@ -89,8 +94,8 @@ func TestDispatcher(t *testing.T) {
 	t.Run("send failure", func(t *testing.T) {
 		ms1 := &mockSender{}
 		ms2 := &mockSender{}
-		ms2.sendErr = errors.New("test")
-		ds := endpoint.NewDispatcher([]metrics.Sender{ms1, ms2})
+		ms2.sendErr = errors.New("testabcd")
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
 		s, err := ds.Prepare(batch)
 		if err != nil {
 			t.Fatalf("Unexpected prepare error: %+v", err)
@@ -109,8 +114,8 @@ func TestDispatcher(t *testing.T) {
 		if err == nil {
 			t.Fatal("Expected send error, got none")
 		}
-		if err.Error() != "test" {
-			t.Fatalf("Expected error message to be 'test', got: %v", err.Error())
+		if !strings.Contains(err.Error(), "testabcd") {
+			t.Fatalf("Expected error message to contain 'testabcd', got: %v", err.Error())
 		}
 	})
 }

@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	fileMode        = 0755
-	directoryMode   = 0644
+	fileMode        = 0644
+	directoryMode   = 0755
 	cleanupInterval = 1 * time.Minute
 	reportPrefix    = "report_"
 	reportSuffix    = ".json"
@@ -96,6 +96,7 @@ func (ep *DiskEndpoint) Close() error {
 	ep.closeOnce.Do(func() {
 		ep.quit <- true
 	})
+	ep.wait.Wait()
 	return nil
 }
 

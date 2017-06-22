@@ -5,11 +5,13 @@ deps:
 	go get -d -v github.com/golang/glog
 	go get -d -v gopkg.in/yaml.v2
 	go get -d -v github.com/ghodss/yaml
+	go get -d -v github.com/hashicorp/go-multierror
 
 updatedeps:
 	go get -d -v -u github.com/golang/glog
 	go get -d -v -u gopkg.in/yaml.v2
 	go get -d -v -u github.com/ghodss/yaml
+	go get -d -v -u github.com/hashicorp/go-multierror
 
 testdeps:
 

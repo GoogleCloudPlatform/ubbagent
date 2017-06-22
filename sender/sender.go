@@ -1,4 +1,9 @@
-package metrics
+package sender
+
+import (
+	"ubbagent/pipeline"
+	"ubbagent/metrics"
+)
 
 // PreparedSend is returned by Sender.Prepare() and is used to execute the actual send.
 type PreparedSend interface {
@@ -12,7 +17,10 @@ type PreparedSend interface {
 // Sending batches to remote endpoints can involve a pre-processing step which might fail. When
 // fanning out to multiple endpoints, preprocessing errors can be caught prior to actually sending.
 type Sender interface {
+	// Sender is a pipeline.Component.
+	pipeline.Component
+
 	// Prepare prepares a batch for sending, and returns a Sender used to execute the send.
 	// Any failure during the preparation step will be returned as an error.
-	Prepare(MetricBatch) (PreparedSend, error)
+	Prepare(metrics.MetricBatch) (PreparedSend, error)
 }

@@ -1,4 +1,4 @@
-package endpoint
+package sender
 
 import (
 	"errors"
@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 	"ubbagent/clock"
-	"ubbagent/metrics"
 	"ubbagent/persistence"
+	"ubbagent/metrics"
+	"ubbagent/endpoint"
 )
 
 const (
@@ -21,14 +22,14 @@ const (
 var minRetryDelay = flag.Duration("retrymin", 2*time.Second, "minimum exponential backoff delay")
 var maxRetryDelay = flag.Duration("retrymax", 60*time.Second, "maximum exponential backoff delay")
 
-// RetryingSender is a metrics.Sender handles sending batches to remote endpoints.
+// RetryingSender is a Sender handles sending batches to remote endpoints.
 // It buffers reports and retries in the event of a send failure, using exponential backoff between
 // retry attempts. Minimum and maximum delays are configurable via the "retrymin" and "retrymax"
 // flags.
 type RetryingSender struct {
-	endpoint    Endpoint
+	endpoint    endpoint.Endpoint
 	persistence persistence.Persistence
-	queue       []EndpointReport
+	queue       []endpoint.EndpointReport
 	clock       clock.Clock
 	lastAttempt time.Time
 	delay       time.Duration
@@ -41,21 +42,21 @@ type RetryingSender struct {
 }
 
 type addMsg struct {
-	report EndpointReport
+	report endpoint.EndpointReport
 	result chan error
 }
 
 type retryingSend struct {
 	rs     *RetryingSender
-	report EndpointReport
+	report endpoint.EndpointReport
 }
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
-func NewRetryingSender(endpoint Endpoint, persistence persistence.Persistence) *RetryingSender {
+func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence) *RetryingSender {
 	return newRetryingSender(endpoint, persistence, clock.NewRealClock(), *minRetryDelay, *maxRetryDelay)
 }
 
-func newRetryingSender(endpoint Endpoint, persistence persistence.Persistence, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
+func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
 	rs := &RetryingSender{
 		endpoint:    endpoint,
 		persistence: persistence,
@@ -74,8 +75,8 @@ func (s *retryingSend) Send() error {
 	return s.rs.send(s.report)
 }
 
-func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (metrics.PreparedSend, error) {
-	var report EndpointReport
+func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (PreparedSend, error) {
+	var report endpoint.EndpointReport
 	var err error
 	if report, err = rs.endpoint.BuildReport(batch); err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (rs *RetryingSender) Close() error {
 
 // send persists batch and queues it for sending to this sender's associated Endpoint. A call to
 // send blocks until the report is persisted.
-func (rs *RetryingSender) send(report EndpointReport) error {
+func (rs *RetryingSender) send(report endpoint.EndpointReport) error {
 	rs.closeMutex.RLock()
 	defer rs.closeMutex.RUnlock()
 	if rs.closed {
@@ -188,9 +189,9 @@ func (rs *RetryingSender) loadQueue() {
 		return
 	}
 	genericQueue := reflect.ValueOf(loadedQueue)
-	reportQueue := make([]EndpointReport, genericQueue.Len())
+	reportQueue := make([]endpoint.EndpointReport, genericQueue.Len())
 	for i := 0; i < genericQueue.Len(); i++ {
-		reportQueue[i] = genericQueue.Index(i).Interface().(EndpointReport)
+		reportQueue[i] = genericQueue.Index(i).Interface().(endpoint.EndpointReport)
 	}
 	rs.queue = reportQueue
 }

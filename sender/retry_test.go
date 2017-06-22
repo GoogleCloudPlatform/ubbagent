@@ -1,4 +1,4 @@
-package endpoint
+package sender
 
 import (
 	"errors"
@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 	"ubbagent/clock"
-	"ubbagent/metrics"
 	"ubbagent/persistence"
+	"ubbagent/metrics"
+	"ubbagent/endpoint"
 )
 
 const (
@@ -24,7 +25,7 @@ type mockEndpoint struct {
 	name      string
 	sendErr   error
 	buildErr  error
-	sent      chan EndpointReport
+	sent      chan endpoint.EndpointReport
 	sendCalls int
 	sendMutex sync.Mutex
 	waitChan  chan bool
@@ -34,7 +35,7 @@ func (ep *mockEndpoint) Name() string {
 	return ep.name
 }
 
-func (ep *mockEndpoint) Send(report EndpointReport) error {
+func (ep *mockEndpoint) Send(report endpoint.EndpointReport) error {
 	ep.sendMutex.Lock()
 	ep.sendCalls++
 	if ep.sendErr == nil {
@@ -48,15 +49,19 @@ func (ep *mockEndpoint) Send(report EndpointReport) error {
 	return ep.sendErr
 }
 
-func (ep *mockEndpoint) BuildReport(mb metrics.MetricBatch) (EndpointReport, error) {
+func (ep *mockEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointReport, error) {
 	if ep.buildErr != nil {
 		return nil, ep.buildErr
 	}
 	return mockReport{batch: mb}, nil
 }
 
-func (ep *mockEndpoint) EmptyReport() EndpointReport {
+func (ep *mockEndpoint) EmptyReport() endpoint.EndpointReport {
 	return mockReport{}
+}
+
+func (ep *mockEndpoint) Close() error {
+	return nil
 }
 
 func (ep *mockEndpoint) doAndWait(t *testing.T, f func()) {
@@ -75,7 +80,7 @@ func (ep *mockEndpoint) doAndWait(t *testing.T, f func()) {
 func newMockEndpoint(name string) *mockEndpoint {
 	return &mockEndpoint{
 		name: name,
-		sent: make(chan EndpointReport, 100),
+		sent: make(chan endpoint.EndpointReport, 100),
 	}
 }
 

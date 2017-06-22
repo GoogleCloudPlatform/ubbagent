@@ -6,20 +6,21 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"ubbagent/pipeline"
 	"ubbagent/metrics"
 )
 
 type HttpInterface struct {
-	aggregator *metrics.Aggregator
-	port       int
-	mux        http.ServeMux
-	srv        *http.Server
+	pipeline pipeline.Head
+	port     int
+	mux      http.ServeMux
+	srv      *http.Server
 }
 
 // NewHttpInterface creates a new agent interface that listens on the given port. The interface
 // must be started with a call to ListenAndServe().
-func NewHttpInterface(aggregator *metrics.Aggregator, port int) *HttpInterface {
-	h := &HttpInterface{aggregator: aggregator, port: port}
+func NewHttpInterface(pipeline pipeline.Head, port int) *HttpInterface {
+	h := &HttpInterface{pipeline: pipeline, port: port}
 	h.mux.HandleFunc("/report", h.handleAdd)
 	return h
 }
@@ -34,7 +35,7 @@ func (h *HttpInterface) handleAdd(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
-	if err := h.aggregator.AddReport(report); err != nil {
+	if err := h.pipeline.AddReport(report); err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 		return

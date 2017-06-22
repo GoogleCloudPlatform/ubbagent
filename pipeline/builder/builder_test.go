@@ -1,4 +1,4 @@
-package app
+package builder
 
 import (
 	"io/ioutil"
@@ -9,9 +9,9 @@ import (
 	"ubbagent/persistence"
 )
 
-// TestApp tests that an App can be created and shutdown successfully.
-func TestApp(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "app_test")
+// TestBuild tests that a Pipeline can be created and shutdown successfully.
+func TestBuild(t *testing.T) {
+	tmpdir, err := ioutil.TempDir("", "build_test")
 	if err != nil {
 		t.Fatalf("Unable to create temp directory: %+v", err)
 	}
@@ -46,15 +46,10 @@ func TestApp(t *testing.T) {
 		},
 	}
 
-	a, err := NewApp(cfg, p)
+	a, err := Build(cfg, p)
 	if err != nil {
 		t.Fatalf("unexpected error creating App: %+v", err)
 	}
 
-	// 3 closers: Aggregator, RetryingSender, DiskEndpoint,
-	if len(a.closers) != 3 {
-		t.Fatalf("expected 3 closers, got: %v", len(a.closers))
-	}
-
-	a.Shutdown()
+	a.Close()
 }
