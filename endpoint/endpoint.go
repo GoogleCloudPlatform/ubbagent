@@ -1,8 +1,8 @@
 package endpoint
 
 import (
-	"ubbagent/pipeline"
 	"ubbagent/metrics"
+	"ubbagent/pipeline"
 )
 
 // EndpointReport is an Endpoint-specific structure that contains a MetricBatch formatted for

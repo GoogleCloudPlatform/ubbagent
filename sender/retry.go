@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 	"ubbagent/clock"
-	"ubbagent/persistence"
-	"ubbagent/metrics"
 	"ubbagent/endpoint"
+	"ubbagent/metrics"
+	"ubbagent/persistence"
 )
 
 const (

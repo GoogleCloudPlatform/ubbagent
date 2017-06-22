@@ -1,8 +1,8 @@
 package sender
 
 import (
-	"ubbagent/pipeline"
 	"ubbagent/metrics"
+	"ubbagent/pipeline"
 )
 
 // PreparedSend is returned by Sender.Prepare() and is used to execute the actual send.

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"ubbagent/pipeline"
 	"ubbagent/metrics"
+	"ubbagent/pipeline"
 )
 
 type HttpInterface struct {

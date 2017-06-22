@@ -9,8 +9,8 @@ import (
 	"time"
 	"ubbagent/clock"
 	"ubbagent/config"
-	"ubbagent/persistence"
 	"ubbagent/metrics"
+	"ubbagent/persistence"
 	"ubbagent/sender"
 )
 

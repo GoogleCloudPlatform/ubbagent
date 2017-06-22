@@ -1,11 +1,13 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/ghodss/yaml"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -16,8 +18,14 @@ const (
 
 // Config contains configuration for the agent.
 type Config struct {
+	Identity  *Identity  `json:"identity"`
 	Metrics   *Metrics   `json:"metrics"`
 	Endpoints []Endpoint `json:"endpoints"`
+}
+
+// Identity contains configuration pertaining to the agent identity and credentials.
+type Identity struct {
+	ServiceAccountKey json.RawMessage `json:"serviceAccountKey"`
 }
 
 // Metrics contains the metric definitions that the agent expects to receive.
@@ -53,12 +61,12 @@ type DiskEndpoint struct {
 }
 
 type ServiceControlEndpoint struct {
-	KeyFile string `json:"keyfile"`
+	ServiceName string `json:"serviceName"`
+	ConsumerId  string `json:"consumerId"`
 }
 
 type PubSubEndpoint struct {
-	KeyFile string `json:"keyfile"`
-	Topic   string `json:"topic"`
+	Topic string `json:"topic"`
 }
 
 func Load(path string) (*Config, error) {
@@ -97,6 +105,9 @@ type Validatable interface {
 }
 
 func (c *Config) Validate() error {
+	if c.Identity == nil {
+		return errors.New("missing identity section")
+	}
 	if c.Metrics == nil {
 		return errors.New("missing metrics section")
 	}
@@ -115,6 +126,13 @@ func (c *Config) Validate() error {
 			return err
 		}
 		usedNames[e.Name] = true
+	}
+	return nil
+}
+
+func (c *Identity) Validate() error {
+	if len(c.ServiceAccountKey) == 0 {
+		return errors.New("identity: missing service account key")
 	}
 	return nil
 }
@@ -180,6 +198,16 @@ func (e *PubSubEndpoint) Validate() error {
 }
 
 func (e *ServiceControlEndpoint) Validate() error {
-	// TODO(volkman): implement
+	if e.ServiceName == "" {
+		return errors.New("servicecontrol: missing service name")
+	}
+	if e.ConsumerId == "" {
+		return errors.New("servicecontrol: missing consumer ID")
+	}
+	if !(strings.HasPrefix(e.ConsumerId, "project:") ||
+		strings.HasPrefix(e.ConsumerId, "project_number:") ||
+		strings.HasPrefix(e.ConsumerId, "apiKey:")) {
+		return errors.New(`servicecontrol: invalid consumer ID (must start with "project:", "projectNumber:", or "apiKey:")`)
+	}
 	return nil
 }
