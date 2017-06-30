@@ -1,0 +1,16 @@
+identity:
+  serviceAccountKey: ${REPORTING_KEY}
+metrics:
+  bufferSeconds: 10
+  definitions:
+  - name: requests
+    type: int
+endpoints:
+- name: on_disk
+  disk:
+    reportDir: /tmp/ubbdemo/reports
+    expireSeconds: 3600
+- name: chemist
+  servicecontrol:
+    serviceName: wordpress.ubb-widgetsinc.appspot.com
+    consumerId: ${CONSUMER_ID}
