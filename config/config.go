@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ghodss/yaml"
 	"io/ioutil"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/ghodss/yaml"
 )
 
 const (
@@ -43,8 +44,9 @@ type Metrics struct {
 
 // MetricDefinition describes a single reportable metric's name and type.
 type MetricDefinition struct {
-	Name string
-	Type string
+	Name        string
+	BillingName string
+	Type        string
 }
 
 // Endpoint describes a single remote endpoint used for sending aggregated metrics.
@@ -142,11 +144,16 @@ func (c *Identity) Validate() error {
 func (c *Metrics) Validate() error {
 	usedNames := make(map[string]bool)
 	for _, def := range c.Definitions {
+		if def.Name == "" {
+			return errors.New("missing metric name")
+		}
+		if def.BillingName == "" {
+			return errors.New(fmt.Sprintf("metric %v: missing billing name", def.Name))
+		}
 		if usedNames[def.Name] {
 			return errors.New(fmt.Sprintf("metric %v: duplicate name: %v", def.Name, def.Name))
 		}
 		usedNames[def.Name] = true
-
 		if def.Type != IntType && def.Type != DoubleType {
 			return errors.New(fmt.Sprintf("metric %s: invalid type: %v", def.Name, def.Type))
 		}

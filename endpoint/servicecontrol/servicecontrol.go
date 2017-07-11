@@ -3,18 +3,21 @@ package servicecontrol
 import (
 	"context"
 	"fmt"
+	"time"
+	"ubbagent/endpoint"
+	"ubbagent/metrics"
+
+	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	servicecontrol "google.golang.org/api/servicecontrol/v1"
-	"time"
-	"ubbagent/endpoint"
-	"ubbagent/metrics"
 )
 
 const (
-	agentIdLabel = "goog-ubb-agent-id"
-	timeout      = 60 * time.Second
+	billingLabelKey = "cloudbilling.googleapis.com/argentum_metric_id"
+	agentIdLabel    = "goog-ubb-agent-id"
+	timeout         = 60 * time.Second
 )
 
 type ServiceControlEndpoint struct {
@@ -62,10 +65,15 @@ func (ep *ServiceControlEndpoint) Name() string {
 
 func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
 	r := report.(serviceControlReport)
+	glog.V(2).Infoln("ServiceControlEndpoint:Send(): serviceName: ", ep.serviceName, " body: ", func() string {
+		r_json, _ := r.request.MarshalJSON()
+		return string(r_json)
+	}())
 	_, err := ep.service.Services.Report(ep.serviceName, &r.request).Do()
 	if err != nil && !googleapi.IsNotModified(err) {
 		return err
 	}
+	glog.V(2).Infoln("ServiceControlEndpoint:Send(): success")
 	// TODO(volkman): Handle potential per-operation errors in response body
 	return nil
 }
@@ -82,6 +90,7 @@ func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.
 		value := servicecontrol.MetricValue{
 			StartTime: m.StartTime.UTC().Format(time.RFC3339Nano),
 			EndTime:   m.EndTime.UTC().Format(time.RFC3339Nano),
+			Labels:    map[string]string{billingLabelKey: m.BillingName},
 		}
 		if m.Value.IntValue != 0 {
 			value.Int64Value = &m.Value.IntValue

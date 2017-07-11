@@ -3,7 +3,6 @@ package aggregator
 import (
 	"errors"
 	"fmt"
-	"github.com/golang/glog"
 	"reflect"
 	"sync"
 	"time"
@@ -12,6 +11,8 @@ import (
 	"ubbagent/metrics"
 	"ubbagent/persistence"
 	"ubbagent/sender"
+
+	"github.com/golang/glog"
 )
 
 const (
@@ -66,7 +67,11 @@ func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persi
 // the Aggregator's config object. Two reports can be aggregated if they have the same name, contain
 // the same labels, and don't contain overlapping time ranges denoted by StartTime and EndTme.
 func (h *Aggregator) AddReport(report metrics.MetricReport) error {
+	glog.V(2).Infoln("Aggregator:AddReport()")
 	if err := report.Validate(h.config); err != nil {
+		return err
+	}
+	if err := report.AssignBillingName(h.config); err != nil {
 		return err
 	}
 	h.closeMutex.RLock()
@@ -162,6 +167,7 @@ func (h *Aggregator) pushBucket() {
 		}
 	}
 	if len(finishedBatch) > 0 {
+		glog.V(2).Infoln("Aggregator:pushBucket(): sending batch")
 		ps, err := h.sender.Prepare(finishedBatch)
 		if err != nil {
 			glog.Errorf("aggregator: error preparing finished bucket: %+v", err)

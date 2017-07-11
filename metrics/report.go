@@ -7,13 +7,14 @@ import (
 	"ubbagent/config"
 )
 
-// Report represents a single time-bound collection of metrics.
+// Report represents an aggregated interval for a unique metric + labels combination.
 type MetricReport struct {
-	Name      string
-	StartTime time.Time
-	EndTime   time.Time
-	Labels    map[string]string
-	Value     MetricValue
+	Name        string
+	BillingName string
+	StartTime   time.Time
+	EndTime     time.Time
+	Labels      map[string]string
+	Value       MetricValue
 }
 
 // MetricValue holds a single named metric value. Only one of the individual type fields should
@@ -46,5 +47,14 @@ func (mr *MetricReport) Validate(conf *config.Metrics) error {
 		}
 		break
 	}
+	return nil
+}
+
+func (mr *MetricReport) AssignBillingName(conf *config.Metrics) error {
+	def := conf.GetMetricDefinition(mr.Name)
+	if def == nil {
+		return errors.New(fmt.Sprintf("Unknown metric: %v", mr.Name))
+	}
+	mr.BillingName = def.BillingName
 	return nil
 }

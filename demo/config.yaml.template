@@ -4,6 +4,7 @@ metrics:
   bufferSeconds: 10
   definitions:
   - name: requests
+    billingName: com.googleapis/services/test-marketplace-whitebox-usage/Requests
     type: int
 endpoints:
 - name: on_disk
