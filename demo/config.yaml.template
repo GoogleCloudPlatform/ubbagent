@@ -13,5 +13,5 @@ endpoints:
     expireSeconds: 3600
 - name: chemist
   servicecontrol:
-    serviceName: wordpress.ubb-widgetsinc.appspot.com
+    serviceName: test-marketplace-whitebox-usage.googleapis.com
     consumerId: ${CONSUMER_ID}

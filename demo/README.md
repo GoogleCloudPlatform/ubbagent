@@ -60,7 +60,7 @@ cat demo/config.yaml.template
 shell2 (Marketplace): Create entitlement.
 
 ```
-client create $USER wordpress.ubb-widgetsinc.appspot.com | tee /tmp/ubbdemo/entitlement.json
+client create $USER test-marketplace-whitebox-usage.googleapis.com | tee /tmp/ubbdemo/entitlement.json
 ```
 
 shell2 (Marketplace): Create reporting key.
@@ -80,7 +80,7 @@ envsubst < demo/config.yaml.template | tee /tmp/ubbdemo/config.yaml
 shell1 (Customer): Start the agent in the background.
 
 ```
-ubbagent --config /tmp/ubbdemo/config.yaml --no-state --local-port 3456 --logtostderr &
+ubbagent --config /tmp/ubbdemo/config.yaml --no-state --local-port 3456 --logtostderr --v=2 &
 ```
 
 shell1 (Customer): Send a report to the agent.
@@ -97,4 +97,4 @@ head /tmp/ubbdemo/reports/*
 
 Chemist -> Argentum dashboard:
 
-https://pcon.corp.google.com/p#servicecontrol-billing/servicecontrol-billing%20pipeline/ingestion%20per%20service?group=&duration=4h&f:allmetrics:service=wordpress.ubb-widgetsinc.appspot.com
+https://pcon.corp.google.com/p#servicecontrol-billing/servicecontrol-billing%20pipeline/ingestion%20per%20service?group=&duration=4h&f:allmetrics:service=test-marketplace-whitebox-usage.googleapis.com
