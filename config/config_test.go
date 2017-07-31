@@ -41,8 +41,10 @@ metrics:
   definitions:
   - name: int-metric
     type: int
+    billingName: com.googleapis/services/test-service/IntMetric
   - name: double-metric
     type: double
+    billingName: com.googleapis/services/test-service/DoubleMetric
 endpoints:
 - name: on_disk
   disk:
@@ -70,12 +72,14 @@ endpoints:
 			BufferSeconds: 10,
 			Definitions: []config.MetricDefinition{
 				{
-					Name: "int-metric",
-					Type: "int",
+					Name:        "int-metric",
+					Type:        "int",
+					BillingName: "com.googleapis/services/test-service/IntMetric",
 				},
 				{
-					Name: "double-metric",
-					Type: "double",
+					Name:        "double-metric",
+					Type:        "double",
+					BillingName: "com.googleapis/services/test-service/DoubleMetric",
 				},
 			},
 		},
@@ -125,8 +129,9 @@ func TestConfig_Validate(t *testing.T) {
 		BufferSeconds: 10,
 		Definitions: []config.MetricDefinition{
 			{
-				Name: "int-metric",
-				Type: "int",
+				Name:        "int-metric",
+				Type:        "int",
+				BillingName: "com.googleapis/services/test-service/IntMetric",
 			},
 		},
 	}
@@ -171,7 +176,7 @@ func TestConfig_Validate(t *testing.T) {
 			Endpoints: goodEndpoints,
 			Metrics: &config.Metrics{
 				Definitions: []config.MetricDefinition{
-					{Name: "foo", Type: "foo"},
+					{Name: "foo", Type: "foo", BillingName: "com.googleapis/services/test-service/IntMetric"},
 				},
 			},
 		}
@@ -359,9 +364,9 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		validConfig := config.Metrics{
 			Definitions: []config.MetricDefinition{
-				{Name: "int-metric", Type: "int"},
-				{Name: "int-metric2", Type: "int"},
-				{Name: "double-metric", Type: "double"},
+				{Name: "int-metric", Type: "int", BillingName: "com.googleapis/services/test-service/IntMetric"},
+				{Name: "int-metric2", Type: "int", BillingName: "com.googleapis/services/test-service/IntMetric2"},
+				{Name: "double-metric", Type: "double", BillingName: "com.googleapis/services/test-service/DoubleMetric"},
 			},
 		}
 
@@ -374,9 +379,9 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: duplicate metric", func(t *testing.T) {
 		duplicateName := config.Metrics{
 			Definitions: []config.MetricDefinition{
-				{Name: "int-metric", Type: "int"},
-				{Name: "int-metric", Type: "int"},
-				{Name: "double-metric", Type: "double"},
+				{Name: "int-metric", Type: "int", BillingName: "com.googleapis/services/test-service/IntMetric"},
+				{Name: "int-metric", Type: "int", BillingName: "com.googleapis/services/test-service/IntMetric"},
+				{Name: "double-metric", Type: "double", BillingName: "com.googleapis/services/test-service/DoubleMetric"},
 			},
 		}
 
@@ -389,9 +394,9 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: invalid type", func(t *testing.T) {
 		invalidType := config.Metrics{
 			Definitions: []config.MetricDefinition{
-				{Name: "int-metric", Type: "int"},
-				{Name: "int-metric2", Type: "foo"},
-				{Name: "double-metric", Type: "double"},
+				{Name: "int-metric", Type: "int", BillingName: "com.googleapis/services/test-service/IntMetric"},
+				{Name: "int-metric2", Type: "foo", BillingName: "com.googleapis/services/test-service/IntMetric2"},
+				{Name: "double-metric", Type: "double", BillingName: "com.googleapis/services/test-service/DoubleMetric"},
 			},
 		}
 
@@ -405,15 +410,16 @@ func TestMetrics_Validate(t *testing.T) {
 func TestMetrics_GetMetricDefinition(t *testing.T) {
 	validConfig := config.Metrics{
 		Definitions: []config.MetricDefinition{
-			{Name: "int-metric", Type: "int"},
-			{Name: "int-metric2", Type: "int"},
-			{Name: "double-metric", Type: "double"},
+			{Name: "int-metric", Type: "int", BillingName: "com.googleapis/services/test-service/IntMetric"},
+			{Name: "int-metric2", Type: "int", BillingName: "com.googleapis/services/test-service/IntMetric2"},
+			{Name: "double-metric", Type: "double", BillingName: "com.googleapis/services/test-service/DoubleMetric"},
 		},
 	}
 
 	expected := config.MetricDefinition{
-		Name: "int-metric2",
-		Type: "int",
+		Name:        "int-metric2",
+		Type:        "int",
+		BillingName: "com.googleapis/services/test-service/IntMetric2",
 	}
 	actual := validConfig.GetMetricDefinition("int-metric2")
 	if *actual != expected {
