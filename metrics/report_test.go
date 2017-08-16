@@ -18,8 +18,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"ubbagent/config"
-	"ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 func TestMetricReport_Validate(t *testing.T) {

@@ -18,8 +18,8 @@ import (
 	"context"
 	"fmt"
 	"time"
-	"ubbagent/endpoint"
-	"ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 
 	"github.com/golang/glog"
 	"github.com/google/uuid"

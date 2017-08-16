@@ -16,8 +16,8 @@ package agentid_test
 
 import (
 	"testing"
-	"ubbagent/agentid"
-	"ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/agentid"
+	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 )
 
 func TestCreateOrGet(t *testing.T) {

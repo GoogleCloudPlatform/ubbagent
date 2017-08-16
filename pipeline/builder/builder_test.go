@@ -19,8 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"ubbagent/config"
-	"ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 )
 
 // TestBuild tests that a Pipeline can be created and shutdown successfully.

@@ -20,10 +20,10 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"ubbagent/clock"
-	"ubbagent/endpoint"
-	"ubbagent/metrics"
-	"ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 )
 
 const (

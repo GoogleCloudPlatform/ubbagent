@@ -19,7 +19,7 @@ import (
 	"github.com/ghodss/yaml"
 	"reflect"
 	"testing"
-	"ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/config"
 )
 
 const jsonKeyText = `{
