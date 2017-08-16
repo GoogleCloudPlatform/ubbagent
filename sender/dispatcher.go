@@ -17,7 +17,7 @@ package sender
 import (
 	"github.com/hashicorp/go-multierror"
 	"sync"
-	"ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 // Dispatcher is a Sender that fans out to other Sender instances. Generally,

@@ -17,7 +17,7 @@ package clock_test
 import (
 	"testing"
 	"time"
-	"ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
 )
 
 func TestMockClock(t *testing.T) {

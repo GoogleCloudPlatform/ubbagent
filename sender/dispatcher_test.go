@@ -19,8 +19,8 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"ubbagent/metrics"
-	"ubbagent/sender"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/sender"
 )
 
 type mockPreparedSend struct {

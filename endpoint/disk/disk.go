@@ -24,9 +24,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"ubbagent/clock"
-	"ubbagent/endpoint"
-	"ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 const (

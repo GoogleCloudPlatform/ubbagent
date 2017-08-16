@@ -20,8 +20,8 @@ import (
 	"os"
 	"testing"
 	"time"
-	"ubbagent/clock"
-	"ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 func TestDiskEndpoint(t *testing.T) {

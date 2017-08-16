@@ -17,15 +17,15 @@ package builder
 import (
 	"errors"
 	"time"
-	"ubbagent/agentid"
-	"ubbagent/aggregator"
-	"ubbagent/config"
-	"ubbagent/endpoint"
-	"ubbagent/endpoint/disk"
-	"ubbagent/endpoint/servicecontrol"
-	"ubbagent/persistence"
-	"ubbagent/pipeline"
-	"ubbagent/sender"
+	"github.com/GoogleCloudPlatform/ubbagent/agentid"
+	"github.com/GoogleCloudPlatform/ubbagent/aggregator"
+	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint/disk"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint/servicecontrol"
+	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/sender"
 )
 
 // Build builds pipeline containing a configured Aggregator and all of the resources

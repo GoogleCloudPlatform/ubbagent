@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	"ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 type recordingHandler struct {

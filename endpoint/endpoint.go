@@ -15,8 +15,8 @@
 package endpoint
 
 import (
-	"ubbagent/metrics"
-	"ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 // EndpointReport is an Endpoint-specific structure that contains a MetricBatch formatted for

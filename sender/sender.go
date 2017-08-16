@@ -15,8 +15,8 @@
 package sender
 
 import (
-	"ubbagent/metrics"
-	"ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 // PreparedSend is returned by Sender.Prepare() and is used to execute the actual send.

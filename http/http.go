@@ -20,8 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"ubbagent/metrics"
-	"ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 type HttpInterface struct {

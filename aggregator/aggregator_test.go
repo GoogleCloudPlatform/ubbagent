@@ -21,11 +21,11 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"ubbagent/clock"
-	"ubbagent/config"
-	"ubbagent/metrics"
-	"ubbagent/persistence"
-	"ubbagent/sender"
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/sender"
 )
 
 type mockPreparedSend struct {

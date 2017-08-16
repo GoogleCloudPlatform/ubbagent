@@ -23,7 +23,7 @@
 //
 package pipeline
 
-import "ubbagent/metrics"
+import "github.com/GoogleCloudPlatform/ubbagent/metrics"
 
 // Head represents the start of a pipeline. It is a Component that accepts metric reports as input.
 type Head interface {

@@ -16,7 +16,7 @@ package agentid
 
 import (
 	"github.com/google/uuid"
-	"ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 )
 
 const agentIdKey = "agentid"

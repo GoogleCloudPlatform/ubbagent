@@ -18,7 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	"ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/config"
 )
 
 // Report represents an aggregated interval for a unique metric + labels combination.
