@@ -39,8 +39,11 @@ build: .GOPATH/.ok
 deps: .GOPATH/.ok
 	@test -x ./bin/dep || \
 	    { echo "dep not found, try running 'make setup'..."; exit 1; }
-	$Q ( cd $(CURDIR)/.GOPATH/src/$(IMPORT_PATH) \
+# Make .GOPATH unreadable so that dep does not traverse into it.
+	@chmod -r $(GOPATH)
+	-$Q ( cd $(GOPATH)/src/$(IMPORT_PATH) \
 	    && bin/dep ensure -vendor-only )
+	@chmod +r $(GOPATH)
 
 ### Code not in the repository root? Another binary? Add to the path like this.
 # .PHONY: otherbin
