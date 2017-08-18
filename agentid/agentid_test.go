@@ -16,6 +16,7 @@ package agentid_test
 
 import (
 	"testing"
+
 	"github.com/GoogleCloudPlatform/ubbagent/agentid"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 )

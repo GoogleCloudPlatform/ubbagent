@@ -1,3 +1,11 @@
 # Intellij metadata
 .idea
 ubbagent.iml
+
+# Makefile artifacts
+.GOPATH/
+
+# Dependencies - we don't currently commit vendor/
+vendor/
+/.GOPATH
+/bin

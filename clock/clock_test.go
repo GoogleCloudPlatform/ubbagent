@@ -17,6 +17,7 @@ package clock_test
 import (
 	"testing"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 )
 

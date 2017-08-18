@@ -16,10 +16,11 @@ package config_test
 
 import (
 	"encoding/json"
-	"github.com/ghodss/yaml"
 	"reflect"
 	"testing"
+
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/ghodss/yaml"
 )
 
 const jsonKeyText = `{

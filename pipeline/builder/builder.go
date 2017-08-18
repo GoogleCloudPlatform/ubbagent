@@ -17,6 +17,7 @@ package builder
 import (
 	"errors"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/agentid"
 	"github.com/GoogleCloudPlatform/ubbagent/aggregator"
 	"github.com/GoogleCloudPlatform/ubbagent/config"

@@ -16,7 +16,6 @@ package disk
 
 import (
 	"encoding/json"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"path"
@@ -24,9 +23,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/golang/glog"
 )
 
 const (
