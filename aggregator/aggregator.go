@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"sync"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"

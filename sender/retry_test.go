@@ -20,6 +20,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"

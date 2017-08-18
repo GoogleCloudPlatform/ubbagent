@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )

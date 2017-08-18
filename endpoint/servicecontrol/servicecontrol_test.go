@@ -16,14 +16,15 @@ package servicecontrol
 
 import (
 	"encoding/json"
-	"google.golang.org/api/servicecontrol/v1"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"google.golang.org/api/servicecontrol/v1"
 )
 
 type recordingHandler struct {

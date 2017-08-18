@@ -17,16 +17,17 @@ package sender
 import (
 	"errors"
 	"flag"
-	"github.com/golang/glog"
 	"math"
 	"path"
 	"reflect"
 	"sync"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/golang/glog"
 )
 
 const (

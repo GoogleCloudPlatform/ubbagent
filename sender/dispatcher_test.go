@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
 )

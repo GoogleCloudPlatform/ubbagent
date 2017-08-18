@@ -17,14 +17,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/golang/glog"
 	httplib "net/http"
 	"os"
 	"os/signal"
+
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/http"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/builder"
+	"github.com/golang/glog"
 )
 
 var configPath = flag.String("config", "", "configuration file")
