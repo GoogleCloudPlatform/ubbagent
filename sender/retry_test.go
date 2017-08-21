@@ -25,6 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"sync/atomic"
 )
 
 const (
@@ -41,8 +42,9 @@ type mockEndpoint struct {
 	sendErr   error
 	buildErr  error
 	sent      chan endpoint.EndpointReport
-	sendCalls int
+	sendCalls int32
 	sendMutex sync.Mutex
+	errMutex  sync.Mutex
 	waitChan  chan bool
 }
 
@@ -52,8 +54,9 @@ func (ep *mockEndpoint) Name() string {
 
 func (ep *mockEndpoint) Send(report endpoint.EndpointReport) error {
 	ep.sendMutex.Lock()
-	ep.sendCalls++
-	if ep.sendErr == nil {
+	atomic.AddInt32(&ep.sendCalls, 1)
+	err := ep.getSendErr()
+	if err == nil {
 		ep.sent <- report
 	}
 	if ep.waitChan != nil {
@@ -61,7 +64,7 @@ func (ep *mockEndpoint) Send(report endpoint.EndpointReport) error {
 		ep.waitChan = nil
 	}
 	ep.sendMutex.Unlock()
-	return ep.sendErr
+	return err
 }
 
 func (ep *mockEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointReport, error) {
@@ -77,6 +80,19 @@ func (ep *mockEndpoint) EmptyReport() endpoint.EndpointReport {
 
 func (ep *mockEndpoint) Close() error {
 	return nil
+}
+
+func (ep *mockEndpoint) setSendErr(err error) {
+	ep.errMutex.Lock()
+	ep.sendErr = err
+	ep.errMutex.Unlock()
+}
+
+func (ep *mockEndpoint) getSendErr() (err error) {
+	ep.errMutex.Lock()
+	err = ep.sendErr
+	ep.errMutex.Unlock()
+	return
 }
 
 func (ep *mockEndpoint) doAndWait(t *testing.T, f func()) {
@@ -163,7 +179,7 @@ func TestRetryingSender(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
 		endpoint := newMockEndpoint("mockep")
-		endpoint.sendErr = errors.New("Send failure")
+		endpoint.setSendErr(errors.New("Send failure"))
 		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
 		now := time.Unix(3000, 0)
 		mc.SetNow(now)
@@ -182,7 +198,7 @@ func TestRetryingSender(t *testing.T) {
 			now = expectedNext
 			mc.SetNow(now)
 		}
-		if endpoint.sendCalls != 5 {
+		if atomic.LoadInt32(&endpoint.sendCalls) != 5 {
 			t.Fatalf("Expected 5 send calls, got: %v", endpoint.sendCalls)
 		}
 	})
@@ -192,7 +208,7 @@ func TestRetryingSender(t *testing.T) {
 		mc := clock.NewMockClock()
 		endpoint := newMockEndpoint("mockep")
 		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
-		endpoint.sendErr = errors.New("Send failure")
+		endpoint.setSendErr(errors.New("Send failure"))
 		mc.SetNow(time.Unix(4000, 0))
 
 		ps1, err := rs.Prepare(batch1)
@@ -219,7 +235,7 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("Send chan size should be 0, but was: %v", len(endpoint.sent))
 		}
 
-		endpoint.sendErr = nil
+		endpoint.setSendErr(nil)
 		endpoint.doAndWait(t, func() {
 			mc.SetNow(time.Unix(4500, 0))
 		})
@@ -235,7 +251,7 @@ func TestRetryingSender(t *testing.T) {
 		mc := clock.NewMockClock()
 		endpoint := newMockEndpoint("mockep")
 		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
-		endpoint.sendErr = errors.New("Send failure")
+		endpoint.setSendErr(errors.New("Send failure"))
 		mc.SetNow(time.Unix(5000, 0))
 
 		endpoint.doAndWait(t, func() {

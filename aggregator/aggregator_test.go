@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
+	"sync/atomic"
 )
 
 type mockPreparedSend struct {
@@ -39,8 +40,9 @@ func (ps *mockPreparedSend) Send() error {
 }
 
 type mockSender struct {
-	reports   metrics.MetricBatch
+	reports   atomic.Value
 	sendMutex sync.Mutex
+	errMutex  sync.Mutex
 	sendErr   error
 	waitChan  chan bool
 }
@@ -53,15 +55,36 @@ func (s *mockSender) Close() error {
 	return nil
 }
 
+func (s *mockSender) setSendErr(err error) {
+	s.errMutex.Lock()
+	s.sendErr = err
+	s.errMutex.Unlock()
+}
+
+func (s *mockSender) getSendErr() (err error) {
+	s.errMutex.Lock()
+	err = s.sendErr
+	s.errMutex.Unlock()
+	return
+}
+
+func (s *mockSender) setReports(reports metrics.MetricBatch) {
+	s.reports.Store(reports)
+}
+
+func (s *mockSender) getReports() metrics.MetricBatch {
+	return s.reports.Load().(metrics.MetricBatch)
+}
+
 func (s *mockSender) send(mb metrics.MetricBatch) error {
 	s.sendMutex.Lock()
-	s.reports = mb
+	s.setReports(mb)
 	if s.waitChan != nil {
 		s.waitChan <- true
 		s.waitChan = nil
 	}
 	s.sendMutex.Unlock()
-	return s.sendErr
+	return s.getSendErr()
 }
 
 func (s *mockSender) doAndWait(t *testing.T, f func()) {
@@ -78,7 +101,9 @@ func (s *mockSender) doAndWait(t *testing.T, f func()) {
 }
 
 func newMockSender() *mockSender {
-	return &mockSender{}
+	ms := &mockSender{}
+	ms.setReports([]metrics.MetricReport{})
+	return ms
 }
 
 func TestNewAggregator(t *testing.T) {
@@ -143,30 +168,32 @@ func TestNewAggregator(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		if len(sender.reports) > 0 {
-			t.Fatalf("Expected no reports, got: %+v", sender.reports)
+		reports := sender.getReports()
+		if len(reports) > 0 {
+			t.Fatalf("Expected no reports, got: %+v", reports)
 		}
 
 		// We set a send error on the mock sender to prevent the aggregator from successfully sending
 		// its state at close. A new aggregator created with the same persistence should start with
 		// the previous state.
-		sender.sendErr = errors.New("send failure")
+		sender.setSendErr(errors.New("send failure"))
 		a.Close()
 
 		// Construct a new aggregator using the same persistence.
 		a = newAggregator(conf, sender, p, mockClock)
 
 		sender.doAndWait(t, func() {
-			sender.sendErr = nil
+			sender.setSendErr(nil)
 			mockClock.SetNow(time.Unix(100, 0))
 		})
 
 		expected := []metrics.MetricReport{report1, report2}
-		if !equalUnordered(sender.reports, expected) {
-			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, sender.reports)
+		reports = sender.getReports()
+		if !equalUnordered(reports, expected) {
+			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 
-		sender.sendErr = errors.New("send failure")
+		sender.setSendErr(errors.New("send failure"))
 		a.Close()
 
 		// Create one more aggregator and ensure it doesn't start with previous state.
@@ -177,13 +204,14 @@ func TestNewAggregator(t *testing.T) {
 		}
 
 		sender.doAndWait(t, func() {
-			sender.sendErr = nil
+			sender.setSendErr(nil)
 			mockClock.SetNow(time.Unix(200, 0))
 		})
 
 		expected = []metrics.MetricReport{report3}
-		if !equalUnordered(sender.reports, expected) {
-			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, sender.reports)
+		reports = sender.getReports()
+		if !equalUnordered(reports, expected) {
+			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 		a.Close()
 	})
@@ -241,8 +269,9 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		if !equalUnordered(sender.reports, expected) {
-			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, sender.reports)
+		reports := sender.getReports()
+		if !equalUnordered(reports, expected) {
+			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 	})
 
@@ -286,8 +315,9 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		if !equalUnordered(sender.reports, expected) {
-			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, sender.reports)
+		reports := sender.getReports()
+		if !equalUnordered(reports, expected) {
+			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 	})
 
@@ -339,8 +369,9 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		if !equalUnordered(sender.reports, expected) {
-			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, sender.reports)
+		reports := sender.getReports()
+		if !equalUnordered(reports, expected) {
+			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 	})
 
@@ -404,8 +435,9 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		if !equalUnordered(sender.reports, expected) {
-			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, sender.reports)
+		reports := sender.getReports()
+		if !equalUnordered(reports, expected) {
+			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 	})
 
@@ -458,7 +490,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Ensure that the push occurs automatically after a timeout
 	t.Run("Push after timeout", func(t *testing.T) {
-		sender.reports = []metrics.MetricReport{}
+		sender.setReports([]metrics.MetricReport{})
 		mockClock.SetNow(time.Unix(0, 0))
 		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
 
@@ -477,15 +509,15 @@ func TestAggregator_AddReport(t *testing.T) {
 			mockClock.SetNow(time.Unix(10, 0))
 		})
 
-		if len(sender.reports) == 0 {
+		if len(sender.getReports()) == 0 {
 			t.Fatal("Expected push after timeout, but sender contains no reports")
 		}
 	})
 
 	// Ensure that a push happens when the aggregator is closed
 	t.Run("Push after close", func(t *testing.T) {
-		sender.reports = []metrics.MetricReport{}
-		sender.sendErr = nil
+		sender.setReports([]metrics.MetricReport{})
+		sender.setSendErr(nil)
 		mockClock.SetNow(time.Unix(0, 0))
 		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
 
@@ -502,7 +534,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 		a.Close()
 
-		if len(sender.reports) == 0 {
+		if len(sender.getReports()) == 0 {
 			t.Fatal("Expected push after close, but sender contains no reports")
 		}
 	})
