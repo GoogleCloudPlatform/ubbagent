@@ -9,13 +9,13 @@ same host. Upon receiving a report, the agent:
 * Eventually forwards the aggregated report to one or more destination endpoints, such as Google
 Service Control
 
-# Installation
+# Build and run
 
 ```
-git clone https://github.com/GoogleCloudPlatform/ubbagent.git ubbagent
+git clone https://github.com/GoogleCloudPlatform/ubbagent.git
 cd ubbagent
-make build test
-go install ubbagent
+make setup deps build
+bin/ubbagent --help
 ```
 
 # Configuration
