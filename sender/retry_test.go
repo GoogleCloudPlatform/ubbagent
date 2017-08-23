@@ -76,6 +76,10 @@ func (ep *mockEndpoint) Close() error {
 	return nil
 }
 
+func (ep *mockEndpoint) IsTransient(err error) bool {
+	return err != nil && err.Error() != "FATAL"
+}
+
 func (ep *mockEndpoint) setSendErr(err error) {
 	ep.errMutex.Lock()
 	ep.sendErr = err
@@ -131,6 +135,14 @@ func TestRetryingSender(t *testing.T) {
 			Value:     metrics.MetricValue{IntValue: 30},
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
+		},
+	}
+	batch3 := metrics.MetricBatch{
+		{
+			Name:      "int-metric",
+			Value:     metrics.MetricValue{IntValue: 30},
+			StartTime: time.Unix(20, 0),
+			EndTime:   time.Unix(21, 0),
 		},
 	}
 
@@ -238,6 +250,67 @@ func TestRetryingSender(t *testing.T) {
 		// The sender should have cleared its queue. Our sent chan should be length 2.
 		if len(endpoint.sent) != 2 {
 			t.Fatalf("Send chan size should be 2, but was: %v", len(endpoint.sent))
+		}
+	})
+
+	t.Run("non-transient error results in drop of request from queue", func(t *testing.T) {
+		persist := persistence.NewMemoryPersistence()
+		mc := clock.NewMockClock()
+		endpoint := newMockEndpoint("mockep")
+		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
+		endpoint.setSendErr(errors.New("non-fatal"))
+		mc.SetNow(time.Unix(4000, 0))
+
+		ps1, err := rs.Prepare(batch1)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		ps2, err := rs.Prepare(batch2)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		ps3, err := rs.Prepare(batch3)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+
+		endpoint.doAndWait(t, 1, func() {
+			if err := ps1.Send(); err != nil {
+				t.Fatalf("Unexpected send error: %+v", err)
+			}
+			if err := ps2.Send(); err != nil {
+				t.Fatalf("Unexpected send error: %+v", err)
+			}
+		})
+
+		// Check the sent chan size - it should still be empty since a send error is set.
+		if len(endpoint.sent) != 0 {
+			t.Fatalf("Send chan size should be 0, but was: %v", len(endpoint.sent))
+		}
+
+		// Set a fatal error and advance the clock. Two sends should fail completely, bringing the total
+		// number of sends to 3.
+		endpoint.doAndWait(t, 3, func() {
+			endpoint.setSendErr(errors.New("FATAL"))
+			mc.SetNow(time.Unix(4500, 0))
+		})
+
+		// Check the sent chan size - it should still be empty since a send error is set.
+		if len(endpoint.sent) != 0 {
+			t.Fatalf("Send chan size should be 0, but was: %v", len(endpoint.sent))
+		}
+
+		// Now we clear the error and make sure a successful send makes it to our sent chan.
+		endpoint.doAndWait(t, 4, func() {
+			endpoint.setSendErr(nil)
+			if err := ps3.Send(); err != nil {
+				t.Fatalf("Unexpected send error: %+v", err)
+			}
+		})
+
+		// Our sent chan should be length 1.
+		if len(endpoint.sent) != 1 {
+			t.Fatalf("Send chan size should be 1, but was: %v", len(endpoint.sent))
 		}
 	})
 

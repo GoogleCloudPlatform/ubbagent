@@ -16,6 +16,7 @@ package servicecontrol
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/servicecontrol/v1"
 )
 
@@ -200,6 +202,27 @@ func TestServiceControlEndpoint(t *testing.T) {
 
 		if !reflect.DeepEqual(req.Operations, expectedOps) {
 			t.Fatal("request operations didn't match expected")
+		}
+	})
+
+	t.Run("IsTransient tests", func(t *testing.T) {
+		cases := []struct {
+			err   error
+			fatal bool
+		}{
+			{nil, false},
+			{errors.New("foo"), true},
+			{&googleapi.Error{Code: 404}, false},
+			{&googleapi.Error{Code: 401}, false},
+			{&googleapi.Error{Code: 500}, true},
+			{&googleapi.Error{Code: 503}, true},
+			{&googleapi.Error{Code: 599}, true},
+			{&googleapi.Error{Code: 600}, false},
+		}
+		for _, c := range cases {
+			if want, got := c.fatal, ep.IsTransient(c.err); want != got {
+				t.Fatalf("IsTransient for error %v: want=%v, got=%v", c.err, want, got)
+			}
 		}
 	})
 

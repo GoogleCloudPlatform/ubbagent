@@ -47,4 +47,8 @@ type Endpoint interface {
 	// EmptyReport returns a pointer to an empty EndpointReport structure and is used when loading
 	// previously serialized reports from persistent state.
 	EmptyReport() EndpointReport
+
+	// IsTransient returns true if the given error indicates that the operation failed due to some
+	// transient error and can be retried.
+	IsTransient(error) bool
 }
