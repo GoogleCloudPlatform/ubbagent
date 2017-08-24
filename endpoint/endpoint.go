@@ -23,7 +23,10 @@ import (
 // consumption by the remote service represented by the Endpoint. A report may contain additional
 // information, such as a unique ID used for deduplication. The Dispatcher handles send failure
 // retries, and may call the Endpoint's Send method multiple times with the same Report instance.
-type EndpointReport interface{}
+type EndpointReport interface {
+	// BatchId returns the original Id field from the metrics.MetricBatch used to create this report.
+	BatchId() string
+}
 
 // Endpoint represents a metric reporting endpoint that the agent reports to. For example, Cloud
 // Service Control or PubSub.

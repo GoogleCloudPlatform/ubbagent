@@ -50,7 +50,12 @@ type DiskEndpoint struct {
 
 type diskReport struct {
 	Name  string
+	Id    string
 	Batch metrics.MetricBatch
+}
+
+func (r diskReport) BatchId() string {
+	return r.Id
 }
 
 // NewDiskEndpoint creates a new DiskEndpoint and starts a goroutine that cleans up expired reports
@@ -97,6 +102,7 @@ func (ep *DiskEndpoint) Send(report endpoint.EndpointReport) error {
 func (ep *DiskEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointReport, error) {
 	return &diskReport{
 		Name:  reportName(ep.clock.Now()),
+		Id:    mb.Id,
 		Batch: mb,
 	}, nil
 }

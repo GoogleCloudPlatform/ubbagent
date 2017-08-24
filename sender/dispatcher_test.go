@@ -54,11 +54,14 @@ func (s *mockSender) Close() error {
 
 func TestDispatcher(t *testing.T) {
 	batch := metrics.MetricBatch{
-		{
-			Name:      "int-metric",
-			Value:     metrics.MetricValue{IntValue: 30},
-			StartTime: time.Unix(10, 0),
-			EndTime:   time.Unix(11, 0),
+		Id: "batch",
+		Reports: []metrics.MetricReport{
+			{
+				Name:      "int-metric",
+				Value:     metrics.MetricValue{IntValue: 30},
+				StartTime: time.Unix(10, 0),
+				EndTime:   time.Unix(11, 0),
+			},
 		},
 	}
 

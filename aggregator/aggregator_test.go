@@ -68,17 +68,17 @@ func (s *mockSender) getSendErr() (err error) {
 	return
 }
 
-func (s *mockSender) setReports(reports metrics.MetricBatch) {
-	s.reports.Store(reports)
+func (s *mockSender) setBatch(batch metrics.MetricBatch) {
+	s.reports.Store(batch)
 }
 
-func (s *mockSender) getReports() metrics.MetricBatch {
+func (s *mockSender) getBatch() metrics.MetricBatch {
 	return s.reports.Load().(metrics.MetricBatch)
 }
 
 func (s *mockSender) send(mb metrics.MetricBatch) error {
 	s.sendMutex.Lock()
-	s.setReports(mb)
+	s.setBatch(mb)
 	if s.waitChan != nil {
 		s.waitChan <- true
 		s.waitChan = nil
@@ -102,7 +102,7 @@ func (s *mockSender) doAndWait(t *testing.T, f func()) {
 
 func newMockSender() *mockSender {
 	ms := &mockSender{}
-	ms.setReports([]metrics.MetricReport{})
+	ms.setBatch(metrics.MetricBatch{})
 	return ms
 }
 
@@ -168,7 +168,7 @@ func TestNewAggregator(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		reports := sender.getReports()
+		reports := sender.getBatch().Reports
 		if len(reports) > 0 {
 			t.Fatalf("Expected no reports, got: %+v", reports)
 		}
@@ -188,7 +188,7 @@ func TestNewAggregator(t *testing.T) {
 		})
 
 		expected := []metrics.MetricReport{report1, report2}
-		reports = sender.getReports()
+		reports = sender.getBatch().Reports
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -209,7 +209,7 @@ func TestNewAggregator(t *testing.T) {
 		})
 
 		expected = []metrics.MetricReport{report3}
-		reports = sender.getReports()
+		reports = sender.getBatch().Reports
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -269,7 +269,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := sender.getReports()
+		reports := sender.getBatch().Reports
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -315,7 +315,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := sender.getReports()
+		reports := sender.getBatch().Reports
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -369,7 +369,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := sender.getReports()
+		reports := sender.getBatch().Reports
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -435,7 +435,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := sender.getReports()
+		reports := sender.getBatch().Reports
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -490,7 +490,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Ensure that the push occurs automatically after a timeout
 	t.Run("Push after timeout", func(t *testing.T) {
-		sender.setReports([]metrics.MetricReport{})
+		sender.setBatch(metrics.MetricBatch{})
 		mockClock.SetNow(time.Unix(0, 0))
 		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
 
@@ -509,14 +509,14 @@ func TestAggregator_AddReport(t *testing.T) {
 			mockClock.SetNow(time.Unix(10, 0))
 		})
 
-		if len(sender.getReports()) == 0 {
+		if len(sender.getBatch().Reports) == 0 {
 			t.Fatal("Expected push after timeout, but sender contains no reports")
 		}
 	})
 
 	// Ensure that a push happens when the aggregator is closed
 	t.Run("Push after close", func(t *testing.T) {
-		sender.setReports([]metrics.MetricReport{})
+		sender.setBatch(metrics.MetricBatch{})
 		sender.setSendErr(nil)
 		mockClock.SetNow(time.Unix(0, 0))
 		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
@@ -534,7 +534,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 		a.Close()
 
-		if len(sender.getReports()) == 0 {
+		if len(sender.getBatch().Reports) == 0 {
 			t.Fatal("Expected push after close, but sender contains no reports")
 		}
 	})

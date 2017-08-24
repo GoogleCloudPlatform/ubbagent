@@ -175,15 +175,20 @@ func (h *Aggregator) pushBucket() {
 		h.currentBucket = newBucket(now)
 		return
 	}
-	var finishedBatch metrics.MetricBatch
+	var finishedReports []metrics.MetricReport
 	for _, namedReports := range h.currentBucket.Reports {
 		for _, report := range namedReports {
-			finishedBatch = append(finishedBatch, *report.metricReport())
+			finishedReports = append(finishedReports, *report.metricReport())
 		}
 	}
-	if len(finishedBatch) > 0 {
+	if len(finishedReports) > 0 {
 		glog.V(2).Infoln("Aggregator:pushBucket(): sending batch")
-		ps, err := h.sender.Prepare(finishedBatch)
+		batch, err := metrics.NewMetricBatch(finishedReports)
+		if err != nil {
+			glog.Errorf("aggregator: error creating batch: %+v", err)
+			return
+		}
+		ps, err := h.sender.Prepare(batch)
 		if err != nil {
 			glog.Errorf("aggregator: error preparing finished bucket: %+v", err)
 			return

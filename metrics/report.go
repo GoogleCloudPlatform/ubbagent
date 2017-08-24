@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/google/uuid"
 )
 
 // Report represents an aggregated interval for a unique metric + labels combination.
@@ -39,8 +40,23 @@ type MetricValue struct {
 	DoubleValue float64
 }
 
-// MetricBatch is a collection of MetricReports.
-type MetricBatch []MetricReport
+// MetricBatch is a collection of MetricReports with an identifier.
+type MetricBatch struct {
+	Id string
+	Reports []MetricReport
+}
+
+// NewMetricBatch creates a new MetricBatch with a random, unique identifier.
+func NewMetricBatch(reports []MetricReport) (MetricBatch, error) {
+	var batch MetricBatch
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return batch, err
+	}
+	batch.Id = id.String()
+	batch.Reports = reports
+	return batch, nil
+}
 
 func (mr *MetricReport) Validate(conf *config.Metrics) error {
 	def := conf.GetMetricDefinition(mr.Name)
