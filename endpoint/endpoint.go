@@ -43,7 +43,7 @@ type Endpoint interface {
 	// are specific to the endpoint.
 	BuildReport(metrics.MetricBatch) (EndpointReport, error)
 
-	// EmptyReport returns an empty EndpointReport structure and is used when loading previously
-	// serialized reports from persistent state.
+	// EmptyReport returns a pointer to an empty EndpointReport structure and is used when loading
+	// previously serialized reports from persistent state.
 	EmptyReport() EndpointReport
 }

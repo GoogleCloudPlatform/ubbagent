@@ -16,7 +16,6 @@ package sender
 
 import (
 	"errors"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"reflect"
 	"sync/atomic"
 )
 
@@ -34,7 +34,7 @@ const (
 )
 
 type mockReport struct {
-	batch metrics.MetricBatch
+	Batch metrics.MetricBatch
 }
 
 type mockEndpoint struct {
@@ -43,7 +43,6 @@ type mockEndpoint struct {
 	buildErr  error
 	sent      chan endpoint.EndpointReport
 	sendCalls int32
-	sendMutex sync.Mutex
 	errMutex  sync.Mutex
 	waitChan  chan bool
 }
@@ -53,17 +52,12 @@ func (ep *mockEndpoint) Name() string {
 }
 
 func (ep *mockEndpoint) Send(report endpoint.EndpointReport) error {
-	ep.sendMutex.Lock()
 	atomic.AddInt32(&ep.sendCalls, 1)
 	err := ep.getSendErr()
 	if err == nil {
 		ep.sent <- report
 	}
-	if ep.waitChan != nil {
-		ep.waitChan <- true
-		ep.waitChan = nil
-	}
-	ep.sendMutex.Unlock()
+	ep.waitChan <- true
 	return err
 }
 
@@ -71,11 +65,11 @@ func (ep *mockEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointRe
 	if ep.buildErr != nil {
 		return nil, ep.buildErr
 	}
-	return mockReport{batch: mb}, nil
+	return mockReport{Batch: mb}, nil
 }
 
 func (ep *mockEndpoint) EmptyReport() endpoint.EndpointReport {
-	return mockReport{}
+	return &mockReport{}
 }
 
 func (ep *mockEndpoint) Close() error {
@@ -95,23 +89,24 @@ func (ep *mockEndpoint) getSendErr() (err error) {
 	return
 }
 
-func (ep *mockEndpoint) doAndWait(t *testing.T, f func()) {
-	waitChan := make(chan bool, 1)
-	ep.sendMutex.Lock()
-	ep.waitChan = waitChan
+// doAndWait performs executes the given function and then waits until the endpoint's total number
+// of Send calls reaches sends.
+func (ep *mockEndpoint) doAndWait(t *testing.T, sends int32, f func()) {
 	f()
-	ep.sendMutex.Unlock()
-	select {
-	case <-waitChan:
-	case <-time.After(5 * time.Second):
-		t.Fatal("doAndWait: nothing happened after 5 seconds")
+	for atomic.LoadInt32(&ep.sendCalls) < sends {
+		select {
+		case <-ep.waitChan:
+		case <-time.After(5 * time.Second):
+			t.Fatal("doAndWait: nothing happened after 5 seconds")
+		}
 	}
 }
 
 func newMockEndpoint(name string) *mockEndpoint {
 	return &mockEndpoint{
-		name: name,
-		sent: make(chan endpoint.EndpointReport, 100),
+		name:     name,
+		sent:     make(chan endpoint.EndpointReport, 100),
+		waitChan: make(chan bool, 100),
 	}
 }
 
@@ -166,9 +161,9 @@ func TestRetryingSender(t *testing.T) {
 		}
 		select {
 		case rep := <-endpoint.sent:
-			mr := rep.(mockReport)
-			if !reflect.DeepEqual(mr.batch, batch1) {
-				t.Fatalf("Sent report contains incorrect batch: expected: %+v got: %+v", batch1, mr.batch)
+			mr := rep.(*mockReport)
+			if !reflect.DeepEqual(mr.Batch, batch1) {
+				t.Fatalf("Sent report contains incorrect batch: expected: %+v got: %+v", batch1, mr.Batch)
 			}
 		case <-time.After(5 * time.Second):
 			t.Fatal("Failed to receive sent report after 5 seconds")
@@ -226,7 +221,7 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 
-		endpoint.doAndWait(t, func() {
+		endpoint.doAndWait(t, 2, func() {
 			mc.SetNow(time.Unix(4300, 0))
 		})
 
@@ -235,8 +230,8 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("Send chan size should be 0, but was: %v", len(endpoint.sent))
 		}
 
-		endpoint.setSendErr(nil)
-		endpoint.doAndWait(t, func() {
+		endpoint.doAndWait(t, 4, func() {
+			endpoint.setSendErr(nil)
 			mc.SetNow(time.Unix(4500, 0))
 		})
 
@@ -254,7 +249,7 @@ func TestRetryingSender(t *testing.T) {
 		endpoint.setSendErr(errors.New("Send failure"))
 		mc.SetNow(time.Unix(5000, 0))
 
-		endpoint.doAndWait(t, func() {
+		endpoint.doAndWait(t, 1, func() {
 			ps, err := rs.Prepare(batch1)
 			if err != nil {
 				t.Fatalf("Unexpected prepare error: %+v", err)
@@ -268,7 +263,7 @@ func TestRetryingSender(t *testing.T) {
 		// Create a new endpoint and sender, but keep the previous persistence. The sender should
 		// load state and send the reports, and the new endpoint should not respond with errors.
 		endpoint = newMockEndpoint("mockep")
-		endpoint.doAndWait(t, func() {
+		endpoint.doAndWait(t, 1, func() {
 			mc.SetNow(time.Unix(5500, 0))
 			rs = newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
 		})

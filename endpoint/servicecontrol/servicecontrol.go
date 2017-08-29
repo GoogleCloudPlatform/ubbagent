@@ -145,7 +145,7 @@ func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.
 }
 
 func (*ServiceControlEndpoint) EmptyReport() endpoint.EndpointReport {
-	return serviceControlReport{}
+	return &serviceControlReport{}
 }
 
 func (ep *ServiceControlEndpoint) Close() error {

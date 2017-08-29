@@ -17,17 +17,15 @@ package sender
 import (
 	"errors"
 	"flag"
-	"math"
-	"path"
-	"reflect"
-	"sync"
-	"time"
-
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/golang/glog"
+	"math"
+	"path"
+	"sync"
+	"time"
 )
 
 const (
@@ -43,8 +41,7 @@ var maxRetryDelay = flag.Duration("retrymax", 60*time.Second, "maximum exponenti
 // flags.
 type RetryingSender struct {
 	endpoint    endpoint.Endpoint
-	persistence persistence.Persistence
-	queue       []endpoint.EndpointReport
+	queue       persistence.Queue
 	clock       clock.Clock
 	lastAttempt time.Time
 	delay       time.Duration
@@ -73,14 +70,13 @@ func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persi
 
 func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
 	rs := &RetryingSender{
-		endpoint:    endpoint,
-		persistence: persistence,
-		clock:       clock,
-		minDelay:    minDelay,
-		maxDelay:    maxDelay,
-		add:         make(chan addMsg, 1),
+		endpoint: endpoint,
+		queue:    persistence.Queue(persistenceName(endpoint.Name())),
+		clock:    clock,
+		minDelay: minDelay,
+		maxDelay: maxDelay,
+		add:      make(chan addMsg, 1),
 	}
-	rs.loadQueue()
 	rs.wait.Add(1)
 	go rs.run()
 	return rs
@@ -132,12 +128,9 @@ func (rs *RetryingSender) send(report endpoint.EndpointReport) error {
 }
 
 func (rs *RetryingSender) run() {
+	// Start with an initial call to maybeSend() to start sending any persisted state.
+	rs.maybeSend()
 	for {
-		if len(rs.queue) > 0 && rs.delay == 0 {
-			// This condition might happen when the RetrySender has just been created but has loaded a
-			// previous queue. The queue is not empty, so we prime the retry delay with the defined min.
-			rs.maybeSend()
-		}
 		var d time.Duration
 		if rs.delay == 0 {
 			// A delay of 0 means we're not retrying. Effectively disable the retry timer.
@@ -152,8 +145,7 @@ func (rs *RetryingSender) run() {
 		select {
 		case msg, ok := <-rs.add:
 			if ok {
-				rs.queue = append(rs.queue, msg.report)
-				msg.result <- rs.storeQueue()
+				msg.result <- rs.queue.Push(msg.report)
 				rs.maybeSend()
 			} else {
 				// Channel was closed.
@@ -170,17 +162,20 @@ func (rs *RetryingSender) run() {
 // maybeSend retries a pending send if the required time delay has elapsed.
 func (rs *RetryingSender) maybeSend() {
 	now := rs.clock.Now()
-	if len(rs.queue) == 0 {
-		// Nothing to do.
-		return
-	}
 	if now.Before(rs.lastAttempt.Add(time.Duration(rs.delay))) {
 		// Not time yet.
 		return
 	}
-	for len(rs.queue) > 0 {
-		report := rs.queue[0]
-		if err := rs.endpoint.Send(report); err != nil {
+	for {
+		report := rs.endpoint.EmptyReport()
+		err := rs.queue.Head(report)
+		if err == persistence.ErrNotFound {
+			break
+		}
+		if err == nil {
+			err = rs.endpoint.Send(report)
+		}
+		if err != nil {
 			// Set next attempt
 			rs.lastAttempt = now
 			rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
@@ -188,35 +183,12 @@ func (rs *RetryingSender) maybeSend() {
 			break
 		}
 		// We've successfully sent the first report, so remove it from the queue and reset the delay.
-		rs.queue[0] = nil // zero-out first item so the slice's underlying array doesn't prevent GC.
-		rs.queue = rs.queue[1:]
+		if err := rs.queue.RemoveHead(); err != nil {
+			glog.Errorf("RetryingSender.maybeSend: removing queue head: %+v", err)
+		}
 		rs.lastAttempt = now
 		rs.delay = 0
-		rs.storeQueue()
 	}
-}
-
-func (rs *RetryingSender) loadQueue() {
-	reportType := reflect.TypeOf(rs.endpoint.EmptyReport())
-	loadedQueue := reflect.MakeSlice(reflect.SliceOf(reportType), 0, 0).Interface()
-	if err := rs.persistence.Load(persistenceName(rs.endpoint.Name()), &loadedQueue); err != nil && err != persistence.ErrNotFound {
-		glog.Errorf("RetryingSender.loadQueue: %+v", err)
-		return
-	}
-	genericQueue := reflect.ValueOf(loadedQueue)
-	reportQueue := make([]endpoint.EndpointReport, genericQueue.Len())
-	for i := 0; i < genericQueue.Len(); i++ {
-		reportQueue[i] = genericQueue.Index(i).Interface().(endpoint.EndpointReport)
-	}
-	rs.queue = reportQueue
-}
-
-func (rs *RetryingSender) storeQueue() error {
-	err := rs.persistence.Store(persistenceName(rs.endpoint.Name()), rs.queue)
-	if err != nil {
-		glog.Errorf("RetryingSender.storeQueue: %+v", err)
-	}
-	return err
 }
 
 func bounded(val, min, max time.Duration) time.Duration {

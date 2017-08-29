@@ -149,7 +149,7 @@ func (h *Aggregator) run() {
 }
 
 func (h *Aggregator) loadState() bool {
-	err := h.persistence.Load(persistenceName, &h.currentBucket)
+	err := h.persistence.Value(persistenceName).Load(&h.currentBucket)
 	if err == persistence.ErrNotFound {
 		// Didn't find existing state to load.
 		return false
@@ -162,7 +162,7 @@ func (h *Aggregator) loadState() bool {
 }
 
 func (h *Aggregator) persistState() {
-	if err := h.persistence.Store(persistenceName, h.currentBucket); err != nil {
+	if err := h.persistence.Value(persistenceName).Store(h.currentBucket); err != nil {
 		panic(fmt.Sprintf("Error persisting aggregator state: %+v", err))
 	}
 }

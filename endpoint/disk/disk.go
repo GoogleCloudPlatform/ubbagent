@@ -102,7 +102,7 @@ func (ep *DiskEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointRe
 }
 
 func (*DiskEndpoint) EmptyReport() endpoint.EndpointReport {
-	return diskReport{}
+	return &diskReport{}
 }
 
 // Close instructs the DiskEndpoint's cleanup goroutine to gracefully shutdown. It blocks until the

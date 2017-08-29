@@ -27,7 +27,8 @@ type idHolder struct {
 
 func CreateOrGet(p persistence.Persistence) (string, error) {
 	holder := idHolder{}
-	err := p.Load(agentIdKey, &holder)
+	val := p.Value(agentIdKey)
+	err := val.Load(&holder)
 	if err != nil && err != persistence.ErrNotFound {
 		return "", err
 	}
@@ -37,7 +38,7 @@ func CreateOrGet(p persistence.Persistence) (string, error) {
 			return "", err
 		}
 		holder.AgentId = id.String()
-		err = p.Store(agentIdKey, &holder)
+		err = val.Store(&holder)
 		if err != nil {
 			return "", err
 		}
