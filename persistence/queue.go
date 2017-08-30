@@ -18,6 +18,28 @@ import (
 	"encoding/json"
 )
 
+// Queue implements a simple persistent queue. Each Queue function is threadsafe and atomic within
+// the scope of the Persistence instance that created it. However, there is no guarantee that
+// multiple Queue function calls operate atomically. E.g., if a caller calls Peek and then later
+// Dequeue, there's a chance that some other caller will have modified the queue in the meantime.
+type Queue interface {
+	// Peek loads the object at the head of this Queue into obj. If successful, nil is returned and
+	// obj will be populated. ErrNotFound is returned if the queue is empty or does not exist. Other
+	// I/O errors may be returned in the event of I/O failures.
+	Peek(obj interface{}) error
+
+	// Dequeue removes the front of this Queue. If successful, nil is returned. ErrNotFound is
+	// returned if the queue is empty or does not exist. Other I/O errors may be returned in the event
+	// of I/O failures. If obj is non-nil, it will contain removed value upon success.
+	Dequeue(obj interface{}) error
+
+	// Enqueue stores obj at the back of this Queue. Returns nil if the object was stored, or an error
+	// if something failed.
+	Enqueue(obj interface{}) error
+}
+
+// Type valueQueue is a Queue that stores its state within a single value. Queue state is stored as
+// a json array.
 type valueQueue struct {
 	value value
 }
