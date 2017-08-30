@@ -145,7 +145,7 @@ func (rs *RetryingSender) run() {
 		select {
 		case msg, ok := <-rs.add:
 			if ok {
-				msg.result <- rs.queue.Push(msg.report)
+				msg.result <- rs.queue.Enqueue(msg.report)
 				rs.maybeSend()
 			} else {
 				// Channel was closed.
@@ -168,7 +168,7 @@ func (rs *RetryingSender) maybeSend() {
 	}
 	for {
 		report := rs.endpoint.EmptyReport()
-		err := rs.queue.Head(report)
+		err := rs.queue.Peek(report)
 		if err == persistence.ErrNotFound {
 			break
 		}
@@ -183,7 +183,7 @@ func (rs *RetryingSender) maybeSend() {
 			break
 		}
 		// We've successfully sent the first report, so remove it from the queue and reset the delay.
-		if err := rs.queue.RemoveHead(); err != nil {
+		if err := rs.queue.Dequeue(nil); err != nil {
 			glog.Errorf("RetryingSender.maybeSend: removing queue head: %+v", err)
 		}
 		rs.lastAttempt = now

@@ -144,68 +144,72 @@ func testQueue(q Queue, t *testing.T) {
 	value2 := value{A: 2, B: "foo2"}
 	value3 := value{A: 3, B: "foo3"}
 
-	if err := q.Push(&value1); err != nil {
+	if err := q.Enqueue(&value1); err != nil {
 		t.Fatalf("Unexpected error adding queue value 1: %+v", err)
 	}
-	if err := q.Push(&value2); err != nil {
+	if err := q.Enqueue(&value2); err != nil {
 		t.Fatalf("Unexpected error adding queue value 2: %+v", err)
 	}
 
 	v := value{}
-	if err := q.Head(&v); err != nil {
+	if err := q.Peek(&v); err != nil {
 		t.Fatalf("Unexpected error getting queue value 1: %+v", err)
 	}
 	if !reflect.DeepEqual(v, value1) {
 		t.Fatalf("Unexpected value for value 1: %+v", v)
 	}
 	// Try again without removing the head.
-	if err := q.Head(&v); err != nil {
+	if err := q.Peek(&v); err != nil {
 		t.Fatalf("Unexpected error getting queue value 1: %+v", err)
 	}
 	if !reflect.DeepEqual(v, value1) {
 		t.Fatalf("Unexpected value for value 1: %+v", v)
 	}
-	if err := q.RemoveHead(); err != nil {
+	if err := q.Dequeue(nil); err != nil {
 		t.Fatalf("Unexpected error removing head: %+v", err)
 	}
 
-	if err := q.Head(&v); err != nil {
+	if err := q.Peek(&v); err != nil {
 		t.Fatalf("Unexpected error getting queue value 2: %+v", err)
 	}
 	if !reflect.DeepEqual(v, value2) {
 		t.Fatalf("Unexpected value for value 2: %+v", v)
 	}
 
-	if err := q.Push(&value3); err != nil {
+	if err := q.Enqueue(&value3); err != nil {
 		t.Fatalf("Unexpected error adding queue value 3: %+v", err)
 	}
 
 	// At this point we should still have value 2 and value 3 in the queue.
-	if err := q.Head(&v); err != nil {
+	if err := q.Peek(&v); err != nil {
 		t.Fatalf("Unexpected error getting queue value 2: %+v", err)
 	}
 	if !reflect.DeepEqual(v, value2) {
 		t.Fatalf("Unexpected value for value 2: %+v", v)
 	}
-	if err := q.RemoveHead(); err != nil {
+	if err := q.Dequeue(nil); err != nil {
 		t.Fatalf("Unexpected error removing head: %+v", err)
 	}
 
-	if err := q.Head(&v); err != nil {
+	v2 := value{}
+	if err := q.Peek(&v); err != nil {
 		t.Fatalf("Unexpected error getting queue value 3: %+v", err)
 	}
 	if !reflect.DeepEqual(v, value3) {
 		t.Fatalf("Unexpected value for value 3: %+v", v)
 	}
-	if err := q.RemoveHead(); err != nil {
+	if err := q.Dequeue(&v2); err != nil {
 		t.Fatalf("Unexpected error removing head: %+v", err)
+	}
+	if !reflect.DeepEqual(v2, value3) {
+		t.Fatalf("Unexpected value for value 3: %+v", v)
 	}
 
 	// The queue should be empty now. Both Head and RemoveHead should return ErrNotFound
-	if err := q.RemoveHead(); err != ErrNotFound {
+	if err := q.Dequeue(nil); err != ErrNotFound {
 		t.Fatalf("Expected ErrNotFound, got %+v", err)
 	}
-	if err := q.Head(&v); err != ErrNotFound {
+	if err := q.Peek(&v); err != ErrNotFound {
 		t.Fatalf("Expected ErrNotFound, got %+v", err)
 	}
 }
