@@ -65,7 +65,7 @@ func (ep *mockEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointRe
 	if ep.buildErr != nil {
 		return nil, ep.buildErr
 	}
-	return mockReport{Batch: mb}, nil
+	return &mockReport{Batch: mb}, nil
 }
 
 func (ep *mockEndpoint) EmptyReport() endpoint.EndpointReport {

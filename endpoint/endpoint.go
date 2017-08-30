@@ -36,11 +36,12 @@ type Endpoint interface {
 	// of the same type of endpoint with different names.
 	Name() string
 
-	// Send sends an EndpointReport previously built by this Endpoint.
+	// Send sends an EndpointReport previously built by this Endpoint. The EndpointReport value
+	// will be a pointer to an instance of the endpoint's specific report type.
 	Send(EndpointReport) error
 
-	// BuildReport builds an EndpointReport from the given MetricBatch. The contents of the report
-	// are specific to the endpoint.
+	// BuildReport returns a pointer to an EndpointReport built from the given MetricBatch. The
+	// contents of the report are specific to the endpoint.
 	BuildReport(metrics.MetricBatch) (EndpointReport, error)
 
 	// EmptyReport returns a pointer to an empty EndpointReport structure and is used when loading
