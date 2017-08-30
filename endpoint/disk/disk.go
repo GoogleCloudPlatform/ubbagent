@@ -49,8 +49,8 @@ type DiskEndpoint struct {
 }
 
 type diskReport struct {
-	name  string
-	batch metrics.MetricBatch
+	Name  string
+	Batch metrics.MetricBatch
 }
 
 // NewDiskEndpoint creates a new DiskEndpoint and starts a goroutine that cleans up expired reports
@@ -77,16 +77,16 @@ func (ep *DiskEndpoint) Name() string {
 }
 
 func (ep *DiskEndpoint) Send(report endpoint.EndpointReport) error {
-	r := report.(diskReport)
+	r := report.(*diskReport)
 
-	jsontext, err := json.Marshal(r.batch)
+	jsontext, err := json.Marshal(r.Batch)
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(ep.path, directoryMode); err != nil {
 		return err
 	}
-	file := path.Join(ep.path, r.name)
+	file := path.Join(ep.path, r.Name)
 
 	if err := ioutil.WriteFile(file, jsontext, fileMode); err != nil {
 		return err
@@ -95,14 +95,14 @@ func (ep *DiskEndpoint) Send(report endpoint.EndpointReport) error {
 }
 
 func (ep *DiskEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointReport, error) {
-	return diskReport{
-		name:  reportName(ep.clock.Now()),
-		batch: mb,
+	return &diskReport{
+		Name:  reportName(ep.clock.Now()),
+		Batch: mb,
 	}, nil
 }
 
 func (*DiskEndpoint) EmptyReport() endpoint.EndpointReport {
-	return diskReport{}
+	return &diskReport{}
 }
 
 // Close instructs the DiskEndpoint's cleanup goroutine to gracefully shutdown. It blocks until the

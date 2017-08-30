@@ -14,14 +14,7 @@
 
 package persistence
 
-import (
-	"encoding/json"
-	"errors"
-	"io/ioutil"
-	"os"
-	"path"
-	"sync"
-)
+import "errors"
 
 const (
 	fileMode      = 0644 // Mode bits used when creating files
@@ -32,118 +25,36 @@ const (
 // is not found.
 var ErrNotFound = errors.New("object not found")
 
-// Persistence provides simple support for loading and storing structures. Persistence
-// implementations are threadsafe.
+// Persistence provides simple support for loading and storing structures. A single Persistence
+// instance and all of the Queue and Value instances that it returns are threadsafe. However, no
+// such guarantee exists if multiple Persistence instances share the same backing store (e.g., the
+// same filesystem directory).
 type Persistence interface {
-	// Load loads the object with the given name into the object referenced by obj. The name parameter
-	// should not contain a file extension.
-	// Returns nil if an object with the given name existed and was successfully copied into obj.
-	// Returns ErrNotFound if an object with the given name does not exist.
-	// Returns some other I/O error if an object with the given name exists, but loading failed.
-	Load(name string, obj interface{}) error
+	// Value creates a Value instance associated with the given name. Names should not contain file
+	// extensions. Within the scope of a single Persistence instance, Value can be called multiple
+	// times with the same name and all returned instances will operate on the same data in a
+	// threadsafe manner.
+	Value(name string) Value
 
-	// Store stores the given object with the given name. The name parameter should not contain a file
-	// extension. Returns nil if the object was stored, or an error if something failed.
-	Store(name string, obj interface{}) error
+	// Queue creates a Queue instance associated with the given name. Names should not contain file
+	// extensions. Within the scope of a single Persistence instance, Queue can be called multiple
+	// times with the same name and all returned instances will operate on the same data in a
+	// threadsafe manner.
+	Queue(name string) Queue
 }
 
-// NewDiskPersistence constructs a new Persistence that stores objects as json files under the given
-// directory.
-func NewDiskPersistence(directory string) (Persistence, error) {
-	if err := os.MkdirAll(directory, directoryMode); err != nil {
-		return nil, errors.New("persistence: could not create directory: " + directory + ": " + err.Error())
-	}
-	return &diskPersistence{directory: directory}, nil
-}
+// Value stores and loads a single value.
+type Value interface {
+	// Load loads the object stored by this Value into obj. If successful, nil is returned and
+	// obj will be populated. ErrNotFound is returned if the Value is empty or does not exist. Other
+	// I/O errors may be returned in the event of I/O failures.
+	Load(obj interface{}) error
 
-// NewMemoryPersistence constructs a new Persistence that stores objects in memory.
-func NewMemoryPersistence() Persistence {
-	var mp memoryPersistence
-	mp.items = make(map[string][]byte)
-	return &mp
-}
+	// Store stores obj into this Value. Returns nil if the object was stored,
+	// or an error if something failed.
+	Store(obj interface{}) error
 
-type diskPersistence struct {
-	directory string
-	mutex     sync.RWMutex
-}
-
-func (p *diskPersistence) Load(name string, obj interface{}) error {
-	jsontext, err := p.loadBytes(name)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(jsontext, obj)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p *diskPersistence) loadBytes(name string) ([]byte, error) {
-	filename := p.jsonFile(name)
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		// object doesn't exist
-		return nil, ErrNotFound
-	}
-	jsontext, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	return jsontext, nil
-}
-
-func (p *diskPersistence) Store(name string, obj interface{}) error {
-	var jsontext []byte
-	var err error
-	if jsontext, err = json.Marshal(obj); err != nil {
-		return err
-	}
-	filename := p.jsonFile(name)
-	dirname := path.Dir(filename)
-
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	if err = os.MkdirAll(dirname, directoryMode); err != nil {
-		return err
-	}
-	if err = ioutil.WriteFile(filename, jsontext, fileMode); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p *diskPersistence) jsonFile(name string) string {
-	return path.Join(p.directory, name+".json")
-}
-
-type memoryPersistence struct {
-	items map[string][]byte
-	mutex sync.RWMutex
-}
-
-func (p *memoryPersistence) Load(name string, obj interface{}) error {
-	p.mutex.RLock()
-	data, exists := p.items[name]
-	p.mutex.RUnlock()
-	if !exists {
-		return ErrNotFound
-	}
-	if err := json.Unmarshal(data, obj); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p *memoryPersistence) Store(name string, obj interface{}) error {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	if buff, err := json.Marshal(obj); err != nil {
-		return err
-	} else {
-		p.items[name] = buff
-	}
-	return nil
+	// Remove removes this Value from persistence. Remove returns nil if the value was removed,
+	// ErrNotFound if the value did not exist, or some other I/O error if one occurred during removal.
+	Remove() error
 }

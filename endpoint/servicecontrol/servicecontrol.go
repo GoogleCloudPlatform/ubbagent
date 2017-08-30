@@ -45,7 +45,7 @@ type ServiceControlEndpoint struct {
 }
 
 type serviceControlReport struct {
-	request servicecontrol.ReportRequest
+	Request servicecontrol.ReportRequest
 }
 
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
@@ -79,12 +79,12 @@ func (ep *ServiceControlEndpoint) Name() string {
 }
 
 func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
-	r := report.(serviceControlReport)
+	r := report.(*serviceControlReport)
 	glog.V(2).Infoln("ServiceControlEndpoint:Send(): serviceName: ", ep.serviceName, " body: ", func() string {
-		r_json, _ := r.request.MarshalJSON()
+		r_json, _ := r.Request.MarshalJSON()
 		return string(r_json)
 	}())
-	_, err := ep.service.Services.Report(ep.serviceName, &r.request).Do()
+	_, err := ep.service.Services.Report(ep.serviceName, &r.Request).Do()
 	if err != nil && !googleapi.IsNotModified(err) {
 		return err
 	}
@@ -137,15 +137,15 @@ func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.
 		ops[i].UserLabels[agentIdLabel] = ep.agentId
 	}
 
-	return serviceControlReport{
-		request: servicecontrol.ReportRequest{
+	return &serviceControlReport{
+		Request: servicecontrol.ReportRequest{
 			Operations: ops,
 		},
 	}, nil
 }
 
 func (*ServiceControlEndpoint) EmptyReport() endpoint.EndpointReport {
-	return serviceControlReport{}
+	return &serviceControlReport{}
 }
 
 func (ep *ServiceControlEndpoint) Close() error {
