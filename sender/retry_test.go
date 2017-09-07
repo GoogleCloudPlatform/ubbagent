@@ -37,6 +37,10 @@ type mockReport struct {
 	Batch metrics.MetricBatch
 }
 
+func (r mockReport) BatchId() string {
+	return r.Batch.Id
+}
+
 type mockEndpoint struct {
 	name      string
 	sendErr   error
@@ -116,33 +120,42 @@ func newMockEndpoint(name string) *mockEndpoint {
 
 func TestRetryingSender(t *testing.T) {
 	batch1 := metrics.MetricBatch{
-		{
-			Name:      "int-metric",
-			Value:     metrics.MetricValue{IntValue: 10},
-			StartTime: time.Unix(0, 0),
-			EndTime:   time.Unix(1, 0),
-		},
-		{
-			Name:      "int-metric",
-			Value:     metrics.MetricValue{IntValue: 20},
-			StartTime: time.Unix(2, 0),
-			EndTime:   time.Unix(3, 0),
+		Id: "batch1",
+		Reports: []metrics.MetricReport{
+			{
+				Name:      "int-metric",
+				Value:     metrics.MetricValue{IntValue: 10},
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+			},
+			{
+				Name:      "int-metric",
+				Value:     metrics.MetricValue{IntValue: 20},
+				StartTime: time.Unix(2, 0),
+				EndTime:   time.Unix(3, 0),
+			},
 		},
 	}
-	batch2 := []metrics.MetricReport{
-		{
-			Name:      "int-metric",
-			Value:     metrics.MetricValue{IntValue: 30},
-			StartTime: time.Unix(10, 0),
-			EndTime:   time.Unix(11, 0),
+	batch2 := metrics.MetricBatch{
+		Id: "batch2",
+		Reports: []metrics.MetricReport{
+			{
+				Name:      "int-metric",
+				Value:     metrics.MetricValue{IntValue: 30},
+				StartTime: time.Unix(10, 0),
+				EndTime:   time.Unix(11, 0),
+			},
 		},
 	}
 	batch3 := metrics.MetricBatch{
-		{
-			Name:      "int-metric",
-			Value:     metrics.MetricValue{IntValue: 30},
-			StartTime: time.Unix(20, 0),
-			EndTime:   time.Unix(21, 0),
+		Id: "batch3",
+		Reports: []metrics.MetricReport{
+			{
+				Name:      "int-metric",
+				Value:     metrics.MetricValue{IntValue: 30},
+				StartTime: time.Unix(20, 0),
+				EndTime:   time.Unix(21, 0),
+			},
 		},
 	}
 

@@ -45,7 +45,12 @@ type ServiceControlEndpoint struct {
 }
 
 type serviceControlReport struct {
+	Id      string
 	Request servicecontrol.ReportRequest
+}
+
+func (r serviceControlReport) BatchId() string {
+	return r.Id
 }
 
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
@@ -94,9 +99,9 @@ func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
 }
 
 func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointReport, error) {
-	ops := make([]*servicecontrol.Operation, len(mb))
-	for i := range mb {
-		m := &mb[i]
+	ops := make([]*servicecontrol.Operation, len(mb.Reports))
+	for i := range mb.Reports {
+		m := &mb.Reports[i]
 		id, err := uuid.NewRandom()
 		if err != nil {
 			return nil, err
@@ -138,6 +143,7 @@ func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.
 	}
 
 	return &serviceControlReport{
+		Id: mb.Id,
 		Request: servicecontrol.ReportRequest{
 			Operations: ops,
 		},

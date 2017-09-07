@@ -67,17 +67,23 @@ func TestServiceControlEndpoint(t *testing.T) {
 	t.Run("Report idempotence", func(t *testing.T) {
 		// Test a single report write
 		report1, err := ep.BuildReport(metrics.MetricBatch{
-			metrics.MetricReport{
-				Name:      "int-metric1",
-				StartTime: time.Unix(0, 0),
-				EndTime:   time.Unix(1, 0),
-				Value: metrics.MetricValue{
-					IntValue: 10,
+			Id: "report1",
+			Reports: []metrics.MetricReport{
+				{
+					Name:      "int-metric1",
+					StartTime: time.Unix(0, 0),
+					EndTime:   time.Unix(1, 0),
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
 				},
 			},
 		})
 		if err != nil {
 			t.Fatalf("error building report: %+v", err)
+		}
+		if report1.BatchId() != "report1" {
+			t.Fatalf("expected report batch ID to be 'report1', got: %v", report1.BatchId())
 		}
 		if err := ep.Send(report1); err != nil {
 			t.Fatalf("error sending report: %+v", err)
@@ -97,26 +103,29 @@ func TestServiceControlEndpoint(t *testing.T) {
 	t.Run("Sent contents are correct", func(t *testing.T) {
 		// Test a single report write
 		report1, err := ep.BuildReport(metrics.MetricBatch{
-			metrics.MetricReport{
-				Name:      "int-metric",
-				StartTime: time.Unix(0, 0),
-				EndTime:   time.Unix(1, 0),
-				Value: metrics.MetricValue{
-					IntValue: 10,
+			Id: "report1",
+			Reports: []metrics.MetricReport{
+				{
+					Name:      "int-metric",
+					StartTime: time.Unix(0, 0),
+					EndTime:   time.Unix(1, 0),
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
+					BillingName: "com.googleapis/services/test-service/IntMetric",
 				},
-				BillingName: "com.googleapis/services/test-service/IntMetric",
-			},
-			metrics.MetricReport{
-				Name:      "double-metric",
-				StartTime: time.Unix(2, 0),
-				EndTime:   time.Unix(3, 0),
-				Value: metrics.MetricValue{
-					DoubleValue: 20,
+				{
+					Name:      "double-metric",
+					StartTime: time.Unix(2, 0),
+					EndTime:   time.Unix(3, 0),
+					Value: metrics.MetricValue{
+						DoubleValue: 20,
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					BillingName: "com.googleapis/services/test-service/DoubleMetric",
 				},
-				Labels: map[string]string{
-					"foo": "bar",
-				},
-				BillingName: "com.googleapis/services/test-service/DoubleMetric",
 			},
 		})
 		if err != nil {
