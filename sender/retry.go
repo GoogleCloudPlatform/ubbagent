@@ -176,13 +176,21 @@ func (rs *RetryingSender) maybeSend() {
 			err = rs.endpoint.Send(report)
 		}
 		if err != nil {
-			// Set next attempt
-			rs.lastAttempt = now
-			rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
-			glog.Errorf("RetryingSender.maybeSend: %+v", err)
-			break
+			if rs.endpoint.IsTransient(err) {
+				// Set next attempt
+				rs.lastAttempt = now
+				rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
+				glog.Warningf("RetryingSender.maybeSend: %+v (will retry)", err)
+				break
+			} else {
+				// TODO(volkman): register a send failure when stats are collected.
+				glog.Errorf("RetryingSender.maybeSend: %+v", err)
+			}
 		}
-		// We've successfully sent the first report, so remove it from the queue and reset the delay.
+		// TODO(volkman): register a send success when stats are collected.
+
+		// At this point we've either successfully sent the report or encountered a non-transient error.
+		// In either scenario, the report is removed from the queue and the retry delay is reset.
 		if err := rs.queue.Dequeue(nil); err != nil {
 			glog.Errorf("RetryingSender.maybeSend: removing queue head: %+v", err)
 		}

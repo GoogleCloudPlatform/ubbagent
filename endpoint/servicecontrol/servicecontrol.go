@@ -151,3 +151,17 @@ func (*ServiceControlEndpoint) EmptyReport() endpoint.EndpointReport {
 func (ep *ServiceControlEndpoint) Close() error {
 	return nil
 }
+
+func (ep *ServiceControlEndpoint) IsTransient(err error) bool {
+	if err == nil {
+		return false
+	}
+	ae, ok := err.(*googleapi.Error)
+	if !ok {
+		// Some non-http error (perhaps a connection refused or timeout?)
+		// We'll retry.
+		return true
+	}
+	// Return true if this is an http error with a 5xx code.
+	return ae.Code >= 500 && ae.Code < 600
+}

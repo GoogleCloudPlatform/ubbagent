@@ -159,3 +159,7 @@ func isExpired(name string, cutoff time.Time) bool {
 	}
 	return t.Before(cutoff)
 }
+
+func (ep *DiskEndpoint) IsTransient(err error) bool {
+	return true
+}
