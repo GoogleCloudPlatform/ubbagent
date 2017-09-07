@@ -22,10 +22,12 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
+	"reflect"
 )
 
 type mockPreparedSend struct {
 	ms *mockSender
+	id string
 }
 
 func (ps *mockPreparedSend) Send() error {
@@ -33,7 +35,16 @@ func (ps *mockPreparedSend) Send() error {
 	return ps.ms.sendErr
 }
 
+func (ps *mockPreparedSend) BatchId() string {
+	return ps.id
+}
+
+func (ps *mockPreparedSend) Handlers() []string {
+	return []string{ps.ms.id}
+}
+
 type mockSender struct {
+	id            string
 	prepareErr    error
 	sendErr       error
 	prepareCalled bool
@@ -45,7 +56,7 @@ func (s *mockSender) Prepare(mb metrics.MetricBatch) (sender.PreparedSend, error
 	if s.prepareErr != nil {
 		return nil, s.prepareErr
 	}
-	return &mockPreparedSend{ms: s}, nil
+	return &mockPreparedSend{ms: s, id: mb.Id}, nil
 }
 
 func (s *mockSender) Close() error {
@@ -66,8 +77,8 @@ func TestDispatcher(t *testing.T) {
 	}
 
 	t.Run("all sub-senders are invoked", func(t *testing.T) {
-		ms1 := &mockSender{}
-		ms2 := &mockSender{}
+		ms1 := &mockSender{id: "ms1"}
+		ms2 := &mockSender{id: "ms2"}
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
 		s, err := ds.Prepare(batch)
 
@@ -93,8 +104,8 @@ func TestDispatcher(t *testing.T) {
 	})
 
 	t.Run("prepare failure", func(t *testing.T) {
-		ms1 := &mockSender{}
-		ms2 := &mockSender{}
+		ms1 := &mockSender{id: "ms1"}
+		ms2 := &mockSender{id: "ms2"}
 		ms2.prepareErr = errors.New("test")
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
 		s, err := ds.Prepare(batch)
@@ -110,8 +121,8 @@ func TestDispatcher(t *testing.T) {
 	})
 
 	t.Run("send failure", func(t *testing.T) {
-		ms1 := &mockSender{}
-		ms2 := &mockSender{}
+		ms1 := &mockSender{id: "ms1"}
+		ms2 := &mockSender{id: "ms2"}
 		ms2.sendErr = errors.New("testabcd")
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
 		s, err := ds.Prepare(batch)
@@ -134,6 +145,24 @@ func TestDispatcher(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "testabcd") {
 			t.Fatalf("Expected error message to contain 'testabcd', got: %v", err.Error())
+		}
+	})
+
+	t.Run("preparedSend returns batchId and aggregated handlers", func(t *testing.T) {
+		ms1 := &mockSender{id: "ms1"}
+		ms2 := &mockSender{id: "ms2"}
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
+		ps, err := ds.Prepare(batch)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+
+		if want, got := batch.Id, ps.BatchId(); want != got {
+			t.Fatalf("ps.BatchId(): expected %v, got %v", want, got)
+		}
+
+		if want, got := []string{"ms1", "ms2"}, ps.Handlers(); !reflect.DeepEqual(want, got) {
+			t.Fatalf("ps.Handlers(): expected %+v, got %+v", want, got)
 		}
 	})
 }

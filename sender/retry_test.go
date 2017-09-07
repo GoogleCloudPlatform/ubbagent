@@ -16,7 +16,9 @@ package sender
 
 import (
 	"errors"
+	"reflect"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,8 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
-	"reflect"
-	"sync/atomic"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
 const (
@@ -33,6 +34,7 @@ const (
 	testMaxDelay = 60 * time.Second
 )
 
+// Type mockReport is a mock endpoint.EndpointReport.
 type mockReport struct {
 	Batch metrics.MetricBatch
 }
@@ -41,14 +43,46 @@ func (r mockReport) BatchId() string {
 	return r.Batch.Id
 }
 
+// Type waitForCalls is a base type that provides a doAndWait function.
+type waitForCalls struct {
+	calls    int32
+	waitChan chan bool
+}
+
+// doAndWait executes the given function and then waits until the total number of calls reaches the
+// given value.
+func (wfc *waitForCalls) doAndWait(t *testing.T, calls int32, f func()) {
+	f()
+	for atomic.LoadInt32(&wfc.calls) < calls {
+		select {
+		case <-wfc.waitChan:
+		case <-time.After(5 * time.Second):
+			t.Fatal("doAndWait: nothing happened after 5 seconds")
+		}
+	}
+}
+
+func (wfc *waitForCalls) called() {
+	atomic.AddInt32(&wfc.calls, 1)
+	wfc.waitChan <- true
+}
+
+func (wfc *waitForCalls) getCalls() int32 {
+	return atomic.LoadInt32(&wfc.calls)
+}
+
+func (wfc *waitForCalls) wfcInit() {
+	wfc.waitChan = make(chan bool, 100)
+}
+
+// Type mockEndpoint is a mock endpoint.Endpoint.
 type mockEndpoint struct {
-	name      string
-	sendErr   error
-	buildErr  error
-	sent      chan endpoint.EndpointReport
-	sendCalls int32
-	errMutex  sync.Mutex
-	waitChan  chan bool
+	waitForCalls
+	name     string
+	sendErr  error
+	buildErr error
+	sent     chan endpoint.EndpointReport
+	errMutex sync.Mutex
 }
 
 func (ep *mockEndpoint) Name() string {
@@ -56,12 +90,11 @@ func (ep *mockEndpoint) Name() string {
 }
 
 func (ep *mockEndpoint) Send(report endpoint.EndpointReport) error {
-	atomic.AddInt32(&ep.sendCalls, 1)
 	err := ep.getSendErr()
 	if err == nil {
 		ep.sent <- report
 	}
-	ep.waitChan <- true
+	ep.called()
 	return err
 }
 
@@ -97,25 +130,60 @@ func (ep *mockEndpoint) getSendErr() (err error) {
 	return
 }
 
-// doAndWait performs executes the given function and then waits until the endpoint's total number
-// of Send calls reaches sends.
-func (ep *mockEndpoint) doAndWait(t *testing.T, sends int32, f func()) {
-	f()
-	for atomic.LoadInt32(&ep.sendCalls) < sends {
-		select {
-		case <-ep.waitChan:
-		case <-time.After(5 * time.Second):
-			t.Fatal("doAndWait: nothing happened after 5 seconds")
-		}
+func newMockEndpoint(name string) *mockEndpoint {
+	ep := &mockEndpoint{
+		name: name,
+		sent: make(chan endpoint.EndpointReport, 100),
 	}
+	ep.wfcInit()
+	return ep
 }
 
-func newMockEndpoint(name string) *mockEndpoint {
-	return &mockEndpoint{
-		name:     name,
-		sent:     make(chan endpoint.EndpointReport, 100),
-		waitChan: make(chan bool, 100),
-	}
+// Type mockStatsRecorder is a mock stats.StatsRecorder.
+type mockStatsRecorder struct {
+	waitForCalls
+	mutex     sync.RWMutex
+	succeeded []recordedEntry
+	failed    []recordedEntry
+}
+
+type recordedEntry struct {
+	batchId string
+	handler string
+}
+
+func (sr *mockStatsRecorder) Register(stats.ExpectedSend) {}
+
+func (sr *mockStatsRecorder) SendSucceeded(batchId string, handler string) {
+	sr.mutex.Lock()
+	sr.succeeded = append(sr.succeeded, recordedEntry{batchId, handler})
+	sr.mutex.Unlock()
+	sr.called()
+}
+
+func (sr *mockStatsRecorder) SendFailed(batchId string, handler string) {
+	sr.mutex.Lock()
+	sr.failed = append(sr.failed, recordedEntry{batchId, handler})
+	sr.mutex.Unlock()
+	sr.called()
+}
+
+func (sr *mockStatsRecorder) getSucceeded() []recordedEntry {
+	sr.mutex.RLock()
+	defer sr.mutex.RUnlock()
+	return sr.succeeded
+}
+
+func (sr *mockStatsRecorder) getFailed() []recordedEntry {
+	sr.mutex.RLock()
+	defer sr.mutex.RUnlock()
+	return sr.failed
+}
+
+func newMockStatsRecorder() *mockStatsRecorder {
+	sr := &mockStatsRecorder{}
+	sr.wfcInit()
+	return sr
 }
 
 func TestRetryingSender(t *testing.T) {
@@ -162,20 +230,20 @@ func TestRetryingSender(t *testing.T) {
 	t.Run("report build failure", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
-		endpoint := newMockEndpoint("mockep")
-		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
-		endpoint.buildErr = errors.New("build failure")
+		ep := newMockEndpoint("mockep")
+		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
+		ep.buildErr = errors.New("build failure")
 		_, err := rs.Prepare(batch1)
-		if err == nil || err.Error() != endpoint.buildErr.Error() {
-			t.Fatalf("build error: expected: %v, got: %v", endpoint.buildErr, err)
+		if err == nil || err.Error() != ep.buildErr.Error() {
+			t.Fatalf("build error: expected: %v, got: %v", ep.buildErr, err)
 		}
 	})
 
 	t.Run("empty queue sends immediately", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
-		endpoint := newMockEndpoint("mockep")
-		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
+		ep := newMockEndpoint("mockep")
+		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		mc.SetNow(time.Unix(2000, 0))
 		ps, err := rs.Prepare(batch1)
 		if err != nil {
@@ -185,7 +253,7 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("empty queue: unexpected error sending report: %+v", err)
 		}
 		select {
-		case rep := <-endpoint.sent:
+		case rep := <-ep.sent:
 			mr := rep.(*mockReport)
 			if !reflect.DeepEqual(mr.Batch, batch1) {
 				t.Fatalf("Sent report contains incorrect batch: expected: %+v got: %+v", batch1, mr.Batch)
@@ -198,9 +266,9 @@ func TestRetryingSender(t *testing.T) {
 	t.Run("failed send is retried with exponential delay", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
-		endpoint := newMockEndpoint("mockep")
-		endpoint.setSendErr(errors.New("Send failure"))
-		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
+		ep := newMockEndpoint("mockep")
+		ep.setSendErr(errors.New("Send failure"))
+		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		now := time.Unix(3000, 0)
 		mc.SetNow(now)
 		ps, err := rs.Prepare(batch1)
@@ -218,17 +286,17 @@ func TestRetryingSender(t *testing.T) {
 			now = expectedNext
 			mc.SetNow(now)
 		}
-		if atomic.LoadInt32(&endpoint.sendCalls) != 5 {
-			t.Fatalf("Expected 5 send calls, got: %v", endpoint.sendCalls)
+		if want, got := int32(5), ep.getCalls(); want != got {
+			t.Fatalf("Expected %v send calls, got: %v", want, got)
 		}
 	})
 
 	t.Run("queue is cleared after success", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
-		endpoint := newMockEndpoint("mockep")
-		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
-		endpoint.setSendErr(errors.New("Send failure"))
+		ep := newMockEndpoint("mockep")
+		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
+		ep.setSendErr(errors.New("Send failure"))
 		mc.SetNow(time.Unix(4000, 0))
 
 		ps1, err := rs.Prepare(batch1)
@@ -246,32 +314,32 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 
-		endpoint.doAndWait(t, 2, func() {
+		ep.doAndWait(t, 2, func() {
 			mc.SetNow(time.Unix(4300, 0))
 		})
 
 		// Check the sent chan size - it should still be empty since a send error is set.
-		if len(endpoint.sent) != 0 {
-			t.Fatalf("Send chan size should be 0, but was: %v", len(endpoint.sent))
+		if len(ep.sent) != 0 {
+			t.Fatalf("Send chan size should be 0, but was: %v", len(ep.sent))
 		}
 
-		endpoint.doAndWait(t, 4, func() {
-			endpoint.setSendErr(nil)
+		ep.doAndWait(t, 4, func() {
+			ep.setSendErr(nil)
 			mc.SetNow(time.Unix(4500, 0))
 		})
 
 		// The sender should have cleared its queue. Our sent chan should be length 2.
-		if len(endpoint.sent) != 2 {
-			t.Fatalf("Send chan size should be 2, but was: %v", len(endpoint.sent))
+		if len(ep.sent) != 2 {
+			t.Fatalf("Send chan size should be 2, but was: %v", len(ep.sent))
 		}
 	})
 
 	t.Run("non-transient error results in drop of request from queue", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
-		endpoint := newMockEndpoint("mockep")
-		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
-		endpoint.setSendErr(errors.New("non-fatal"))
+		ep := newMockEndpoint("mockep")
+		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
+		ep.setSendErr(errors.New("non-fatal"))
 		mc.SetNow(time.Unix(4000, 0))
 
 		ps1, err := rs.Prepare(batch1)
@@ -287,7 +355,7 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("Unexpected prepare error: %+v", err)
 		}
 
-		endpoint.doAndWait(t, 1, func() {
+		ep.doAndWait(t, 1, func() {
 			if err := ps1.Send(); err != nil {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
@@ -297,45 +365,45 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// Check the sent chan size - it should still be empty since a send error is set.
-		if len(endpoint.sent) != 0 {
-			t.Fatalf("Send chan size should be 0, but was: %v", len(endpoint.sent))
+		if len(ep.sent) != 0 {
+			t.Fatalf("Send chan size should be 0, but was: %v", len(ep.sent))
 		}
 
 		// Set a fatal error and advance the clock. Two sends should fail completely, bringing the total
 		// number of sends to 3.
-		endpoint.doAndWait(t, 3, func() {
-			endpoint.setSendErr(errors.New("FATAL"))
+		ep.doAndWait(t, 3, func() {
+			ep.setSendErr(errors.New("FATAL"))
 			mc.SetNow(time.Unix(4500, 0))
 		})
 
 		// Check the sent chan size - it should still be empty since a send error is set.
-		if len(endpoint.sent) != 0 {
-			t.Fatalf("Send chan size should be 0, but was: %v", len(endpoint.sent))
+		if len(ep.sent) != 0 {
+			t.Fatalf("Send chan size should be 0, but was: %v", len(ep.sent))
 		}
 
 		// Now we clear the error and make sure a successful send makes it to our sent chan.
-		endpoint.doAndWait(t, 4, func() {
-			endpoint.setSendErr(nil)
+		ep.doAndWait(t, 4, func() {
+			ep.setSendErr(nil)
 			if err := ps3.Send(); err != nil {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
 		})
 
 		// Our sent chan should be length 1.
-		if len(endpoint.sent) != 1 {
-			t.Fatalf("Send chan size should be 1, but was: %v", len(endpoint.sent))
+		if len(ep.sent) != 1 {
+			t.Fatalf("Send chan size should be 1, but was: %v", len(ep.sent))
 		}
 	})
 
 	t.Run("endpoint loads state after restart", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
-		endpoint := newMockEndpoint("mockep")
-		rs := newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
-		endpoint.setSendErr(errors.New("Send failure"))
+		ep := newMockEndpoint("mockep")
+		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
+		ep.setSendErr(errors.New("Send failure"))
 		mc.SetNow(time.Unix(5000, 0))
 
-		endpoint.doAndWait(t, 1, func() {
+		ep.doAndWait(t, 1, func() {
 			ps, err := rs.Prepare(batch1)
 			if err != nil {
 				t.Fatalf("Unexpected prepare error: %+v", err)
@@ -348,15 +416,96 @@ func TestRetryingSender(t *testing.T) {
 
 		// Create a new endpoint and sender, but keep the previous persistence. The sender should
 		// load state and send the reports, and the new endpoint should not respond with errors.
-		endpoint = newMockEndpoint("mockep")
-		endpoint.doAndWait(t, 1, func() {
+		ep = newMockEndpoint("mockep")
+		ep.doAndWait(t, 1, func() {
 			mc.SetNow(time.Unix(5500, 0))
-			rs = newRetryingSender(endpoint, persist, mc, testMinDelay, testMaxDelay)
+			rs = newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		})
 
 		// The sender should have cleared its queue. Our sent chan should be length 2.
-		if len(endpoint.sent) == 0 {
+		if len(ep.sent) == 0 {
 			t.Fatal("Send chan should not be empty")
+		}
+	})
+
+	t.Run("preparedSend returns batchId and endpoint", func(t *testing.T) {
+		persist := persistence.NewMemoryPersistence()
+		mc := clock.NewMockClock()
+		ep := newMockEndpoint("mockep")
+		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
+
+		ps1, err := rs.Prepare(batch1)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+
+		if want, got := batch1.Id, ps1.BatchId(); want != got {
+			t.Fatalf("ps1.BatchId(): expected %v, got %v", want, got)
+		}
+
+		if want, got := []string{"mockep"}, ps1.Handlers(); !reflect.DeepEqual(want, got) {
+			t.Fatalf("ps1.Handlers(): expected %+v, got %+v", want, got)
+		}
+	})
+
+	t.Run("send stats are registered", func(t *testing.T) {
+		persist := persistence.NewMemoryPersistence()
+		mc := clock.NewMockClock()
+		ep := newMockEndpoint("mockep")
+		sr := newMockStatsRecorder()
+		rs := newRetryingSender(ep, persist, sr, mc, testMinDelay, testMaxDelay)
+		mc.SetNow(time.Unix(4000, 0))
+
+		ps1, err := rs.Prepare(batch1)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		ps2, err := rs.Prepare(batch2)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		if err := ps1.Send(); err != nil {
+			t.Fatalf("Unexpected send error: %+v", err)
+		}
+		if err := ps2.Send(); err != nil {
+			t.Fatalf("Unexpected send error: %+v", err)
+		}
+
+		sr.doAndWait(t, 2, func() {
+			mc.SetNow(time.Unix(4300, 0))
+		})
+
+		if want, got := []recordedEntry{{batch1.Id, "mockep"}, {batch2.Id, "mockep"}}, sr.getSucceeded(); !reflect.DeepEqual(want, got) {
+			t.Fatalf("sr.succeeded: want=%+v, got=%+v", want, got)
+		}
+
+		if want, got := 0, len(sr.getFailed()); want != got {
+			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
+		}
+
+		// Now we set a send failure and try again. The failure should be registered.
+
+		ep.sendErr = errors.New("FATAL")
+		ps3, err := rs.Prepare(batch3)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		if err := ps3.Send(); err != nil {
+			t.Fatalf("Unexpected send error: %+v", err)
+		}
+
+		sr.doAndWait(t, 3, func() {
+			mc.SetNow(time.Unix(4800, 0))
+		})
+
+		// No changes to sr.succeeded
+		if want, got := []recordedEntry{{batch1.Id, "mockep"}, {batch2.Id, "mockep"}}, sr.getSucceeded(); !reflect.DeepEqual(want, got) {
+			t.Fatalf("sr.succeeded: want=%+v, got=%+v", want, got)
+		}
+
+		// There should now be one failure.
+		if want, got := []recordedEntry{{batch3.Id, "mockep"}}, sr.getFailed(); !reflect.DeepEqual(want, got) {
+			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
 		}
 	})
 }

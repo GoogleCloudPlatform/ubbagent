@@ -17,10 +17,14 @@ package sender
 import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
 // PreparedSend is returned by Sender.Prepare() and is used to execute the actual send.
 type PreparedSend interface {
+	// A PreparedSend is also a stats.ExpectedSend and can be used to register with a StatsRecorder.
+	stats.ExpectedSend
+
 	// Send sends an already-prepared report. This method can still generate an error due to
 	// unforeseen transient problems (such as network or persistence problems).
 	Send() error

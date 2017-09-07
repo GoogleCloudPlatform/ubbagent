@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
 // Build builds pipeline containing a configured Aggregator and all of the resources
@@ -42,11 +43,11 @@ func Build(cfg *config.Config, p persistence.Persistence) (pipeline.Head, error)
 	}
 	senders := make([]sender.Sender, len(endpoints))
 	for i := range endpoints {
-		senders[i] = sender.NewRetryingSender(endpoints[i], p)
+		senders[i] = sender.NewRetryingSender(endpoints[i], p, stats.NewNoopStatsRecorder())
 	}
 	d := sender.NewDispatcher(senders)
 
-	return aggregator.NewAggregator(cfg.Metrics, d, p), nil
+	return aggregator.NewAggregator(cfg.Metrics, d, p, stats.NewNoopStatsRecorder()), nil
 }
 
 func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint, error) {

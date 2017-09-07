@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"sync/atomic"
 )
 
@@ -39,7 +40,16 @@ func (ps *mockPreparedSend) Send() error {
 	return ps.ms.send(ps.mb)
 }
 
+func (ps *mockPreparedSend) BatchId() string {
+	return ps.mb.Id
+}
+
+func (ps *mockPreparedSend) Handlers() []string {
+	return []string{ps.ms.id}
+}
+
 type mockSender struct {
+	id        string
 	reports   atomic.Value
 	sendMutex sync.Mutex
 	errMutex  sync.Mutex
@@ -100,11 +110,22 @@ func (s *mockSender) doAndWait(t *testing.T, f func()) {
 	}
 }
 
-func newMockSender() *mockSender {
-	ms := &mockSender{}
+func newMockSender(id string) *mockSender {
+	ms := &mockSender{id: id}
 	ms.setBatch(metrics.MetricBatch{})
 	return ms
 }
+
+type mockStatsRecorder struct {
+	registered []stats.ExpectedSend
+}
+
+func (sr *mockStatsRecorder) Register(es stats.ExpectedSend) {
+	sr.registered = append(sr.registered, es)
+}
+
+func (sr *mockStatsRecorder) SendSucceeded(string, string) {}
+func (sr *mockStatsRecorder) SendFailed(string, string)    {}
 
 func TestNewAggregator(t *testing.T) {
 	t.Run("Load previous state", func(t *testing.T) {
@@ -156,10 +177,10 @@ func TestNewAggregator(t *testing.T) {
 			},
 		}
 
-		sender := newMockSender()
+		sender := newMockSender("sender")
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, p, mockClock)
+		a := newAggregator(conf, sender, p, &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(report1); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -180,7 +201,7 @@ func TestNewAggregator(t *testing.T) {
 		a.Close()
 
 		// Construct a new aggregator using the same persistence.
-		a = newAggregator(conf, sender, p, mockClock)
+		a = newAggregator(conf, sender, p, &mockStatsRecorder{}, mockClock)
 
 		sender.doAndWait(t, func() {
 			sender.setSendErr(nil)
@@ -197,7 +218,7 @@ func TestNewAggregator(t *testing.T) {
 		a.Close()
 
 		// Create one more aggregator and ensure it doesn't start with previous state.
-		a = newAggregator(conf, sender, p, mockClock)
+		a = newAggregator(conf, sender, p, &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(report3); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -236,13 +257,13 @@ func TestAggregator_AddReport(t *testing.T) {
 		},
 	}
 
-	sender := newMockSender()
+	sender := newMockSender("sender")
 	mockClock := clock.NewMockClock()
 
 	// Add a report to a zero-state aggregator
 	t.Run("Zero state", func(t *testing.T) {
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -278,7 +299,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	// Add multiple reports, testing aggregation
 	t.Run("Aggregation", func(t *testing.T) {
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -324,7 +345,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	// Add two reports with different names: no aggregation
 	t.Run("Different names", func(t *testing.T) {
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -378,7 +399,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	// Add two reports with the same name but different labels: no aggregation
 	t.Run("Different labels", func(t *testing.T) {
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -444,7 +465,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	// Add a report that fails validation: error
 	t.Run("Report validation error", func(t *testing.T) {
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -464,7 +485,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	// Add a report with a start time less than the last end time: error
 	t.Run("Time conflict", func(t *testing.T) {
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -492,7 +513,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Push after timeout", func(t *testing.T) {
 		sender.setBatch(metrics.MetricBatch{})
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -519,7 +540,7 @@ func TestAggregator_AddReport(t *testing.T) {
 		sender.setBatch(metrics.MetricBatch{})
 		sender.setSendErr(nil)
 		mockClock.SetNow(time.Unix(0, 0))
-		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), mockClock)
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
@@ -536,6 +557,32 @@ func TestAggregator_AddReport(t *testing.T) {
 
 		if len(sender.getBatch().Reports) == 0 {
 			t.Fatal("Expected push after close, but sender contains no reports")
+		}
+	})
+
+	// Ensure that a StatsRecorder is notified about a push
+	t.Run("Push registers send", func(t *testing.T) {
+		sender.setBatch(metrics.MetricBatch{Id: "testbatch"})
+		sender.setSendErr(nil)
+		mockClock.SetNow(time.Unix(0, 0))
+		sr := &mockStatsRecorder{}
+		a := newAggregator(conf, sender, persistence.NewMemoryPersistence(), sr, mockClock)
+
+		if err := a.AddReport(metrics.MetricReport{
+			Name:      "int-metric",
+			StartTime: time.Unix(0, 0),
+			EndTime:   time.Unix(1, 0),
+			Value: metrics.MetricValue{
+				IntValue: 10,
+			},
+		}); err != nil {
+			t.Fatalf("Unexpected error when adding report: %+v", err)
+		}
+
+		a.Close()
+
+		if len(sr.registered) != 1 && sr.registered[0].BatchId() != "testbatch" {
+			t.Fatalf("Expected one registered send with id 'testbatch', got: %+v", sr.registered)
 		}
 	})
 }
