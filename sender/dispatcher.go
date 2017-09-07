@@ -37,7 +37,7 @@ func (d *Dispatcher) Prepare(mb metrics.MetricBatch) (PreparedSend, error) {
 		}
 		sends[i] = ps
 	}
-	return &dispatcherSend{sends}, nil
+	return &dispatcherSend{mb.Id, sends}, nil
 }
 
 // Close closes all of the underlying senders concurrently and waits for them all to finish.
@@ -57,6 +57,7 @@ func (d *Dispatcher) Close() error {
 }
 
 type dispatcherSend struct {
+	id    string
 	sends []PreparedSend
 }
 
@@ -74,6 +75,17 @@ func (ds *dispatcherSend) Send() error {
 	}
 	wg.Wait()
 	return multierror.Append(nil, errors...).ErrorOrNil()
+}
+
+func (ds *dispatcherSend) BatchId() string {
+	return ds.id
+}
+
+func (ds *dispatcherSend) Handlers() (handlers []string) {
+	for _, s := range ds.sends {
+		handlers = append(handlers, s.Handlers()...)
+	}
+	return
 }
 
 func NewDispatcher(senders []Sender) *Dispatcher {

@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
 
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/golang/glog"
 )
 
@@ -47,6 +48,7 @@ type Aggregator struct {
 	config        *config.Metrics
 	sender        sender.Sender
 	persistence   persistence.Persistence
+	recorder      stats.StatsRecorder
 	currentBucket *bucket
 	pushTimer     *time.Timer
 	push          chan chan bool
@@ -57,15 +59,16 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
-	return newAggregator(conf, sender, persistence, clock.NewRealClock())
+func NewAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.StatsRecorder) *Aggregator {
+	return newAggregator(conf, sender, persistence, recorder, clock.NewRealClock())
 }
 
-func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
+func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.StatsRecorder, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		config:      conf,
 		sender:      sender,
 		persistence: persistence,
+		recorder:    recorder,
 		clock:       clock,
 		push:        make(chan chan bool),
 		add:         make(chan addMsg),
@@ -193,6 +196,10 @@ func (h *Aggregator) pushBucket() {
 			glog.Errorf("aggregator: error preparing finished bucket: %+v", err)
 			return
 		}
+
+		// Register this send with the stats recorder.
+		h.recorder.Register(ps)
+
 		if err := ps.Send(); err != nil {
 			glog.Errorf("aggregator: error sending finished bucket: %+v", err)
 			return

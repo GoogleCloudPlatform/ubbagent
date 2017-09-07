@@ -21,6 +21,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/golang/glog"
 	"math"
 	"path"
@@ -42,6 +43,7 @@ var maxRetryDelay = flag.Duration("retrymax", 60*time.Second, "maximum exponenti
 type RetryingSender struct {
 	endpoint    endpoint.Endpoint
 	queue       persistence.Queue
+	recorder    stats.StatsRecorder
 	clock       clock.Clock
 	lastAttempt time.Time
 	delay       time.Duration
@@ -64,14 +66,15 @@ type retryingSend struct {
 }
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
-func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence) *RetryingSender {
-	return newRetryingSender(endpoint, persistence, clock.NewRealClock(), *minRetryDelay, *maxRetryDelay)
+func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.StatsRecorder) *RetryingSender {
+	return newRetryingSender(endpoint, persistence, recorder, clock.NewRealClock(), *minRetryDelay, *maxRetryDelay)
 }
 
-func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
+func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.StatsRecorder, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
 	rs := &RetryingSender{
 		endpoint: endpoint,
 		queue:    persistence.Queue(persistenceName(endpoint.Name())),
+		recorder: recorder,
 		clock:    clock,
 		minDelay: minDelay,
 		maxDelay: maxDelay,
@@ -83,7 +86,20 @@ func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persi
 }
 
 func (s *retryingSend) Send() error {
-	return s.rs.send(s.report)
+	err := s.rs.send(s.report)
+	if err != nil {
+		// Record this immediate failure.
+		s.rs.recorder.SendFailed(s.BatchId(), s.rs.endpoint.Name())
+	}
+	return err
+}
+
+func (s *retryingSend) BatchId() string {
+	return s.report.BatchId()
+}
+
+func (s *retryingSend) Handlers() []string {
+	return []string{s.rs.endpoint.Name()}
 }
 
 func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (PreparedSend, error) {
@@ -176,6 +192,9 @@ func (rs *RetryingSender) maybeSend() {
 			err = rs.endpoint.Send(report)
 		}
 		if err != nil {
+			// We've encountered a send error. If the error is considered transient, we'll leave it in
+			// the queue and retry. Otherwise it's removed from the queue, logged, and recorded as a
+			// failure.
 			if rs.endpoint.IsTransient(err) {
 				// Set next attempt
 				rs.lastAttempt = now
@@ -183,11 +202,13 @@ func (rs *RetryingSender) maybeSend() {
 				glog.Warningf("RetryingSender.maybeSend: %+v (will retry)", err)
 				break
 			} else {
-				// TODO(volkman): register a send failure when stats are collected.
 				glog.Errorf("RetryingSender.maybeSend: %+v", err)
+				rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
 			}
+		} else {
+			// Send was successful.
+			rs.recorder.SendSucceeded(report.BatchId(), rs.endpoint.Name())
 		}
-		// TODO(volkman): register a send success when stats are collected.
 
 		// At this point we've either successfully sent the report or encountered a non-transient error.
 		// In either scenario, the report is removed from the queue and the retry delay is reset.
