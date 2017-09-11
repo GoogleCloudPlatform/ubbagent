@@ -1,8 +1,22 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package stats
 
-// A StatsRecorder records the result of sending a metrics.MetricBatch to one or more endpoints.
+// A Recorder records the result of sending a metrics.MetricBatch to one or more endpoints.
 //
-// A StatsRecorder expects the following flow:
+// A Recorder expects the following flow:
 // 1. The Register method is called immediately prior to performing a send. The method is passed an
 //    ExpectedSend instance, which is likely provided by sender.PreparedSend. The agent's
 //    aggregator.Aggregator instance calls Register.
@@ -12,7 +26,7 @@ package stats
 //
 // The batchId value should be set to the value of a MetricsBatch.Id. A handler should most likely
 // be set to the name of an endpoint handling part of the send operation.
-type StatsRecorder interface {
+type Recorder interface {
 	Register(send ExpectedSend)
 	SendSucceeded(batchId string, handler string)
 	SendFailed(batchId string, handler string)
@@ -26,13 +40,13 @@ type ExpectedSend interface {
 	Handlers() []string
 }
 
-type noopStatsRecorder struct{}
+type noopRecorder struct{}
 
-// NewNoopStatsRecorder returns a StatsRecorder that does nothing.
-func NewNoopStatsRecorder() StatsRecorder {
-	return &noopStatsRecorder{}
+// NewNoopRecorder returns a Recorder that does nothing.
+func NewNoopRecorder() Recorder {
+	return &noopRecorder{}
 }
 
-func (*noopStatsRecorder) Register(ExpectedSend)        {}
-func (*noopStatsRecorder) SendSucceeded(string, string) {}
-func (*noopStatsRecorder) SendFailed(string, string)    {}
+func (*noopRecorder) Register(ExpectedSend)        {}
+func (*noopRecorder) SendSucceeded(string, string) {}
+func (*noopRecorder) SendFailed(string, string)    {}

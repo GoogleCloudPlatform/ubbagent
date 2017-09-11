@@ -43,11 +43,11 @@ func Build(cfg *config.Config, p persistence.Persistence) (pipeline.Head, error)
 	}
 	senders := make([]sender.Sender, len(endpoints))
 	for i := range endpoints {
-		senders[i] = sender.NewRetryingSender(endpoints[i], p, stats.NewNoopStatsRecorder())
+		senders[i] = sender.NewRetryingSender(endpoints[i], p, stats.NewNoopRecorder())
 	}
 	d := sender.NewDispatcher(senders)
 
-	return aggregator.NewAggregator(cfg.Metrics, d, p, stats.NewNoopStatsRecorder()), nil
+	return aggregator.NewAggregator(cfg.Metrics, d, p, stats.NewNoopRecorder()), nil
 }
 
 func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint, error) {

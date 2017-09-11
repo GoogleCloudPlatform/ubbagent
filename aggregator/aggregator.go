@@ -48,7 +48,7 @@ type Aggregator struct {
 	config        *config.Metrics
 	sender        sender.Sender
 	persistence   persistence.Persistence
-	recorder      stats.StatsRecorder
+	recorder      stats.Recorder
 	currentBucket *bucket
 	pushTimer     *time.Timer
 	push          chan chan bool
@@ -59,11 +59,11 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.StatsRecorder) *Aggregator {
+func NewAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder) *Aggregator {
 	return newAggregator(conf, sender, persistence, recorder, clock.NewRealClock())
 }
 
-func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.StatsRecorder, clock clock.Clock) *Aggregator {
+func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		config:      conf,
 		sender:      sender,
