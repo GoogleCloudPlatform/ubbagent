@@ -22,6 +22,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
 // TestBuild tests that a Pipeline can be created and shutdown successfully.
@@ -61,7 +62,7 @@ func TestBuild(t *testing.T) {
 		},
 	}
 
-	a, err := Build(cfg, p)
+	a, err := Build(cfg, p, stats.NewNoopRecorder())
 	if err != nil {
 		t.Fatalf("unexpected error creating App: %+v", err)
 	}

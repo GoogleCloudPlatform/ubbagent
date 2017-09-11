@@ -14,6 +14,8 @@
 
 package stats
 
+import "time"
+
 // A Recorder records the result of sending a metrics.MetricBatch to one or more endpoints.
 //
 // A Recorder expects the following flow:
@@ -40,12 +42,30 @@ type ExpectedSend interface {
 	Handlers() []string
 }
 
-type noopRecorder struct{}
+// A Provider provides recorded stats in the form of a Snapshot.
+type Provider interface {
+	// Snapshot returns a Snapshot containing current stats.
+	Snapshot() Snapshot
+}
+
+// Snapshot encapsulates a point-in-time snapshot of agent send stats.
+type Snapshot struct {
+	// The last time a send succeeded.
+	LastReportSuccess time.Time `json:"lastReportSuccess"`
+
+	// The number of failures since the last success.
+	CurrentFailureCount int `json:"currentFailureCount"`
+
+	// The number of failures since the last success.
+	TotalFailureCount int `json:"totalFailureCount"`
+}
 
 // NewNoopRecorder returns a Recorder that does nothing.
 func NewNoopRecorder() Recorder {
 	return &noopRecorder{}
 }
+
+type noopRecorder struct{}
 
 func (*noopRecorder) Register(ExpectedSend)        {}
 func (*noopRecorder) SendSucceeded(string, string) {}

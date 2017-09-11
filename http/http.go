@@ -23,10 +23,12 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
 type HttpInterface struct {
 	pipeline pipeline.Head
+	provider stats.Provider
 	port     int
 	mux      http.ServeMux
 	srv      *http.Server
@@ -34,9 +36,10 @@ type HttpInterface struct {
 
 // NewHttpInterface creates a new agent interface that listens on the given port. The interface
 // must be started with a call to ListenAndServe().
-func NewHttpInterface(pipeline pipeline.Head, port int) *HttpInterface {
-	h := &HttpInterface{pipeline: pipeline, port: port}
+func NewHttpInterface(pipeline pipeline.Head, provider stats.Provider, port int) *HttpInterface {
+	h := &HttpInterface{pipeline: pipeline, provider: provider, port: port}
 	h.mux.HandleFunc("/report", h.handleAdd)
+	h.mux.HandleFunc("/status", h.handleStatus)
 	return h
 }
 
@@ -56,6 +59,17 @@ func (h *HttpInterface) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *HttpInterface) handleStatus(w http.ResponseWriter, r *http.Request) {
+	text, err := json.Marshal(h.provider.Snapshot())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	} else {
+		w.WriteHeader(http.StatusOK)
+		w.Write(text)
+	}
 }
 
 // Start starts the HttpInterface in the background. It returns an error immediately if background
