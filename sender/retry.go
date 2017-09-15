@@ -15,6 +15,7 @@
 package sender
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
@@ -33,8 +34,9 @@ const (
 	persistPrefix = "epqueue"
 )
 
-var minRetryDelay = flag.Duration("retrymin", 2*time.Second, "minimum exponential backoff delay")
-var maxRetryDelay = flag.Duration("retrymax", 60*time.Second, "maximum exponential backoff delay")
+var minRetryDelay = flag.Duration("min_retry_delay", 2*time.Second, "minimum exponential backoff delay")
+var maxRetryDelay = flag.Duration("max_retry_delay", 60*time.Second, "maximum exponential backoff delay")
+var maxQueueTime = flag.Duration("max_queue_time", 3*time.Hour, "maximum amount of time to keep an entry in the retry queue")
 
 // RetryingSender is a Sender handles sending batches to remote endpoints.
 // It buffers reports and retries in the event of a send failure, using exponential backoff between
@@ -63,6 +65,19 @@ type addMsg struct {
 type retryingSend struct {
 	rs     *RetryingSender
 	report endpoint.EndpointReport
+}
+
+type queueEntry struct {
+	SendTime time.Time
+	Report   json.RawMessage
+}
+
+func newQueueEntry(report endpoint.EndpointReport, sendTime time.Time) (*queueEntry, error) {
+	bytes, err := json.Marshal(report)
+	if err != nil {
+		return nil, err
+	}
+	return &queueEntry{Report: json.RawMessage(bytes), SendTime: sendTime}, nil
 }
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
@@ -161,8 +176,13 @@ func (rs *RetryingSender) run() {
 		select {
 		case msg, ok := <-rs.add:
 			if ok {
-				msg.result <- rs.queue.Enqueue(msg.report)
-				rs.maybeSend()
+				entry, err := newQueueEntry(msg.report, rs.clock.Now())
+				if err != nil {
+					msg.result <- err
+				} else {
+					msg.result <- rs.queue.Enqueue(entry)
+					rs.maybeSend()
+				}
 			} else {
 				// Channel was closed.
 				rs.wait.Done()
@@ -183,38 +203,49 @@ func (rs *RetryingSender) maybeSend() {
 		return
 	}
 	for {
-		report := rs.endpoint.EmptyReport()
-		err := rs.queue.Peek(report)
-		if err == persistence.ErrNotFound {
+		entry := &queueEntry{}
+		if loaderr := rs.queue.Peek(entry); loaderr == persistence.ErrNotFound {
 			break
+		} else if loaderr != nil {
+			// We failed to load from the persistent queue. This isn't recoverable.
+			panic("RetryingSender.maybeSend: loading from retry queue: " + loaderr.Error())
 		}
-		if err == nil {
-			err = rs.endpoint.Send(report)
-		}
-		if err != nil {
-			// We've encountered a send error. If the error is considered transient, we'll leave it in
-			// the queue and retry. Otherwise it's removed from the queue, logged, and recorded as a
-			// failure.
-			if rs.endpoint.IsTransient(err) {
-				// Set next attempt
-				rs.lastAttempt = now
-				rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
-				glog.Warningf("RetryingSender.maybeSend: %+v (will retry)", err)
-				break
-			} else {
-				glog.Errorf("RetryingSender.maybeSend: %+v", err)
-				rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
-			}
+		report := rs.endpoint.EmptyReport()
+		if loaderr := json.Unmarshal(entry.Report, report); loaderr != nil {
+			// Failed to unmarshal this report. Log an error and attempt to pop it off the queue down below.
+			glog.Errorf("Failed to unmarshal report; removing from queue: %+v", loaderr)
 		} else {
-			// Send was successful.
-			rs.recorder.SendSucceeded(report.BatchId(), rs.endpoint.Name())
+			if senderr := rs.endpoint.Send(report); senderr != nil {
+				// We've encountered a send error. If the error is considered transient and the entry hasn't
+				// reached its maximum queue time, we'll leave it in the queue and retry. Otherwise it's
+				// removed from the queue, logged, and recorded as a failure.
+				expired := rs.clock.Now().Sub(entry.SendTime) > *maxQueueTime
+				if !expired && rs.endpoint.IsTransient(senderr) {
+					// Set next attempt
+					rs.lastAttempt = now
+					rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
+					glog.Warningf("RetryingSender.maybeSend: %+v (will retry)", senderr)
+					break
+				} else if expired {
+					glog.Errorf("RetryingSender.maybeSend: %+v (retry expired)", senderr)
+					rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
+				} else {
+					glog.Errorf("RetryingSender.maybeSend: %+v", senderr)
+					rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
+				}
+			} else {
+				// Send was successful.
+				rs.recorder.SendSucceeded(report.BatchId(), rs.endpoint.Name())
+			}
 		}
 
 		// At this point we've either successfully sent the report or encountered a non-transient error.
 		// In either scenario, the report is removed from the queue and the retry delay is reset.
-		if err := rs.queue.Dequeue(nil); err != nil {
-			glog.Errorf("RetryingSender.maybeSend: removing queue head: %+v", err)
+		if poperr := rs.queue.Dequeue(nil); poperr != nil {
+			// We failed to pop the sent entry off the queue. This isn't recoverable.
+			panic("RetryingSender.maybeSend: dequeuing from retry queue: " + poperr.Error())
 		}
+
 		rs.lastAttempt = now
 		rs.delay = 0
 	}
