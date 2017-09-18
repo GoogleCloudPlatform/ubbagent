@@ -395,6 +395,63 @@ func TestRetryingSender(t *testing.T) {
 		}
 	})
 
+	t.Run("Failing entry expires", func(t *testing.T) {
+		persist := persistence.NewMemoryPersistence()
+		mc := clock.NewMockClock()
+		ep := newMockEndpoint("mockep")
+		sr := newMockStatsRecorder()
+		rs := newRetryingSender(ep, persist, sr, mc, testMinDelay, testMaxDelay)
+		ep.setSendErr(errors.New("Send failure"))
+		mc.SetNow(time.Unix(4000, 0))
+
+		ps1, err := rs.Prepare(batch1)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		ps2, err := rs.Prepare(batch2)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %+v", err)
+		}
+		if err := ps1.Send(); err != nil {
+			t.Fatalf("Unexpected send error: %+v", err)
+		}
+		if err := ps2.Send(); err != nil {
+			t.Fatalf("Unexpected send error: %+v", err)
+		}
+
+		ep.doAndWait(t, 2, func() {
+			mc.SetNow(time.Unix(4300, 0))
+		})
+
+		// Check the sent chan size - it should still be empty since the mock endpoint always errors on
+		// sends.
+		if want, got := 0, len(ep.sent); want != got {
+			t.Fatalf("len(ep.sent): want=%+v, got=%+v", want, got)
+		}
+		if want, got := 0, len(sr.getSucceeded()); want != got {
+			t.Fatalf("len(sr.succeeded): want=%+v, got=%+v", want, got)
+		}
+		if want, got := 0, len(sr.getFailed()); want != got {
+			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
+		}
+
+		// Set the time far in the future. Both entries should retry one more time and then expire.
+		sr.doAndWait(t, 2, func() {
+			mc.SetNow(time.Unix(100000, 0))
+		})
+
+		// Still 0 sends since both entries expired.
+		if want, got := 0, len(ep.sent); want != got {
+			t.Fatalf("len(ep.sent): want=%+v, got=%+v", want, got)
+		}
+		if want, got := 0, len(sr.getSucceeded()); want != got {
+			t.Fatalf("len(sr.succeeded): want=%+v, got=%+v", want, got)
+		}
+		if want, got := 2, len(sr.getFailed()); want != got {
+			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
+		}
+	})
+
 	t.Run("endpoint loads state after restart", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := clock.NewMockClock()
