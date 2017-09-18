@@ -26,6 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/builder"
 	"github.com/golang/glog"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
 var configPath = flag.String("config", "", "configuration file")
@@ -69,12 +70,13 @@ func main() {
 		}
 	}
 
-	pipeline, err := builder.Build(cfg, p)
+	recorder := stats.NewBasic()
+	head, err := builder.Build(cfg, p, recorder)
 	if err != nil {
 		exitf("startup: %+v", err)
 	}
 
-	rest := http.NewHttpInterface(pipeline, *localPort)
+	rest := http.NewHttpInterface(head, recorder, *localPort)
 	if err := rest.Start(func(err error) {
 		// Process async http errors (which may be an immediate port in use error).
 		if err != httplib.ErrServerClosed {
@@ -92,7 +94,7 @@ func main() {
 
 	infof("Shutting down...")
 	rest.Shutdown()
-	if err := pipeline.Close(); err != nil {
+	if err := head.Close(); err != nil {
 		glog.Warningf("shutdown: %+v", err)
 	}
 	glog.Flush()

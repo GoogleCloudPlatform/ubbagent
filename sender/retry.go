@@ -45,7 +45,7 @@ var maxQueueTime = flag.Duration("max_queue_time", 3*time.Hour, "maximum amount 
 type RetryingSender struct {
 	endpoint    endpoint.Endpoint
 	queue       persistence.Queue
-	recorder    stats.StatsRecorder
+	recorder    stats.Recorder
 	clock       clock.Clock
 	lastAttempt time.Time
 	delay       time.Duration
@@ -81,11 +81,11 @@ func newQueueEntry(report endpoint.EndpointReport, sendTime time.Time) (*queueEn
 }
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
-func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.StatsRecorder) *RetryingSender {
+func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder) *RetryingSender {
 	return newRetryingSender(endpoint, persistence, recorder, clock.NewRealClock(), *minRetryDelay, *maxRetryDelay)
 }
 
-func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.StatsRecorder, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
+func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
 	rs := &RetryingSender{
 		endpoint: endpoint,
 		queue:    persistence.Queue(persistenceName(endpoint.Name())),

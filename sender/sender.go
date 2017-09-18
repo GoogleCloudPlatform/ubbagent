@@ -22,7 +22,7 @@ import (
 
 // PreparedSend is returned by Sender.Prepare() and is used to execute the actual send.
 type PreparedSend interface {
-	// A PreparedSend is also a stats.ExpectedSend and can be used to register with a StatsRecorder.
+	// A PreparedSend is also a stats.ExpectedSend and can be used to register with a stats.Recorder.
 	stats.ExpectedSend
 
 	// Send sends an already-prepared report. This method can still generate an error due to
