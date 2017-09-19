@@ -112,7 +112,6 @@ func TestServiceControlEndpoint(t *testing.T) {
 					Value: metrics.MetricValue{
 						IntValue: 10,
 					},
-					BillingName: "com.googleapis/services/test-service/IntMetric",
 				},
 				{
 					Name:      "double-metric",
@@ -124,7 +123,6 @@ func TestServiceControlEndpoint(t *testing.T) {
 					Labels: map[string]string{
 						"foo": "bar",
 					},
-					BillingName: "com.googleapis/services/test-service/DoubleMetric",
 				},
 			},
 		})
@@ -155,9 +153,6 @@ func TestServiceControlEndpoint(t *testing.T) {
 								StartTime:  time.Unix(0, 0).UTC().Format(time.RFC3339Nano),
 								EndTime:    time.Unix(1, 0).UTC().Format(time.RFC3339Nano),
 								Int64Value: &intVal,
-								Labels: map[string]string{
-									"cloudbilling.googleapis.com/argentum_metric_id": "com.googleapis/services/test-service/IntMetric",
-								},
 							},
 						},
 					},
@@ -180,9 +175,6 @@ func TestServiceControlEndpoint(t *testing.T) {
 								StartTime:   time.Unix(2, 0).UTC().Format(time.RFC3339Nano),
 								EndTime:     time.Unix(3, 0).UTC().Format(time.RFC3339Nano),
 								DoubleValue: &doubleVal,
-								Labels: map[string]string{
-									"cloudbilling.googleapis.com/argentum_metric_id": "com.googleapis/services/test-service/DoubleMetric",
-								},
 							},
 						},
 					},

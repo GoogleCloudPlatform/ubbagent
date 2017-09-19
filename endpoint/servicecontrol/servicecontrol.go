@@ -30,7 +30,6 @@ import (
 )
 
 const (
-	billingLabelKey = "cloudbilling.googleapis.com/argentum_metric_id"
 	agentIdLabel    = "goog-ubb-agent-id"
 	timeout         = 60 * time.Second
 )
@@ -110,7 +109,6 @@ func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.
 		value := servicecontrol.MetricValue{
 			StartTime: m.StartTime.UTC().Format(time.RFC3339Nano),
 			EndTime:   m.EndTime.UTC().Format(time.RFC3339Nano),
-			Labels:    map[string]string{billingLabelKey: m.BillingName},
 		}
 		if m.Value.IntValue != 0 {
 			value.Int64Value = &m.Value.IntValue

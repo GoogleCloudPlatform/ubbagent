@@ -119,7 +119,6 @@ type Metrics struct {
 // MetricDefinition describes a single reportable metric's name and type.
 type MetricDefinition struct {
 	Name        string
-	BillingName string
 	Type        string
 }
 
@@ -247,9 +246,6 @@ func (c *Metrics) Validate() error {
 	for _, def := range c.Definitions {
 		if def.Name == "" {
 			return errors.New("missing metric name")
-		}
-		if def.BillingName == "" {
-			return errors.New(fmt.Sprintf("metric %v: missing billing name", def.Name))
 		}
 		if usedNames[def.Name] {
 			return errors.New(fmt.Sprintf("metric %v: duplicate name: %v", def.Name, def.Name))
