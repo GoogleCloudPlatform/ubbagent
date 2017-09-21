@@ -89,9 +89,6 @@ func (h *Aggregator) AddReport(report metrics.MetricReport) error {
 	if err := report.Validate(h.config); err != nil {
 		return err
 	}
-	if err := report.AssignBillingName(h.config); err != nil {
-		return err
-	}
 	h.closeMutex.RLock()
 	defer h.closeMutex.RUnlock()
 	if h.closed {
