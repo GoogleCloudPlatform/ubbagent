@@ -1,13 +1,9 @@
-# Usage-based billing agent
+# Metering agent
 
-This directory contains a small agent intended to simplify usage-based billing of applications. The
-agent starts a small, local HTTP daemon that accepts metering reports from software running on the
-same host. Upon receiving a report, the agent:
-* Aggregates the report with other reports received in close proximity
-(buffering time is configurable)
-* Stores the updated aggregate to persistent state in case the agent is killed or restarted
-* Eventually forwards the aggregated report to one or more destination endpoints, such as Google
-Service Control
+This metering agent simplifies usage metering of applications and can be used as part of a usage-based billing strategy. It performs the following functions:
+* Accepts usage reports from a local source, such as an application processing requests
+* Aggregates that usage and persists it across restarts
+* Ultimately forwards usage to one or more endpoints, retrying in the case of failures
 
 # Build and run
 
@@ -23,30 +19,19 @@ bin/ubbagent --help
 ```yaml
 # The identity section contains authentication information used by the agent.
 identity:
-  # A service account key retrieved from Google Cloud's console or API.
-  # This key is generally provided in JSON format and can be embedded directly
-  # into the configuration file.
-  serviceAccountKey:
-  {
-    "type": "service_account",
-    "project_id": "<project_id>",
-    "private_key_id": "<private_key_id>",
-    "private_key": "<private_key>",
-    client_email": "<client_email>",
-    client_id": "<client_id>",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://accounts.google.com/o/oauth2/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "<client_x509_cert_url>"
-  }
+  # A base64-encoded service account key used to report usage to
+  # Google Service Control.
+  encodedServiceAccountKey: [base64-encoded key]
 
 # The metrics section defines the metric names and types that the agent
 # is configured to record.
 metrics:
+  # bufferSeconds indicates how long values area aggregated prior to being sent to endpoints.
   bufferSeconds: 10
   definitions:
   - name: requests
-    billingName: com.googleapis/services/some-service-name/Requests
+    type: int
+  - name: instance-seconds
     type: int
 
 # The endpoints section defines where metering data is ultimately sent. Currently
@@ -72,7 +57,8 @@ To run the agent, provide the following:
 * The path to a directory used to store state
 
 ```
-ubbagent --config path/to/config.yaml --state-dir path/to/state --local-port 3456 --logtostderr --v=2
+ubbagent --config path/to/config.yaml --state-dir path/to/state \
+         --local-port 3456 --logtostderr --v=2
 ```
 
 # Usage
@@ -82,4 +68,15 @@ An example `curl` command to post a report:
 
 ```
 curl -X POST -d "{\"Name\": \"requests\", \"StartTime\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")\", \"EndTime\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")\", \"Value\": { \"IntValue\": 10 }, \"Labels\": { \"foo\": \"bar2\" } }" 'http://localhost:3456/report'
+```
+
+The agent also provides status indicating its ability to send data to endpoints.
+
+```
+curl http://localhost:3456/status
+{
+  "lastReportSuccess": "2017-10-04T10:06:15.820953439-07:00",
+  "currentFailureCount": 0,
+  "totalFailureCount": 0
+}
 ```
