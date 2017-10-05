@@ -80,3 +80,6 @@ curl http://localhost:3456/status
   "totalFailureCount": 0
 }
 ```
+
+# Design
+See [DESIGN.md](DESIGN.md).
