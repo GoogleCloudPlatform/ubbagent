@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
-	"sync/atomic"
 )
 
 type mockPreparedSend struct {
@@ -55,13 +55,17 @@ type mockSender struct {
 	errMutex  sync.Mutex
 	sendErr   error
 	waitChan  chan bool
+	released  bool
 }
 
 func (s *mockSender) Prepare(mb metrics.MetricBatch) (sender.PreparedSend, error) {
 	return &mockPreparedSend{ms: s, mb: mb}, nil
 }
 
-func (s *mockSender) Close() error {
+func (s *mockSender) Use() {}
+
+func (s *mockSender) Release() error {
+	s.released = true
 	return nil
 }
 
@@ -195,10 +199,10 @@ func TestNewAggregator(t *testing.T) {
 		}
 
 		// We set a send error on the mock sender to prevent the aggregator from successfully sending
-		// its state at close. A new aggregator created with the same persistence should start with
+		// its state at Release. A new aggregator created with the same persistence should start with
 		// the previous state.
 		sender.setSendErr(errors.New("send failure"))
-		a.Close()
+		a.Release()
 
 		// Construct a new aggregator using the same persistence.
 		a = newAggregator(conf, sender, p, &mockStatsRecorder{}, mockClock)
@@ -215,7 +219,7 @@ func TestNewAggregator(t *testing.T) {
 		}
 
 		sender.setSendErr(errors.New("send failure"))
-		a.Close()
+		a.Release()
 
 		// Create one more aggregator and ensure it doesn't start with previous state.
 		a = newAggregator(conf, sender, p, &mockStatsRecorder{}, mockClock)
@@ -234,8 +238,31 @@ func TestNewAggregator(t *testing.T) {
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
-		a.Close()
+		a.Release()
 	})
+}
+
+func TestAggregator_Use(t *testing.T) {
+	s := newMockSender("sender")
+	conf := &config.Metrics{
+		BufferSeconds: 10,
+		Definitions: []config.MetricDefinition{},
+	}
+
+	// Test multiple usages of the Aggregator.
+	a := newAggregator(conf, s, persistence.NewMemoryPersistence(), &mockStatsRecorder{}, clock.NewMockClock())
+	a.Use()
+	a.Use()
+
+	a.Release() // Usage count should still be 1.
+	if s.released {
+		t.Fatal("sender.released expected to be false")
+	}
+
+	a.Release() // Usage count should be 0; sender should be released.
+	if !s.released {
+		t.Fatal("sender.released expected to be true")
+	}
 }
 
 func TestAggregator_AddReport(t *testing.T) {
@@ -535,8 +562,8 @@ func TestAggregator_AddReport(t *testing.T) {
 		}
 	})
 
-	// Ensure that a push happens when the aggregator is closed
-	t.Run("Push after close", func(t *testing.T) {
+	// Ensure that a push happens when the aggregator is Released
+	t.Run("Push after Release", func(t *testing.T) {
 		sender.setBatch(metrics.MetricBatch{})
 		sender.setSendErr(nil)
 		mockClock.SetNow(time.Unix(0, 0))
@@ -553,10 +580,10 @@ func TestAggregator_AddReport(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		a.Close()
+		a.Release()
 
 		if len(sender.getBatch().Reports) == 0 {
-			t.Fatal("Expected push after close, but sender contains no reports")
+			t.Fatal("Expected push after Release, but sender contains no reports")
 		}
 	})
 
@@ -579,7 +606,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		a.Close()
+		a.Release()
 
 		if len(sr.registered) != 1 && sr.registered[0].BatchId() != "testbatch" {
 			t.Fatalf("Expected one registered send with id 'testbatch', got: %+v", sr.registered)

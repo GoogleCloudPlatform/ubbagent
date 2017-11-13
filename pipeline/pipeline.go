@@ -23,7 +23,11 @@
 //
 package pipeline
 
-import "github.com/GoogleCloudPlatform/ubbagent/metrics"
+import (
+	"sync"
+
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+)
 
 // Head represents the start of a pipeline. It is a Component that accepts metric reports as input.
 type Head interface {
@@ -35,17 +39,63 @@ type Head interface {
 	AddReport(metrics.MetricReport) error
 }
 
-// Component represents a single component in a pipeline that can be closed.
+// Component represents a single component in a pipeline. Components can be used downstream of
+// multiple other components, enabling creation of fork/join pipeline patterns. Because of this,
+// components implement a reference counting strategy that determines when they should clean up
+// underlying resources.
 type Component interface {
-	// Close closes this Component. Close must perform the following steps, in order:
-	// 1. Gracefully shutdown background processes and wait for completion. Following this step,
+	// Use registers new usage of this component. Use should be called whenever this component is
+	// added downstream of some other component. When no longer used, Release should be called.
+	Use()
+
+	// Release is called when the caller is no longer using this component. If the component's usage
+	// count reaches 0 due to this release, it should perform the following steps in order:
+	// 1. Decrement the usage counter. If the usage counter is still greater than 0, return nil.
+	// 2. Gracefully shutdown background processes and wait for completion. Following this step,
 	//    no data shall be sent from this component to downstream components.
-	// 2. Call Close on all adjacent components, and wait for their close operations to
+	// 3. Call Release on all downstream components, waiting for their release operations to
 	//    complete.
 	//
-	// As a result, calling Close on the outer Pipeline should result in a graceful shutdown of
-	// all Components in the correct order.
+	// As a result, calling Release on all of the pipeline Head components should result in a graceful
+	// shutdown of all Components in the correct order.
 	//
-	// Close returns an error if it or any of the descendant components generate one.
-	Close() error
+	// Release returns an error if it or any of its downstream components generate one.
+	Release() error
+}
+
+// Type UsageTracker is a utility that helps track the usage of a Component. It provides Use and
+// Release methods, and calls a close function when Release decrements the usage count to 0.
+type UsageTracker struct {
+	count int
+	mu sync.Mutex
+}
+
+func (u *UsageTracker) Use() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	if u.count < 0 {
+		panic("UsageTracker is already closed")
+	}
+	u.count++
+}
+
+func (u *UsageTracker) Release(close func() error) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	// Check already closed condition
+	if u.count < 0 {
+		return nil
+	}
+
+	// Decrement usage. If the tracker was never Used, its count will now be -1. We still want to
+	// call the Close function.
+	u.count--
+	if u.count <= 0 {
+		u.count = -1
+		return close()
+	}
+
+	return nil
 }

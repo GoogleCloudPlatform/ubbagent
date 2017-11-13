@@ -27,6 +27,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	servicecontrol "google.golang.org/api/servicecontrol/v1"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 const (
@@ -41,6 +42,7 @@ type ServiceControlEndpoint struct {
 	agentId     string
 	keyData     string
 	service     *servicecontrol.Service
+	tracker     pipeline.UsageTracker
 }
 
 type serviceControlReport struct {
@@ -152,7 +154,11 @@ func (*ServiceControlEndpoint) EmptyReport() endpoint.EndpointReport {
 	return &serviceControlReport{}
 }
 
-func (ep *ServiceControlEndpoint) Close() error {
+// Use is a no-op. ServiceControlEndpoint doesn't track usage.
+func (ep *ServiceControlEndpoint) Use() {}
+
+// Release is a no-op. ServiceControlEndpoint doesn't track usage.
+func (ep *ServiceControlEndpoint) Release() error {
 	return nil
 }
 

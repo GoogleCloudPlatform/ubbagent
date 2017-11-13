@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/golang/glog"
 )
 
@@ -46,6 +47,8 @@ type DiskEndpoint struct {
 	closeOnce  sync.Once
 	clock      clock.Clock
 	wait       sync.WaitGroup
+	tracker    pipeline.UsageTracker
+	closed     bool
 }
 
 type diskReport struct {
@@ -111,14 +114,25 @@ func (*DiskEndpoint) EmptyReport() endpoint.EndpointReport {
 	return &diskReport{}
 }
 
-// Close instructs the DiskEndpoint's cleanup goroutine to gracefully shutdown. It blocks until the
-// operation has completed.
-func (ep *DiskEndpoint) Close() error {
-	ep.closeOnce.Do(func() {
-		ep.quit <- true
+// Use increments the DiskEndpoint's usage count.
+// See pipeline.PipelineComponent.Use.
+func (ep *DiskEndpoint) Use() {
+	ep.tracker.Use()
+}
+
+// Release decrements the DiskEndpoint's usage count. If it reaches 0, Release instructs the
+// DiskEndpoint's cleanup goroutine to gracefully shutdown. It blocks until the operation has
+// completed.
+// See pipeline.PipelineComponent.Release.
+func (ep *DiskEndpoint) Release() error {
+	return ep.tracker.Release(func() error {
+		ep.closeOnce.Do(func() {
+			ep.quit <- true
+			ep.closed = true
+		})
+		ep.wait.Wait()
+		return nil
 	})
-	ep.wait.Wait()
-	return nil
 }
 
 func (ep *DiskEndpoint) run() {

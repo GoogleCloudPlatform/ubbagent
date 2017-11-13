@@ -67,5 +67,5 @@ func TestBuild(t *testing.T) {
 		t.Fatalf("unexpected error creating App: %+v", err)
 	}
 
-	a.Close()
+	a.Release()
 }
