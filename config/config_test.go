@@ -69,6 +69,7 @@ endpoints:
     topic: sometopic
 - name: servicecontrol
   servicecontrol:
+    identity: gcp
     serviceName: test-service.bogus.com
     consumerId: project_number:123456
 `
@@ -157,6 +158,7 @@ endpoints:
     topic: sometopic
 - name: servicecontrol
   servicecontrol:
+    identity: gcp
     serviceName: test-service.bogus.com
     consumerId: project_number:123456
 `
