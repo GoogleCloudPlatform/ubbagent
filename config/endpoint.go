@@ -21,6 +21,23 @@ import (
 	"strings"
 )
 
+// Type Endpoints is a Validatable collection of Endpoint objects.
+type Endpoints []Endpoint
+
+func (endpoints Endpoints) Validate(c *Config) error {
+	usedNames := make(map[string]bool)
+	for _, e := range endpoints {
+		if usedNames[e.Name] {
+			return fmt.Errorf("endpoint %v: multiple endpoints with the same name", e.Name)
+		}
+		if err := e.Validate(c); err != nil {
+			return err
+		}
+		usedNames[e.Name] = true
+	}
+	return nil
+}
+
 // Endpoint describes a single remote endpoint used for sending aggregated metrics.
 type Endpoint struct {
 	Name           string                  `json:"name"`
@@ -29,7 +46,7 @@ type Endpoint struct {
 	PubSub         *PubSubEndpoint         `json:"pubsub"`
 }
 
-func (e *Endpoint) Validate() error {
+func (e *Endpoint) Validate(c *Config) error {
 	if e.Name == "" {
 		return errors.New("endpoint: missing name")
 	}
@@ -40,7 +57,7 @@ func (e *Endpoint) Validate() error {
 		if reflect.ValueOf(v).IsNil() {
 			continue
 		}
-		if err := v.Validate(); err != nil {
+		if err := v.Validate(c); err != nil {
 			return err
 		}
 		types++
@@ -62,7 +79,7 @@ type DiskEndpoint struct {
 	ExpireSeconds int64  `json:"expireSeconds"`
 }
 
-func (e *DiskEndpoint) Validate() error {
+func (e *DiskEndpoint) Validate(c *Config) error {
 	if e.ExpireSeconds < 0 {
 		return errors.New("disk: expireSeconds must not be negative")
 	}
@@ -73,11 +90,15 @@ func (e *DiskEndpoint) Validate() error {
 }
 
 type ServiceControlEndpoint struct {
+	Identity    string `json:"identity"`
 	ServiceName string `json:"serviceName"`
 	ConsumerId  string `json:"consumerId"`
 }
 
-func (e *ServiceControlEndpoint) Validate() error {
+func (e *ServiceControlEndpoint) Validate(c *Config) error {
+	if err := validateGcpKey(c.Identities, "servicecontrol", e.Identity); err != nil {
+		return err
+	}
 	if e.ServiceName == "" {
 		return errors.New("servicecontrol: missing service name")
 	}
@@ -93,10 +114,25 @@ func (e *ServiceControlEndpoint) Validate() error {
 }
 
 type PubSubEndpoint struct {
+	Identity string `json:"identity"`
 	Topic string `json:"topic"`
 }
 
-func (e *PubSubEndpoint) Validate() error {
+func (e *PubSubEndpoint) Validate(c *Config) error {
 	// TODO(volkman): implement
+	return nil
+}
+
+func validateGcpKey(identities Identities, endpointType, identity string) error {
+	if identity == "" {
+		return fmt.Errorf("%v: missing identity name", endpointType)
+	}
+	i := identities.Get(identity)
+	if i == nil {
+		return fmt.Errorf("%v: nonexistent identity: %v", endpointType, identity)
+	}
+	if i.GCP == nil {
+		return fmt.Errorf("%v: %v is not a GCP identity", endpointType, identity)
+	}
 	return nil
 }

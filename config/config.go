@@ -16,7 +16,6 @@ package config
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/ghodss/yaml"
@@ -24,14 +23,14 @@ import (
 
 // Config contains configuration for the agent.
 type Config struct {
-	Identity  *Identity  `json:"identity"`
-	Metrics   *Metrics   `json:"metrics"`
-	Endpoints []Endpoint `json:"endpoints"`
+	Identities Identities `json:"identities"`
+	Metrics    *Metrics   `json:"metrics"`
+	Endpoints  Endpoints  `json:"endpoints"`
 }
 
 // Validation
 type Validatable interface {
-	Validate() error
+	Validate(*Config) error
 }
 
 func Load(path string) (*Config, error) {
@@ -51,30 +50,21 @@ func Parse(data []byte) (*Config, error) {
 }
 
 func (c *Config) Validate() error {
-	if c.Identity == nil {
-		return errors.New("missing identity section")
+	if err := c.Identities.Validate(c); err != nil {
+		return err
 	}
 	if c.Metrics == nil {
 		return errors.New("missing metrics section")
 	}
-	if err := c.Identity.Validate(); err != nil {
-		return err
-	}
-	if err := c.Metrics.Validate(); err != nil {
+	if err := c.Metrics.Validate(c); err != nil {
 		return err
 	}
 	if len(c.Endpoints) == 0 {
 		return errors.New("no endpoints defined")
 	}
-	usedNames := make(map[string]bool)
-	for _, e := range c.Endpoints {
-		if usedNames[e.Name] {
-			return errors.New(fmt.Sprintf("endpoint %v: multiple endpoints with the same name", e.Name))
-		}
-		if err := e.Validate(); err != nil {
-			return err
-		}
-		usedNames[e.Name] = true
+	if err := c.Endpoints.Validate(c); err != nil {
+		return err
 	}
+
 	return nil
 }

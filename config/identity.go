@@ -15,17 +15,108 @@
 package config
 
 import (
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 
 	"github.com/ghodss/yaml"
 )
 
-// Identity holds configuration for identifying to Google Cloud Platform services.
+// Type Identities is a Validatable collection of Identity objects.
+type Identities []Identity
+
+func (identities Identities) Validate(c *Config) error {
+	usedNames := make(map[string]bool)
+	for _, i := range identities {
+		if usedNames[i.Name] {
+			return fmt.Errorf("identity %v: multiple identities with the same name", i.Name)
+		}
+		if err := i.Validate(c); err != nil {
+			return err
+		}
+		usedNames[i.Name] = true
+	}
+	return nil
+}
+
+func (identities Identities) Get(name string) *Identity {
+	for i := range identities {
+		if identities[i].Name == name {
+			return &identities[i]
+		}
+	}
+	return nil
+}
+
 type Identity struct {
+	Name string `json:"name"`
+	GCP  *GCPIdentity `json:"gcp"`
+}
+
+func (i *Identity) Validate(c *Config) error {
+	if i.Name == "" {
+		return errors.New("identity: missing name")
+	}
+
+	types := 0
+	for _, v := range []Validatable{i.GCP} {
+		if reflect.ValueOf(v).IsNil() {
+			continue
+		}
+		if err := v.Validate(c); err != nil {
+			return err
+		}
+		types++
+	}
+
+	if types == 0 {
+		return fmt.Errorf("identity %v: missing type configuration", i.Name)
+	}
+
+	if types > 1 {
+		return fmt.Errorf("identity %v: multiple type configurations", i.Name)
+	}
+
+	return nil
+}
+
+// GCPIdentity holds configuration for identifying to Google Cloud Platform services.
+type GCPIdentity struct {
 	ServiceAccountKey        LiteralServiceAccountKey `json:"serviceAccountKey"`
 	EncodedServiceAccountKey EncodedServiceAccountKey `json:"encodedServiceAccountKey"`
+}
+
+func (c *GCPIdentity) GetServiceAccountKey() []byte {
+	if len(c.ServiceAccountKey) > 0 {
+		return c.ServiceAccountKey
+	}
+
+	if len(c.EncodedServiceAccountKey) > 0 {
+		return c.EncodedServiceAccountKey
+	}
+
+	return nil
+}
+
+func (i *GCPIdentity) Validate(c *Config) error {
+	count := 0
+	if len(i.ServiceAccountKey) > 0 {
+		count += 1
+	}
+	if len(i.EncodedServiceAccountKey) > 0 {
+		count += 1
+	}
+
+	if count == 0 {
+		return errors.New("identity: missing service account key")
+	}
+	if count > 1 {
+		return errors.New("identity: too many service account keys")
+	}
+
+	return nil
 }
 
 // LiteralServiceAccountKey is a byte array type that can hold a literal json structure.
@@ -84,35 +175,3 @@ func (k *EncodedServiceAccountKey) UnmarshalJSON(data []byte) error {
 	*k = append((*k)[0:0], decoded...)
 	return nil
 }
-
-func (c *Identity) Validate() error {
-	count := 0
-	if len(c.ServiceAccountKey) > 0 {
-		count += 1
-	}
-	if len(c.EncodedServiceAccountKey) > 0 {
-		count += 1
-	}
-
-	if count == 0 {
-		return errors.New("identity: missing service account key")
-	}
-	if count > 1 {
-		return errors.New("identity: too many service account keys")
-	}
-
-	return nil
-}
-
-func (c *Identity) GetServiceAccountKey() []byte {
-	if len(c.ServiceAccountKey) > 0 {
-		return c.ServiceAccountKey
-	}
-
-	if len(c.EncodedServiceAccountKey) > 0 {
-		return c.EncodedServiceAccountKey
-	}
-
-	return nil
-}
-
