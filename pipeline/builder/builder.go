@@ -77,7 +77,7 @@ func createEndpoint(config *config.Config, cfgep *config.Endpoint, agentId strin
 			cfgep.ServiceControl.ServiceName,
 			agentId,
 			cfgep.ServiceControl.ConsumerId,
-			config.Identity.GetServiceAccountKey(),
+			config.Identities.Get(cfgep.ServiceControl.Identity).GCP.GetServiceAccountKey(),
 		)
 	}
 	// TODO(volkman): support pubsub

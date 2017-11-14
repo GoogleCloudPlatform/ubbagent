@@ -59,9 +59,9 @@ func (c *Metrics) GetMetricDefinition(name string) *MetricDefinition {
 
 // Validate checks validity of metric configuration. Specifically, it must not contain duplicate
 // metric definitions, and metric definitions must specify valid type names.
-func (c *Metrics) Validate() error {
+func (m *Metrics) Validate(c *Config) error {
 	usedNames := make(map[string]bool)
-	for _, def := range c.Definitions {
+	for _, def := range m.Definitions {
 		if def.Name == "" {
 			return errors.New("missing metric name")
 		}

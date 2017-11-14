@@ -30,7 +30,7 @@ func TestMetrics_Validate(t *testing.T) {
 			},
 		}
 
-		err := validConfig.Validate()
+		err := validConfig.Validate(nil)
 		if err != nil {
 			t.Fatalf("Expected no error, got: %s", err)
 		}
@@ -45,7 +45,7 @@ func TestMetrics_Validate(t *testing.T) {
 			},
 		}
 
-		err := duplicateName.Validate()
+		err := duplicateName.Validate(nil)
 		if err == nil || err.Error() != "metric int-metric: duplicate name: int-metric" {
 			t.Fatalf("Expected error, got: %s", err)
 		}
@@ -60,7 +60,7 @@ func TestMetrics_Validate(t *testing.T) {
 			},
 		}
 
-		err := invalidType.Validate()
+		err := invalidType.Validate(nil)
 		if err == nil || err.Error() != "metric int-metric2: invalid type: foo" {
 			t.Fatalf("Expected error, got: %s", err)
 		}
