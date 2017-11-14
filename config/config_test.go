@@ -118,6 +118,7 @@ endpoints:
 			{
 				Name: "servicecontrol",
 				ServiceControl: &config.ServiceControlEndpoint{
+					Identity:    "gcp",
 					ServiceName: "test-service.bogus.com",
 					ConsumerId:  "project_number:123456",
 				},
