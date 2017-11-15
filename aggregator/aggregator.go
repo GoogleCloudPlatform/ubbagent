@@ -105,7 +105,7 @@ func (h *Aggregator) AddReport(report metrics.MetricReport) error {
 }
 
 // Use increments the Aggregator's usage count.
-// See pipeline.PipelineComponent.Use.
+// See pipeline.Component.Use.
 func (h *Aggregator) Use() {
 	h.tracker.Use()
 }
@@ -114,7 +114,7 @@ func (h *Aggregator) Use() {
 // Aggregator's goroutine to shutdown. Any currently-aggregated metrics will
 // be reported to the downstream sender as part of this process. Release blocks until the operation
 // has completed.
-// See pipeline.PipelineComponent.Release.
+// See pipeline.Component.Release.
 func (h *Aggregator) Release() error {
 	return h.tracker.Release(func() error {
 		h.closeMutex.Lock()

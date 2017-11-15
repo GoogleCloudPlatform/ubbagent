@@ -48,7 +48,7 @@ type DiskEndpoint struct {
 	clock      clock.Clock
 	wait       sync.WaitGroup
 	tracker    pipeline.UsageTracker
-	closed     bool
+	closed     bool // used for testing
 }
 
 type diskReport struct {
@@ -115,7 +115,7 @@ func (*DiskEndpoint) EmptyReport() endpoint.EndpointReport {
 }
 
 // Use increments the DiskEndpoint's usage count.
-// See pipeline.PipelineComponent.Use.
+// See pipeline.Component.Use.
 func (ep *DiskEndpoint) Use() {
 	ep.tracker.Use()
 }
@@ -123,7 +123,7 @@ func (ep *DiskEndpoint) Use() {
 // Release decrements the DiskEndpoint's usage count. If it reaches 0, Release instructs the
 // DiskEndpoint's cleanup goroutine to gracefully shutdown. It blocks until the operation has
 // completed.
-// See pipeline.PipelineComponent.Release.
+// See pipeline.Component.Release.
 func (ep *DiskEndpoint) Release() error {
 	return ep.tracker.Release(func() error {
 		ep.closeOnce.Do(func() {

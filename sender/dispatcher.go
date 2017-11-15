@@ -43,14 +43,14 @@ func (d *Dispatcher) Prepare(mb metrics.MetricBatch) (PreparedSend, error) {
 }
 
 // Use increments the Dispatcher's usage count.
-// See pipeline.PipelineComponent.Use.
+// See pipeline.Component.Use.
 func (d *Dispatcher) Use() {
 	d.tracker.Use()
 }
 
 // Release decrements the Dispatcher's usage count. If it reaches 0, Release releases all of the
 // underlying senders concurrently and waits for the operations to finish.
-// See pipeline.PipelineComponent.Release.
+// See pipeline.Component.Release.
 func (d *Dispatcher) Release() error {
 	return d.tracker.Release(func() error {
 		errors := make([]error, len(d.senders))

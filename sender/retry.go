@@ -134,7 +134,7 @@ func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (PreparedSend, erro
 }
 
 // Use increments the RetryingSender's usage count.
-// See pipeline.PipelineComponent.Use.
+// See pipeline.Component.Use.
 func (rs *RetryingSender) Use() {
 	rs.tracker.Use()
 }
@@ -143,7 +143,7 @@ func (rs *RetryingSender) Use() {
 // RetryingSender to gracefully shutdown. Any reports that have not yet been
 // sent will be persisted to disk, and the wrapped Endpoint will be released. Release blocks until
 // the operation has completed.
-// See pipeline.PipelineComponent.Release.
+// See pipeline.Component.Release.
 func (rs *RetryingSender) Release() error {
 	return rs.tracker.Release(func() error {
 		rs.closeMutex.Lock()
