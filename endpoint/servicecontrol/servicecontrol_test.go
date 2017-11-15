@@ -227,6 +227,6 @@ func TestServiceControlEndpoint(t *testing.T) {
 		}
 	})
 
-	// Test that close returns successfully.
-	ep.Close()
+	// Test that Release returns successfully.
+	ep.Release()
 }

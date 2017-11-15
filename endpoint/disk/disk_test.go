@@ -102,8 +102,20 @@ func TestDiskEndpoint(t *testing.T) {
 		t.Fatalf("error waiting for 1 files in output path: %+v", err)
 	}
 
-	// Test that close returns successfully.
-	ep.Close()
+	// Test multiple usages and Release.
+
+	ep.Use()
+	ep.Use()
+	
+	ep.Release()
+	if ep.closed {
+		t.Fatal("ep.closed expected to be false")
+	}
+
+	ep.Release() // Usage count should be 0; endpoint should be closed.
+	if !ep.closed {
+		t.Fatal("ep.closed expected to be true")
+	}
 }
 
 func parseTime(ts string) time.Time {

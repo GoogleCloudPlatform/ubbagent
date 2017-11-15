@@ -25,8 +25,8 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
-
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/golang/glog"
 )
@@ -56,6 +56,7 @@ type Aggregator struct {
 	closed        bool
 	closeMutex    sync.RWMutex
 	wait          sync.WaitGroup
+	tracker       pipeline.UsageTracker
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
@@ -76,6 +77,7 @@ func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persi
 	if !agg.loadState() {
 		agg.currentBucket = newBucket(clock.Now())
 	}
+	sender.Use()
 	agg.wait.Add(1)
 	go agg.run()
 	return agg
@@ -102,20 +104,30 @@ func (h *Aggregator) AddReport(report metrics.MetricReport) error {
 	return <-msg.result
 }
 
-// Close instructs the Aggregator's goroutine to shutdown. Any currently-aggregated metrics will
-// be reported to the downstream sender as part of this process. Close blocks until the operation
-// has completed.
-func (h *Aggregator) Close() error {
-	h.closeMutex.Lock()
-	if !h.closed {
-		close(h.add)
-		h.closed = true
-	}
-	h.closeMutex.Unlock()
-	h.wait.Wait()
+// Use increments the Aggregator's usage count.
+// See pipeline.Component.Use.
+func (h *Aggregator) Use() {
+	h.tracker.Use()
+}
 
-	// Cascade
-	return h.sender.Close()
+// Release decrements the Aggregator's usage count. If it reaches 0, Release instructs the
+// Aggregator's goroutine to shutdown. Any currently-aggregated metrics will
+// be reported to the downstream sender as part of this process. Release blocks until the operation
+// has completed.
+// See pipeline.Component.Release.
+func (h *Aggregator) Release() error {
+	return h.tracker.Release(func() error {
+		h.closeMutex.Lock()
+		if !h.closed {
+			close(h.add)
+			h.closed = true
+		}
+		h.closeMutex.Unlock()
+		h.wait.Wait()
+
+		// Cascade
+		return h.sender.Release()
+	})
 }
 
 func (h *Aggregator) run() {

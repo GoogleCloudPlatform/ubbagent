@@ -94,7 +94,7 @@ func main() {
 
 	infof("Shutting down...")
 	rest.Shutdown()
-	if err := head.Close(); err != nil {
+	if err := head.Release(); err != nil {
 		glog.Warningf("shutdown: %+v", err)
 	}
 	glog.Flush()

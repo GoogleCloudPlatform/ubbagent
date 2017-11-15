@@ -18,16 +18,18 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
-	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"github.com/GoogleCloudPlatform/ubbagent/persistence"
-	"github.com/GoogleCloudPlatform/ubbagent/stats"
-	"github.com/golang/glog"
 	"math"
 	"path"
 	"sync"
 	"time"
+
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/golang/glog"
 )
 
 const (
@@ -55,6 +57,7 @@ type RetryingSender struct {
 	closed      bool
 	closeMutex  sync.RWMutex
 	wait        sync.WaitGroup
+	tracker     pipeline.UsageTracker
 }
 
 type addMsg struct {
@@ -95,6 +98,7 @@ func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persi
 		maxDelay: maxDelay,
 		add:      make(chan addMsg, 1),
 	}
+	endpoint.Use()
 	rs.wait.Add(1)
 	go rs.run()
 	return rs
@@ -129,17 +133,28 @@ func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (PreparedSend, erro
 	}, nil
 }
 
-// Close instructs the RetryingSender to gracefully shutdown. Any reports that have not yet been
-// sent will be persisted to disk. Close blocks until the operation has completed.
-func (rs *RetryingSender) Close() error {
-	rs.closeMutex.Lock()
-	if !rs.closed {
-		close(rs.add)
-		rs.closed = true
-	}
-	rs.closeMutex.Unlock()
-	rs.wait.Wait()
-	return nil
+// Use increments the RetryingSender's usage count.
+// See pipeline.Component.Use.
+func (rs *RetryingSender) Use() {
+	rs.tracker.Use()
+}
+
+// Release decrements the RetryingSender's usage count. If it reaches 0, Release instructs the
+// RetryingSender to gracefully shutdown. Any reports that have not yet been
+// sent will be persisted to disk, and the wrapped Endpoint will be released. Release blocks until
+// the operation has completed.
+// See pipeline.Component.Release.
+func (rs *RetryingSender) Release() error {
+	return rs.tracker.Release(func() error {
+		rs.closeMutex.Lock()
+		if !rs.closed {
+			close(rs.add)
+			rs.closed = true
+		}
+		rs.closeMutex.Unlock()
+		rs.wait.Wait()
+		return rs.endpoint.Release()
+	})
 }
 
 // send persists batch and queues it for sending to this sender's associated Endpoint. A call to

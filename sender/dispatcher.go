@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -25,6 +26,7 @@ import (
 // this will be a collection of Endpoints wrapped in RetryingSender objects.
 type Dispatcher struct {
 	senders []Sender
+	tracker pipeline.UsageTracker
 }
 
 // See Sender.Prepare.
@@ -40,20 +42,29 @@ func (d *Dispatcher) Prepare(mb metrics.MetricBatch) (PreparedSend, error) {
 	return &dispatcherSend{mb.Id, sends}, nil
 }
 
-// Close closes all of the underlying senders concurrently and waits for them all to finish.
-// See pipeline.PipelineComponent.Close.
-func (d *Dispatcher) Close() error {
-	errors := make([]error, len(d.senders))
-	wg := sync.WaitGroup{}
-	wg.Add(len(d.senders))
-	for i, s := range d.senders {
-		go func(i int, s Sender) {
-			errors[i] = s.Close()
-			wg.Done()
-		}(i, s)
-	}
-	wg.Wait()
-	return multierror.Append(nil, errors...).ErrorOrNil()
+// Use increments the Dispatcher's usage count.
+// See pipeline.Component.Use.
+func (d *Dispatcher) Use() {
+	d.tracker.Use()
+}
+
+// Release decrements the Dispatcher's usage count. If it reaches 0, Release releases all of the
+// underlying senders concurrently and waits for the operations to finish.
+// See pipeline.Component.Release.
+func (d *Dispatcher) Release() error {
+	return d.tracker.Release(func() error {
+		errors := make([]error, len(d.senders))
+		wg := sync.WaitGroup{}
+		wg.Add(len(d.senders))
+		for i, s := range d.senders {
+			go func(i int, s Sender) {
+				errors[i] = s.Release()
+				wg.Done()
+			}(i, s)
+		}
+		wg.Wait()
+		return multierror.Append(nil, errors...).ErrorOrNil()
+	})
 }
 
 type dispatcherSend struct {
@@ -89,5 +100,8 @@ func (ds *dispatcherSend) Handlers() (handlers []string) {
 }
 
 func NewDispatcher(senders []Sender) *Dispatcher {
-	return &Dispatcher{senders}
+	for _, s := range senders {
+		s.Use()
+	}
+	return &Dispatcher{senders: senders}
 }

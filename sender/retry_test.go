@@ -83,6 +83,7 @@ type mockEndpoint struct {
 	buildErr error
 	sent     chan endpoint.EndpointReport
 	errMutex sync.Mutex
+	released bool
 }
 
 func (ep *mockEndpoint) Name() string {
@@ -109,7 +110,10 @@ func (ep *mockEndpoint) EmptyReport() endpoint.EndpointReport {
 	return &mockReport{}
 }
 
-func (ep *mockEndpoint) Close() error {
+func (ep *mockEndpoint) Use() {}
+
+func (ep *mockEndpoint) Release() error {
+	ep.released = true
 	return nil
 }
 
@@ -469,7 +473,7 @@ func TestRetryingSender(t *testing.T) {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
 		})
-		rs.Close()
+		rs.Release()
 
 		// Create a new endpoint and sender, but keep the previous persistence. The sender should
 		// load state and send the reports, and the new endpoint should not respond with errors.
@@ -565,6 +569,27 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
 		}
 	})
+
+	t.Run("multiple usages", func(t *testing.T) {
+		ep := newMockEndpoint("mockep")
+		sr := newMockStatsRecorder()
+		rs := newRetryingSender(ep, persistence.NewMemoryPersistence(), sr, clock.NewMockClock(), testMinDelay, testMaxDelay)
+
+		// Test multiple usages of the RetryingSender.
+		rs.Use()
+		rs.Use()
+
+		rs.Release() // Usage count should still be 1.
+		if ep.released {
+			t.Fatal("endpoint.released expected to be false")
+		}
+
+		rs.Release() // Usage count should be 0; endpoint should be released.
+		if !ep.released {
+			t.Fatal("endpoint.released expected to be true")
+		}
+	})
+
 }
 
 // waitForNewTimer waits for up to ~5 seconds for a timer to be set on mc with time t.

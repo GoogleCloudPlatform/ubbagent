@@ -16,13 +16,13 @@ package sender_test
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
-	"reflect"
 )
 
 type mockPreparedSend struct {
@@ -49,6 +49,7 @@ type mockSender struct {
 	sendErr       error
 	prepareCalled bool
 	sendCalled    bool
+	released      bool
 }
 
 func (s *mockSender) Prepare(mb metrics.MetricBatch) (sender.PreparedSend, error) {
@@ -59,7 +60,10 @@ func (s *mockSender) Prepare(mb metrics.MetricBatch) (sender.PreparedSend, error
 	return &mockPreparedSend{ms: s, id: mb.Id}, nil
 }
 
-func (s *mockSender) Close() error {
+func (s *mockSender) Use() {}
+
+func (s *mockSender) Release() error {
+	s.released = true
 	return nil
 }
 
@@ -163,6 +167,25 @@ func TestDispatcher(t *testing.T) {
 
 		if want, got := []string{"ms1", "ms2"}, ps.Handlers(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("ps.Handlers(): expected %+v, got %+v", want, got)
+		}
+	})
+
+	t.Run("multiple usages", func(t *testing.T) {
+		s := &mockSender{id: "sender"}
+		ds := sender.NewDispatcher([]sender.Sender{s})
+
+		// Test multiple usages of the Dispatcher.
+		ds.Use()
+		ds.Use()
+
+		ds.Release() // Usage count should still be 1.
+		if s.released {
+			t.Fatal("sender.released expected to be false")
+		}
+
+		ds.Release() // Usage count should be 0; sender should be released.
+		if !s.released {
+			t.Fatal("sender.released expected to be true")
 		}
 	})
 }
