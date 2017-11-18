@@ -15,7 +15,6 @@
 package metrics
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -57,23 +56,22 @@ func NewMetricBatch(reports []MetricReport) (MetricBatch, error) {
 	return batch, nil
 }
 
-func (mr *MetricReport) Validate(conf *config.Metrics) error {
-	def := conf.GetMetricDefinition(mr.Name)
-	if def == nil {
-		return errors.New(fmt.Sprintf("Unknown metric: %v", mr.Name))
+func (mr MetricReport) Validate(def config.MetricDefinition) error {
+	if mr.Name != def.Name {
+		return fmt.Errorf("incorrect metric name: %v", mr.Name)
 	}
 	if mr.StartTime.After(mr.EndTime) {
-		return errors.New(fmt.Sprintf("Metric %v: StartTime > EndTime: %v > %v", mr.Name, mr.StartTime, mr.EndTime))
+		return fmt.Errorf("metric %v: StartTime > EndTime: %v > %v", mr.Name, mr.StartTime, mr.EndTime)
 	}
 	switch def.Type {
 	case config.IntType:
 		if mr.Value.DoubleValue != 0 {
-			return errors.New(fmt.Sprintf("Metric %v: double value specified for integer metric: %v", mr.Name, mr.Value.DoubleValue))
+			return fmt.Errorf("metric %v: double value specified for integer metric: %v", mr.Name, mr.Value.DoubleValue)
 		}
 		break
 	case config.DoubleType:
 		if mr.Value.IntValue != 0 {
-			return errors.New(fmt.Sprintf("Metric %v: integer value specified for double metric: %v", mr.Name, mr.Value.IntValue))
+			return fmt.Errorf("metric %v: integer value specified for double metric: %v", mr.Name, mr.Value.IntValue)
 		}
 		break
 	}
