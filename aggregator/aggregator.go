@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	persistenceName = "aggregator"
+	persistencePrefix = "aggregator/"
 )
 
 type addMsg struct {
@@ -45,7 +45,8 @@ type addMsg struct {
 // See pipeline.Pipeline.
 type Aggregator struct {
 	clock         clock.Clock
-	config        *config.Metrics
+	metric        config.MetricDefinition
+	bufferTime    time.Duration
 	sender        sender.Sender
 	persistence   persistence.Persistence
 	recorder      stats.Recorder
@@ -60,13 +61,14 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder) *Aggregator {
-	return newAggregator(conf, sender, persistence, recorder, clock.NewRealClock())
+func NewAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder) *Aggregator {
+	return newAggregator(metric, bufferTime, sender, persistence, recorder, clock.NewRealClock())
 }
 
-func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock) *Aggregator {
+func newAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
-		config:      conf,
+		metric:      metric,
+		bufferTime:  bufferTime,
 		sender:      sender,
 		persistence: persistence,
 		recorder:    recorder,
@@ -88,7 +90,7 @@ func newAggregator(conf *config.Metrics, sender sender.Sender, persistence persi
 // the same labels, and don't contain overlapping time ranges denoted by StartTime and EndTme.
 func (h *Aggregator) AddReport(report metrics.MetricReport) error {
 	glog.V(2).Infoln("Aggregator:AddReport()")
-	if err := report.Validate(h.config); err != nil {
+	if err := report.Validate(h.metric); err != nil {
 		return err
 	}
 	h.closeMutex.RLock()
@@ -134,8 +136,7 @@ func (h *Aggregator) run() {
 	running := true
 	for running {
 		// Set a timer to fire when the current bucket should be pushed.
-		remaining := time.Duration(h.config.BufferSeconds)*time.Second -
-			h.clock.Now().Sub(h.currentBucket.CreateTime)
+		remaining := h.bufferTime - h.clock.Now().Sub(h.currentBucket.CreateTime)
 		timer := h.clock.NewTimer(remaining)
 		select {
 		case msg, ok := <-h.add:
@@ -161,7 +162,7 @@ func (h *Aggregator) run() {
 }
 
 func (h *Aggregator) loadState() bool {
-	err := h.persistence.Value(persistenceName).Load(&h.currentBucket)
+	err := h.persistence.Value(h.persistenceName()).Load(&h.currentBucket)
 	if err == persistence.ErrNotFound {
 		// Didn't find existing state to load.
 		return false
@@ -174,7 +175,9 @@ func (h *Aggregator) loadState() bool {
 }
 
 func (h *Aggregator) persistState() {
-	if err := h.persistence.Value(persistenceName).Store(h.currentBucket); err != nil {
+	// TODO(volkman): always persist a metric's previous end time, even if no bucket is persisted,
+	// so that the start time of the next report after a restart is validated.
+	if err := h.persistence.Value(h.persistenceName()).Store(h.currentBucket); err != nil {
 		panic(fmt.Sprintf("Error persisting aggregator state: %+v", err))
 	}
 }
@@ -216,6 +219,10 @@ func (h *Aggregator) pushBucket() {
 	}
 	h.currentBucket = newBucket(now)
 	h.persistState()
+}
+
+func (h *Aggregator) persistenceName() string {
+	return persistencePrefix + h.metric.Name
 }
 
 type bucket struct {

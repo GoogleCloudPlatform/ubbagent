@@ -24,18 +24,13 @@ import (
 )
 
 func TestMetricReport_Validate(t *testing.T) {
-	conf := &config.Metrics{
-		BufferSeconds: 10,
-		Definitions: []config.MetricDefinition{
-			{
-				Name: "int-metric",
-				Type: "int",
-			},
-			{
-				Name: "double-metric",
-				Type: "double",
-			},
-		},
+	int_metric := config.MetricDefinition{
+		Name: "int-metric",
+		Type: "int",
+	}
+	double_metric := config.MetricDefinition{
+		Name: "double-metric",
+		Type: "double",
 	}
 
 	t.Run("Valid", func(t *testing.T) {
@@ -48,12 +43,12 @@ func TestMetricReport_Validate(t *testing.T) {
 				IntValue: 10,
 			},
 		}
-		if err := m.Validate(conf); err != nil {
+		if err := m.Validate(int_metric); err != nil {
 			t.Fatalf("Unexpected error: %+v", err)
 		}
 	})
 
-	t.Run("Unknown metric", func(t *testing.T) {
+	t.Run("Invalid name", func(t *testing.T) {
 		m := metrics.MetricReport{
 			Name:      "foo",
 			StartTime: time.Unix(0, 0),
@@ -63,8 +58,8 @@ func TestMetricReport_Validate(t *testing.T) {
 				IntValue: 10,
 			},
 		}
-		if err := m.Validate(conf); err == nil || err.Error() != "Unknown metric: foo" {
-			t.Fatalf("Expected error with message \"Unknown metric: foo\", got: %+v", err)
+		if err := m.Validate(int_metric); err == nil || err.Error() != "incorrect metric name: foo" {
+			t.Fatalf("Expected error with message \"incorrect metric name: foo\", got: %+v", err)
 		}
 	})
 
@@ -78,7 +73,7 @@ func TestMetricReport_Validate(t *testing.T) {
 				IntValue: 10,
 			},
 		}
-		if err := m.Validate(conf); err == nil || !strings.Contains(err.Error(), "StartTime > EndTime") {
+		if err := m.Validate(int_metric); err == nil || !strings.Contains(err.Error(), "StartTime > EndTime") {
 			t.Fatalf("Expected error containing \"StartTime > EndTime\", got: %+v", err)
 		}
 	})
@@ -93,7 +88,7 @@ func TestMetricReport_Validate(t *testing.T) {
 				DoubleValue: 10.3,
 			},
 		}
-		if err := m.Validate(conf); err == nil || !strings.Contains(err.Error(), "double value specified") {
+		if err := m.Validate(int_metric); err == nil || !strings.Contains(err.Error(), "double value specified") {
 			t.Fatalf("Expected error containing \"double value specified\", got: %+v", err)
 		}
 	})
@@ -108,7 +103,7 @@ func TestMetricReport_Validate(t *testing.T) {
 				IntValue: 10,
 			},
 		}
-		if err := m.Validate(conf); err == nil || !strings.Contains(err.Error(), "integer value specified") {
+		if err := m.Validate(double_metric); err == nil || !strings.Contains(err.Error(), "integer value specified") {
 			t.Fatalf("Expected error containing \"integer value specified\", got: %+v", err)
 		}
 	})

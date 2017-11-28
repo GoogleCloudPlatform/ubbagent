@@ -47,7 +47,13 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 	}
 	d := sender.NewDispatcher(senders)
 
-	return aggregator.NewAggregator(cfg.Metrics, d, p, r), nil
+	aggregators := make(map[string]pipeline.Head)
+	bufferTime := time.Duration(cfg.Metrics.BufferSeconds) * time.Second
+	for _, def := range cfg.Metrics.Definitions {
+		aggregators[def.Name] = aggregator.NewAggregator(def, bufferTime, d, p, r)
+	}
+
+	return pipeline.NewSelector(aggregators), nil
 }
 
 func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint, error) {
