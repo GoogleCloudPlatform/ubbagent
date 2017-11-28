@@ -25,7 +25,7 @@ import (
 
 type mockHead struct {
 	released bool
-	report *metrics.MetricReport
+	report   *metrics.MetricReport
 }
 
 func (s *mockHead) AddReport(report metrics.MetricReport) error {
@@ -45,7 +45,7 @@ func TestSelector(t *testing.T) {
 	mock2 := &mockHead{}
 
 	report1 := metrics.MetricReport{
-		Name: "metric1",
+		Name:      "metric1",
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
@@ -54,7 +54,7 @@ func TestSelector(t *testing.T) {
 	}
 
 	report2 := metrics.MetricReport{
-		Name: "metric2",
+		Name:      "metric2",
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
@@ -63,7 +63,7 @@ func TestSelector(t *testing.T) {
 	}
 
 	report3 := metrics.MetricReport{
-		Name: "metric3",
+		Name:      "metric3",
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{

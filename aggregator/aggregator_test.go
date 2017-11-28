@@ -137,13 +137,13 @@ func TestNewAggregator(t *testing.T) {
 		p := persistence.NewMemoryPersistence()
 
 		metric := config.MetricDefinition{
-			Name: "int-metric1",
+			Name: "int-metric",
 			Type: "int",
 		}
 		bufTime := 10 * time.Second
 
 		report1 := metrics.MetricReport{
-			Name:      "int-metric1",
+			Name:      "int-metric",
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(1, 0),
 			Value: metrics.MetricValue{
@@ -155,7 +155,7 @@ func TestNewAggregator(t *testing.T) {
 		}
 
 		report2 := metrics.MetricReport{
-			Name:      "int-metric1",
+			Name:      "int-metric",
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
 			Value: metrics.MetricValue{
@@ -167,7 +167,7 @@ func TestNewAggregator(t *testing.T) {
 		}
 
 		report3 := metrics.MetricReport{
-			Name:      "int-metric1",
+			Name:      "int-metric",
 			StartTime: time.Unix(100, 0),
 			EndTime:   time.Unix(110, 0),
 			Value: metrics.MetricValue{

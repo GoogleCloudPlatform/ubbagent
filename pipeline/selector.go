@@ -17,16 +17,16 @@ package pipeline
 import (
 	"sync"
 
+	"fmt"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/hashicorp/go-multierror"
-	"fmt"
 )
 
 // Selector is a pipeline.Head that routes a MetricReport to another pipeline.Head based on the
 // metric name.
 type Selector struct {
 	// Map of metric names to pipeline.Head objects.
-	heads map[string]Head
+	heads   map[string]Head
 	tracker UsageTracker
 }
 
