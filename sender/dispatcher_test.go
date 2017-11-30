@@ -23,24 +23,16 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
 type mockPreparedSend struct {
 	ms *mockSender
-	id string
 }
 
 func (ps *mockPreparedSend) Send() error {
 	ps.ms.sendCalled = true
 	return ps.ms.sendErr
-}
-
-func (ps *mockPreparedSend) BatchId() string {
-	return ps.id
-}
-
-func (ps *mockPreparedSend) Handlers() []string {
-	return []string{ps.ms.id}
 }
 
 type mockSender struct {
@@ -52,12 +44,16 @@ type mockSender struct {
 	released      bool
 }
 
-func (s *mockSender) Prepare(mb metrics.MetricBatch) (sender.PreparedSend, error) {
+func (s *mockSender) Prepare(reports ...metrics.StampedMetricReport) (sender.PreparedSend, error) {
 	s.prepareCalled = true
 	if s.prepareErr != nil {
 		return nil, s.prepareErr
 	}
-	return &mockPreparedSend{ms: s, id: mb.Id}, nil
+	return &mockPreparedSend{ms: s}, nil
+}
+
+func (s *mockSender) Endpoints() []string {
+	return []string{s.id}
 }
 
 func (s *mockSender) Use() {}
@@ -67,24 +63,36 @@ func (s *mockSender) Release() error {
 	return nil
 }
 
+type mockStatsRecorder struct {
+	registered map[string][]string
+}
+
+func (msr *mockStatsRecorder) Register(id string, handlers ...string) {
+	if msr.registered == nil {
+		msr.registered = make(map[string][]string)
+	}
+	msr.registered[id] = handlers
+}
+
+func (msr *mockStatsRecorder) SendSucceeded(id string, handler string) {}
+func (msr *mockStatsRecorder) SendFailed(id string, handler string)    {}
+
 func TestDispatcher(t *testing.T) {
-	batch := metrics.MetricBatch{
-		Id: "batch",
-		Reports: []metrics.MetricReport{
-			{
-				Name:      "int-metric",
-				Value:     metrics.MetricValue{IntValue: 30},
-				StartTime: time.Unix(10, 0),
-				EndTime:   time.Unix(11, 0),
-			},
+	report := metrics.StampedMetricReport{
+		Id: "report",
+		MetricReport: metrics.MetricReport{
+			Name:      "int-metric",
+			Value:     metrics.MetricValue{IntValue: 30},
+			StartTime: time.Unix(10, 0),
+			EndTime:   time.Unix(11, 0),
 		},
 	}
 
 	t.Run("all sub-senders are invoked", func(t *testing.T) {
 		ms1 := &mockSender{id: "ms1"}
 		ms2 := &mockSender{id: "ms2"}
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
-		s, err := ds.Prepare(batch)
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
+		s, err := ds.Prepare(report)
 
 		if err != nil {
 			t.Fatalf("Unexpected prepare error: %+v", err)
@@ -111,8 +119,8 @@ func TestDispatcher(t *testing.T) {
 		ms1 := &mockSender{id: "ms1"}
 		ms2 := &mockSender{id: "ms2"}
 		ms2.prepareErr = errors.New("test")
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
-		s, err := ds.Prepare(batch)
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
+		s, err := ds.Prepare(report)
 		if err == nil {
 			t.Fatal("Expected prepare error, got none")
 		}
@@ -128,8 +136,8 @@ func TestDispatcher(t *testing.T) {
 		ms1 := &mockSender{id: "ms1"}
 		ms2 := &mockSender{id: "ms2"}
 		ms2.sendErr = errors.New("testabcd")
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
-		s, err := ds.Prepare(batch)
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
+		s, err := ds.Prepare(report)
 		if err != nil {
 			t.Fatalf("Unexpected prepare error: %+v", err)
 		}
@@ -152,27 +160,19 @@ func TestDispatcher(t *testing.T) {
 		}
 	})
 
-	t.Run("preparedSend returns batchId and aggregated handlers", func(t *testing.T) {
+	t.Run("dispatcher returns aggregated endpoints", func(t *testing.T) {
 		ms1 := &mockSender{id: "ms1"}
 		ms2 := &mockSender{id: "ms2"}
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2})
-		ps, err := ds.Prepare(batch)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
 
-		if want, got := batch.Id, ps.BatchId(); want != got {
-			t.Fatalf("ps.BatchId(): expected %v, got %v", want, got)
-		}
-
-		if want, got := []string{"ms1", "ms2"}, ps.Handlers(); !reflect.DeepEqual(want, got) {
-			t.Fatalf("ps.Handlers(): expected %+v, got %+v", want, got)
+		if want, got := []string{"ms1", "ms2"}, ds.Endpoints(); !reflect.DeepEqual(want, got) {
+			t.Fatalf("ds.Endpoints(): expected %+v, got %+v", want, got)
 		}
 	})
 
 	t.Run("multiple usages", func(t *testing.T) {
 		s := &mockSender{id: "sender"}
-		ds := sender.NewDispatcher([]sender.Sender{s})
+		ds := sender.NewDispatcher([]sender.Sender{s}, stats.NewNoopRecorder())
 
 		// Test multiple usages of the Dispatcher.
 		ds.Use()
@@ -186,6 +186,56 @@ func TestDispatcher(t *testing.T) {
 		ds.Release() // Usage count should be 0; sender should be released.
 		if !s.released {
 			t.Fatal("sender.released expected to be true")
+		}
+	})
+
+	// Ensure that a StatsRecorder is notified about a send
+	t.Run("Send registers with stats recorder", func(t *testing.T) {
+
+		ms1 := &mockSender{id: "sender1"}
+		ms2 := &mockSender{id: "sender2"}
+		msr := &mockStatsRecorder{}
+		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, msr)
+
+		r1 := metrics.StampedMetricReport{
+			Id: "r1",
+			MetricReport: metrics.MetricReport{
+				Name:      "int-metric",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+				Value: metrics.MetricValue{
+					IntValue: 10,
+				},
+			},
+		}
+
+		r2 := metrics.StampedMetricReport{
+			Id: "r2",
+			MetricReport: metrics.MetricReport{
+				Name:      "double-metric",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+				Value: metrics.MetricValue{
+					DoubleValue: 10,
+				},
+			},
+		}
+
+		send, err := ds.Prepare(r1, r2)
+		if err != nil {
+			t.Fatalf("Unexpected prepare error: %v", err)
+		}
+		if err := send.Send(); err != nil {
+			t.Fatalf("Unexpected send error: %v", err)
+		}
+
+		expected := map[string][]string{
+			"r1": []string{"sender1", "sender2"},
+			"r2": []string{"sender1", "sender2"},
+		}
+
+		if want, got := expected, msr.registered; !reflect.DeepEqual(want, got) {
+			t.Fatalf("Recorded stats entries: got=%+v, want=%+v", got, want)
 		}
 	})
 }

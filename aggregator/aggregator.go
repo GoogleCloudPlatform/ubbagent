@@ -27,7 +27,6 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
-	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/golang/glog"
 )
 
@@ -49,7 +48,6 @@ type Aggregator struct {
 	bufferTime    time.Duration
 	sender        sender.Sender
 	persistence   persistence.Persistence
-	recorder      stats.Recorder
 	currentBucket *bucket
 	pushTimer     *time.Timer
 	push          chan chan bool
@@ -61,17 +59,16 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder) *Aggregator {
-	return newAggregator(metric, bufferTime, sender, persistence, recorder, clock.NewRealClock())
+func NewAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
+	return newAggregator(metric, bufferTime, sender, persistence, clock.NewRealClock())
 }
 
-func newAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock) *Aggregator {
+func newAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		metric:      metric,
 		bufferTime:  bufferTime,
 		sender:      sender,
 		persistence: persistence,
-		recorder:    recorder,
 		clock:       clock,
 		push:        make(chan chan bool),
 		add:         make(chan addMsg),
@@ -197,21 +194,21 @@ func (h *Aggregator) pushBucket() {
 		}
 	}
 	if len(finishedReports) > 0 {
-		glog.V(2).Infoln("Aggregator:pushBucket(): sending batch")
-		batch, err := metrics.NewMetricBatch(finishedReports)
-		if err != nil {
-			glog.Errorf("aggregator: error creating batch: %+v", err)
-			return
+		glog.V(2).Infoln("Aggregator:pushBucket(): sending reports")
+		var reports []metrics.StampedMetricReport
+		for _, r := range finishedReports {
+			sr, err := metrics.NewStampedMetricReport(r)
+			if err != nil {
+				glog.Errorf("aggregator: error creating stamped report: %+v", err)
+				continue
+			}
+			reports = append(reports, sr)
 		}
-		ps, err := h.sender.Prepare(batch)
+		ps, err := h.sender.Prepare(reports...)
 		if err != nil {
 			glog.Errorf("aggregator: error preparing finished bucket: %+v", err)
 			return
 		}
-
-		// Register this send with the stats recorder.
-		h.recorder.Register(ps)
-
 		if err := ps.Send(); err != nil {
 			glog.Errorf("aggregator: error sending finished bucket: %+v", err)
 			return

@@ -30,6 +30,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/golang/glog"
+	"github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -40,7 +41,7 @@ var minRetryDelay = flag.Duration("min_retry_delay", 2*time.Second, "minimum exp
 var maxRetryDelay = flag.Duration("max_retry_delay", 60*time.Second, "maximum exponential backoff delay")
 var maxQueueTime = flag.Duration("max_queue_time", 3*time.Hour, "maximum amount of time to keep an entry in the retry queue")
 
-// RetryingSender is a Sender handles sending batches to remote endpoints.
+// RetryingSender is a Sender handles sending reports to remote endpoints.
 // It buffers reports and retries in the event of a send failure, using exponential backoff between
 // retry attempts. Minimum and maximum delays are configurable via the "retrymin" and "retrymax"
 // flags.
@@ -61,13 +62,13 @@ type RetryingSender struct {
 }
 
 type addMsg struct {
-	report endpoint.EndpointReport
-	result chan error
+	reports []endpoint.EndpointReport
+	result  chan error
 }
 
 type retryingSend struct {
-	rs     *RetryingSender
-	report endpoint.EndpointReport
+	rs      *RetryingSender
+	reports []endpoint.EndpointReport
 }
 
 type queueEntry struct {
@@ -105,32 +106,33 @@ func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persi
 }
 
 func (s *retryingSend) Send() error {
-	err := s.rs.send(s.report)
+	err := s.rs.send(s.reports)
 	if err != nil {
 		// Record this immediate failure.
-		s.rs.recorder.SendFailed(s.BatchId(), s.rs.endpoint.Name())
+		for _, r := range s.reports {
+			s.rs.recorder.SendFailed(r.Id(), s.rs.endpoint.Name())
+		}
 	}
 	return err
 }
 
-func (s *retryingSend) BatchId() string {
-	return s.report.BatchId()
-}
-
-func (s *retryingSend) Handlers() []string {
-	return []string{s.rs.endpoint.Name()}
-}
-
-func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (PreparedSend, error) {
-	var report endpoint.EndpointReport
-	var err error
-	if report, err = rs.endpoint.BuildReport(batch); err != nil {
-		return nil, err
+func (rs *RetryingSender) Prepare(reports ...metrics.StampedMetricReport) (PreparedSend, error) {
+	var ers []endpoint.EndpointReport
+	for _, r := range reports {
+		er, err := rs.endpoint.BuildReport(r)
+		if err != nil {
+			return nil, err
+		}
+		ers = append(ers, er)
 	}
 	return &retryingSend{
-		rs:     rs,
-		report: report,
+		rs:      rs,
+		reports: ers,
 	}, nil
+}
+
+func (rs *RetryingSender) Endpoints() []string {
+	return []string{rs.endpoint.Name()}
 }
 
 // Use increments the RetryingSender's usage count.
@@ -157,17 +159,17 @@ func (rs *RetryingSender) Release() error {
 	})
 }
 
-// send persists batch and queues it for sending to this sender's associated Endpoint. A call to
-// send blocks until the report is persisted.
-func (rs *RetryingSender) send(report endpoint.EndpointReport) error {
+// send persists the given reports and queues them for sending to this sender's associated Endpoint.
+// A call to send blocks until the report is persisted.
+func (rs *RetryingSender) send(reports []endpoint.EndpointReport) error {
 	rs.closeMutex.RLock()
 	defer rs.closeMutex.RUnlock()
 	if rs.closed {
 		return errors.New("RetryingSender: Send called on closed sender")
 	}
 	msg := addMsg{
-		report: report,
-		result: make(chan error),
+		reports: reports,
+		result:  make(chan error),
 	}
 	rs.add <- msg
 	return <-msg.result
@@ -191,13 +193,22 @@ func (rs *RetryingSender) run() {
 		select {
 		case msg, ok := <-rs.add:
 			if ok {
-				entry, err := newQueueEntry(msg.report, rs.clock.Now())
-				if err != nil {
-					msg.result <- err
-				} else {
-					msg.result <- rs.queue.Enqueue(entry)
-					rs.maybeSend()
+				now := rs.clock.Now()
+				var merr *multierror.Error
+				for _, report := range msg.reports {
+					entry, err := newQueueEntry(report, now)
+					if err != nil {
+						merr = multierror.Append(merr, err)
+						continue
+					}
+
+					err = rs.queue.Enqueue(entry)
+					if err != nil {
+						merr = multierror.Append(merr, err)
+					}
 				}
+				msg.result <- merr.ErrorOrNil()
+				rs.maybeSend()
 			} else {
 				// Channel was closed.
 				rs.wait.Done()
@@ -243,14 +254,14 @@ func (rs *RetryingSender) maybeSend() {
 					break
 				} else if expired {
 					glog.Errorf("RetryingSender.maybeSend: %+v (retry expired)", senderr)
-					rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
+					rs.recorder.SendFailed(report.Id(), rs.endpoint.Name())
 				} else {
 					glog.Errorf("RetryingSender.maybeSend: %+v", senderr)
-					rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
+					rs.recorder.SendFailed(report.Id(), rs.endpoint.Name())
 				}
 			} else {
 				// Send was successful.
-				rs.recorder.SendSucceeded(report.BatchId(), rs.endpoint.Name())
+				rs.recorder.SendSucceeded(report.Id(), rs.endpoint.Name())
 			}
 		}
 

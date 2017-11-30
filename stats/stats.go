@@ -16,7 +16,7 @@ package stats
 
 import "time"
 
-// A Recorder records the result of sending a metrics.MetricBatch to one or more endpoints.
+// A Recorder records the result of sending a metrics.StampedMetricReport to one or more endpoints.
 //
 // A Recorder expects the following flow:
 // 1. The Register method is called immediately prior to performing a send. The method is passed an
@@ -26,20 +26,12 @@ import "time"
 //    registers the result using the SendSucceeded and SendFailed methods. The handlers are most
 //    likely instances of sender.RetryingSender, wrapping endpoints.
 //
-// The batchId value should be set to the value of a MetricsBatch.Id. A handler should most likely
-// be set to the name of an endpoint handling part of the send operation.
+// The id value should be set to the value of a StampedMetricReport.Id. A handler should most
+// likely be set to the name of an endpoint handling part of the send operation.
 type Recorder interface {
-	Register(send ExpectedSend)
-	SendSucceeded(batchId string, handler string)
-	SendFailed(batchId string, handler string)
-}
-
-// An ExpectedSend represents a report that is about to be sent to 1 or more endpoints. ExpectedSend
-// provides both an identifier and a list of handlers that will carry out the send operation. Each
-// handler is expected to register its ultimate success or failure using the same identifier.
-type ExpectedSend interface {
-	BatchId() string
-	Handlers() []string
+	Register(id string, handlers ...string)
+	SendSucceeded(id string, handler string)
+	SendFailed(id string, handler string)
 }
 
 // A Provider provides recorded stats in the form of a Snapshot.
@@ -67,6 +59,6 @@ func NewNoopRecorder() Recorder {
 
 type noopRecorder struct{}
 
-func (*noopRecorder) Register(ExpectedSend)        {}
+func (*noopRecorder) Register(string, ...string)   {}
 func (*noopRecorder) SendSucceeded(string, string) {}
 func (*noopRecorder) SendFailed(string, string)    {}

@@ -66,24 +66,22 @@ func TestServiceControlEndpoint(t *testing.T) {
 
 	t.Run("Report idempotence", func(t *testing.T) {
 		// Test a single report write
-		report1, err := ep.BuildReport(metrics.MetricBatch{
+		report1, err := ep.BuildReport(metrics.StampedMetricReport{
 			Id: "report1",
-			Reports: []metrics.MetricReport{
-				{
-					Name:      "int-metric1",
-					StartTime: time.Unix(0, 0),
-					EndTime:   time.Unix(1, 0),
-					Value: metrics.MetricValue{
-						IntValue: 10,
-					},
+			MetricReport: metrics.MetricReport{
+				Name:      "int-metric1",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+				Value: metrics.MetricValue{
+					IntValue: 10,
 				},
 			},
 		})
 		if err != nil {
 			t.Fatalf("error building report: %+v", err)
 		}
-		if report1.BatchId() != "report1" {
-			t.Fatalf("expected report batch ID to be 'report1', got: %v", report1.BatchId())
+		if report1.Id() != "report1" {
+			t.Fatalf("expected report ID to be 'report1', got: %v", report1.Id())
 		}
 		if err := ep.Send(report1); err != nil {
 			t.Fatalf("error sending report: %+v", err)
@@ -102,27 +100,17 @@ func TestServiceControlEndpoint(t *testing.T) {
 
 	t.Run("Sent contents are correct", func(t *testing.T) {
 		// Test a single report write
-		report1, err := ep.BuildReport(metrics.MetricBatch{
+		report1, err := ep.BuildReport(metrics.StampedMetricReport{
 			Id: "report1",
-			Reports: []metrics.MetricReport{
-				{
-					Name:      "int-metric",
-					StartTime: time.Unix(0, 0),
-					EndTime:   time.Unix(1, 0),
-					Value: metrics.MetricValue{
-						IntValue: 10,
-					},
+			MetricReport: metrics.MetricReport{
+				Name:      "double-metric",
+				StartTime: time.Unix(2, 0),
+				EndTime:   time.Unix(3, 0),
+				Value: metrics.MetricValue{
+					DoubleValue: 20,
 				},
-				{
-					Name:      "double-metric",
-					StartTime: time.Unix(2, 0),
-					EndTime:   time.Unix(3, 0),
-					Value: metrics.MetricValue{
-						DoubleValue: 20,
-					},
-					Labels: map[string]string{
-						"foo": "bar",
-					},
+				Labels: map[string]string{
+					"foo": "bar",
 				},
 			},
 		})
@@ -133,31 +121,9 @@ func TestServiceControlEndpoint(t *testing.T) {
 			t.Fatalf("error sending report: %+v", err)
 		}
 
-		var intVal int64 = 10
 		var doubleVal float64 = 20
 
 		expectedOps := []*servicecontrol.Operation{
-			{
-				OperationName: "test-service.appspot.com/report",
-				StartTime:     time.Unix(0, 0).UTC().Format(time.RFC3339Nano),
-				EndTime:       time.Unix(1, 0).UTC().Format(time.RFC3339Nano),
-				ConsumerId:    "project_number:1234567",
-				UserLabels: map[string]string{
-					"goog-ubb-agent-id": "unique-agent-id",
-				},
-				MetricValueSets: []*servicecontrol.MetricValueSet{
-					{
-						MetricName: "test-service.appspot.com/int-metric",
-						MetricValues: []*servicecontrol.MetricValue{
-							{
-								StartTime:  time.Unix(0, 0).UTC().Format(time.RFC3339Nano),
-								EndTime:    time.Unix(1, 0).UTC().Format(time.RFC3339Nano),
-								Int64Value: &intVal,
-							},
-						},
-					},
-				},
-			},
 			{
 				OperationName: "test-service.appspot.com/report",
 				StartTime:     time.Unix(2, 0).UTC().Format(time.RFC3339Nano),

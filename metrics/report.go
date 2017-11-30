@@ -22,15 +22,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Report represents an aggregated interval for a unique metric + labels combination.
-type MetricReport struct {
-	Name        string
-	StartTime   time.Time
-	EndTime     time.Time
-	Labels      map[string]string
-	Value       MetricValue
-}
-
 // MetricValue holds a single named metric value. Only one of the individual type fields should
 // be non-zero.
 type MetricValue struct {
@@ -38,22 +29,13 @@ type MetricValue struct {
 	DoubleValue float64
 }
 
-// MetricBatch is a collection of MetricReports with an identifier.
-type MetricBatch struct {
-	Id string
-	Reports []MetricReport
-}
-
-// NewMetricBatch creates a new MetricBatch with a random, unique identifier.
-func NewMetricBatch(reports []MetricReport) (MetricBatch, error) {
-	var batch MetricBatch
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return batch, err
-	}
-	batch.Id = id.String()
-	batch.Reports = reports
-	return batch, nil
+// Report represents an aggregated interval for a unique metric + labels combination.
+type MetricReport struct {
+	Name      string
+	StartTime time.Time
+	EndTime   time.Time
+	Labels    map[string]string
+	Value     MetricValue
 }
 
 func (mr MetricReport) Validate(def config.MetricDefinition) error {
@@ -76,4 +58,22 @@ func (mr MetricReport) Validate(def config.MetricDefinition) error {
 		break
 	}
 	return nil
+}
+
+// StampedMetricReport is a MetricReport stamped with a unique identifier.
+type StampedMetricReport struct {
+	Id string
+	MetricReport
+}
+
+// NewStampedMetricReport creates a new StampedMetricReport with a random, unique identifier.
+func NewStampedMetricReport(report MetricReport) (StampedMetricReport, error) {
+	var stamped StampedMetricReport
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return stamped, err
+	}
+	stamped.Id = id.String()
+	stamped.MetricReport = report
+	return stamped, nil
 }

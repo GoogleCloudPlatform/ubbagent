@@ -22,17 +22,17 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	servicecontrol "google.golang.org/api/servicecontrol/v1"
-	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 const (
-	agentIdLabel    = "goog-ubb-agent-id"
-	timeout         = 60 * time.Second
+	agentIdLabel = "goog-ubb-agent-id"
+	timeout      = 60 * time.Second
 )
 
 type ServiceControlEndpoint struct {
@@ -46,12 +46,12 @@ type ServiceControlEndpoint struct {
 }
 
 type serviceControlReport struct {
-	Id      string
-	Request servicecontrol.ReportRequest
+	ReportId string
+	Request  servicecontrol.ReportRequest
 }
 
-func (r serviceControlReport) BatchId() string {
-	return r.Id
+func (r serviceControlReport) Id() string {
+	return r.ReportId
 }
 
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
@@ -99,10 +99,14 @@ func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
 	return nil
 }
 
-func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointReport, error) {
-	ops := make([]*servicecontrol.Operation, len(mb.Reports))
-	for i := range mb.Reports {
-		m := &mb.Reports[i]
+func (ep *ServiceControlEndpoint) BuildReport(r metrics.StampedMetricReport) (endpoint.EndpointReport, error) {
+	reports := []metrics.StampedMetricReport{r}
+	ops := make([]*servicecontrol.Operation, len(reports))
+
+	// TODO(volkman): introduce an interface that allows taking multiple reports from the retry queue
+	// for batching. For now, we just iterate over a slice of length 1.
+	for i := range reports {
+		m := &reports[i]
 		id, err := uuid.NewRandom()
 		if err != nil {
 			return nil, err
@@ -143,7 +147,7 @@ func (ep *ServiceControlEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.
 	}
 
 	return &serviceControlReport{
-		Id: mb.Id,
+		ReportId: r.Id,
 		Request: servicecontrol.ReportRequest{
 			Operations: ops,
 		},

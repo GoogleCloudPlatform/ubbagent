@@ -19,27 +19,29 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/hashicorp/go-multierror"
 )
 
 // Dispatcher is a Sender that fans out to other Sender instances. Generally,
 // this will be a collection of Endpoints wrapped in RetryingSender objects.
 type Dispatcher struct {
-	senders []Sender
-	tracker pipeline.UsageTracker
+	senders  []Sender
+	tracker  pipeline.UsageTracker
+	recorder stats.Recorder
 }
 
 // See Sender.Prepare.
-func (d *Dispatcher) Prepare(mb metrics.MetricBatch) (PreparedSend, error) {
+func (d *Dispatcher) Prepare(reports ...metrics.StampedMetricReport) (PreparedSend, error) {
 	sends := make([]PreparedSend, len(d.senders))
 	for i, s := range d.senders {
-		ps, err := s.Prepare(mb)
+		ps, err := s.Prepare(reports...)
 		if err != nil {
 			return nil, err
 		}
 		sends[i] = ps
 	}
-	return &dispatcherSend{mb.Id, sends}, nil
+	return &dispatcherSend{d, reports, sends}, nil
 }
 
 // Use increments the Dispatcher's usage count.
@@ -67,14 +69,26 @@ func (d *Dispatcher) Release() error {
 	})
 }
 
+func (d *Dispatcher) Endpoints() (handlers []string) {
+	for _, s := range d.senders {
+		handlers = append(handlers, s.Endpoints()...)
+	}
+	return
+}
+
 type dispatcherSend struct {
-	id    string
-	sends []PreparedSend
+	dispatcher *Dispatcher
+	reports    []metrics.StampedMetricReport
+	sends      []PreparedSend
 }
 
 // Send fans out to each PreparedSend in parallel and returns the first error, if any. Send blocks
 // until all sub-sends have finished.
 func (ds *dispatcherSend) Send() error {
+	endpoints := ds.dispatcher.Endpoints()
+	for _, r := range ds.reports {
+		ds.dispatcher.recorder.Register(r.Id, endpoints...)
+	}
 	errors := make([]error, len(ds.sends))
 	wg := sync.WaitGroup{}
 	wg.Add(len(ds.sends))
@@ -88,20 +102,9 @@ func (ds *dispatcherSend) Send() error {
 	return multierror.Append(nil, errors...).ErrorOrNil()
 }
 
-func (ds *dispatcherSend) BatchId() string {
-	return ds.id
-}
-
-func (ds *dispatcherSend) Handlers() (handlers []string) {
-	for _, s := range ds.sends {
-		handlers = append(handlers, s.Handlers()...)
-	}
-	return
-}
-
-func NewDispatcher(senders []Sender) *Dispatcher {
+func NewDispatcher(senders []Sender, recorder stats.Recorder) *Dispatcher {
 	for _, s := range senders {
 		s.Use()
 	}
-	return &Dispatcher{senders: senders}
+	return &Dispatcher{senders: senders, recorder: recorder}
 }
