@@ -30,7 +30,6 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/golang/glog"
-	"github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -62,13 +61,8 @@ type RetryingSender struct {
 }
 
 type addMsg struct {
-	reports []endpoint.EndpointReport
-	result  chan error
-}
-
-type retryingSend struct {
-	rs      *RetryingSender
-	reports []endpoint.EndpointReport
+	report endpoint.EndpointReport
+	result chan error
 }
 
 type queueEntry struct {
@@ -105,30 +99,31 @@ func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persi
 	return rs
 }
 
-func (s *retryingSend) Send() error {
-	err := s.rs.send(s.reports)
+func (rs *RetryingSender) Send(report metrics.StampedMetricReport) error {
+	rs.closeMutex.RLock()
+	defer rs.closeMutex.RUnlock()
+	if rs.closed {
+		return errors.New("RetryingSender: Send called on closed sender")
+	}
+
+	epr, err := rs.endpoint.BuildReport(report)
+	if err != nil {
+		rs.recorder.SendFailed(report.Id, rs.endpoint.Name())
+		return err
+	}
+
+	msg := addMsg{
+		report: epr,
+		result: make(chan error),
+	}
+	rs.add <- msg
+	err = <-msg.result
+
 	if err != nil {
 		// Record this immediate failure.
-		for _, r := range s.reports {
-			s.rs.recorder.SendFailed(r.Id(), s.rs.endpoint.Name())
-		}
+		rs.recorder.SendFailed(report.Id, rs.endpoint.Name())
 	}
 	return err
-}
-
-func (rs *RetryingSender) Prepare(reports ...metrics.StampedMetricReport) (PreparedSend, error) {
-	var ers []endpoint.EndpointReport
-	for _, r := range reports {
-		er, err := rs.endpoint.BuildReport(r)
-		if err != nil {
-			return nil, err
-		}
-		ers = append(ers, er)
-	}
-	return &retryingSend{
-		rs:      rs,
-		reports: ers,
-	}, nil
 }
 
 func (rs *RetryingSender) Endpoints() []string {
@@ -161,15 +156,15 @@ func (rs *RetryingSender) Release() error {
 
 // send persists the given reports and queues them for sending to this sender's associated Endpoint.
 // A call to send blocks until the report is persisted.
-func (rs *RetryingSender) send(reports []endpoint.EndpointReport) error {
+func (rs *RetryingSender) send(report endpoint.EndpointReport) error {
 	rs.closeMutex.RLock()
 	defer rs.closeMutex.RUnlock()
 	if rs.closed {
 		return errors.New("RetryingSender: Send called on closed sender")
 	}
 	msg := addMsg{
-		reports: reports,
-		result:  make(chan error),
+		report: report,
+		result: make(chan error),
 	}
 	rs.add <- msg
 	return <-msg.result
@@ -194,20 +189,19 @@ func (rs *RetryingSender) run() {
 		case msg, ok := <-rs.add:
 			if ok {
 				now := rs.clock.Now()
-				var merr *multierror.Error
-				for _, report := range msg.reports {
-					entry, err := newQueueEntry(report, now)
-					if err != nil {
-						merr = multierror.Append(merr, err)
-						continue
-					}
-
-					err = rs.queue.Enqueue(entry)
-					if err != nil {
-						merr = multierror.Append(merr, err)
-					}
+				entry, err := newQueueEntry(msg.report, now)
+				if err != nil {
+					msg.result <- err
+					break
 				}
-				msg.result <- merr.ErrorOrNil()
+				err = rs.queue.Enqueue(entry)
+				if err != nil {
+					msg.result <- err
+					break
+				}
+
+				// Successfully queued the message
+				msg.result <- nil
 				rs.maybeSend()
 			} else {
 				// Channel was closed.

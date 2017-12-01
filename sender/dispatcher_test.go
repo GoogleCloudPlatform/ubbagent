@@ -26,30 +26,16 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
 
-type mockPreparedSend struct {
-	ms *mockSender
-}
-
-func (ps *mockPreparedSend) Send() error {
-	ps.ms.sendCalled = true
-	return ps.ms.sendErr
-}
-
 type mockSender struct {
-	id            string
-	prepareErr    error
-	sendErr       error
-	prepareCalled bool
-	sendCalled    bool
-	released      bool
+	id         string
+	sendErr    error
+	sendCalled bool
+	released   bool
 }
 
-func (s *mockSender) Prepare(reports ...metrics.StampedMetricReport) (sender.PreparedSend, error) {
-	s.prepareCalled = true
-	if s.prepareErr != nil {
-		return nil, s.prepareErr
-	}
-	return &mockPreparedSend{ms: s}, nil
+func (s *mockSender) Send(report metrics.StampedMetricReport) error {
+	s.sendCalled = true
+	return s.sendErr
 }
 
 func (s *mockSender) Endpoints() []string {
@@ -67,7 +53,7 @@ type mockStatsRecorder struct {
 	registered map[string][]string
 }
 
-func (msr *mockStatsRecorder) Register(id string, handlers ...string) {
+func (msr *mockStatsRecorder) Register(id string, handlers []string) {
 	if msr.registered == nil {
 		msr.registered = make(map[string][]string)
 	}
@@ -92,19 +78,7 @@ func TestDispatcher(t *testing.T) {
 		ms1 := &mockSender{id: "ms1"}
 		ms2 := &mockSender{id: "ms2"}
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
-		s, err := ds.Prepare(report)
-
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		if !ms1.prepareCalled {
-			t.Fatal("ms1.prepareCalled == false")
-		}
-		if !ms2.prepareCalled {
-			t.Fatal("ms2.prepareCalled == false")
-		}
-
-		if err := s.Send(); err != nil {
+		if err := ds.Send(report); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 		if !ms1.sendCalled {
@@ -115,37 +89,12 @@ func TestDispatcher(t *testing.T) {
 		}
 	})
 
-	t.Run("prepare failure", func(t *testing.T) {
-		ms1 := &mockSender{id: "ms1"}
-		ms2 := &mockSender{id: "ms2"}
-		ms2.prepareErr = errors.New("test")
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
-		s, err := ds.Prepare(report)
-		if err == nil {
-			t.Fatal("Expected prepare error, got none")
-		}
-		if err.Error() != "test" {
-			t.Fatalf("Expected error message to be 'test', got: %v", err.Error())
-		}
-		if s != nil {
-			t.Fatal("PreparedSend result should be nil due to prepare error")
-		}
-	})
-
 	t.Run("send failure", func(t *testing.T) {
 		ms1 := &mockSender{id: "ms1"}
 		ms2 := &mockSender{id: "ms2"}
 		ms2.sendErr = errors.New("testabcd")
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
-		s, err := ds.Prepare(report)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		if s == nil {
-			t.Fatal("PreparedSend is nil")
-		}
-
-		err = s.Send()
+		err := ds.Send(report)
 		if !ms1.sendCalled {
 			t.Fatal("ms1.sendCalled == false")
 		}
@@ -221,17 +170,16 @@ func TestDispatcher(t *testing.T) {
 			},
 		}
 
-		send, err := ds.Prepare(r1, r2)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %v", err)
+		if err := ds.Send(r1); err != nil {
+			t.Fatalf("Unexpected send error: %v", err)
 		}
-		if err := send.Send(); err != nil {
+		if err := ds.Send(r2); err != nil {
 			t.Fatalf("Unexpected send error: %v", err)
 		}
 
 		expected := map[string][]string{
-			"r1": []string{"sender1", "sender2"},
-			"r2": []string{"sender1", "sender2"},
+			"r1": {"sender1", "sender2"},
+			"r2": {"sender1", "sender2"},
 		}
 
 		if want, got := expected, msr.registered; !reflect.DeepEqual(want, got) {

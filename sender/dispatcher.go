@@ -31,17 +31,28 @@ type Dispatcher struct {
 	recorder stats.Recorder
 }
 
-// See Sender.Prepare.
-func (d *Dispatcher) Prepare(reports ...metrics.StampedMetricReport) (PreparedSend, error) {
-	sends := make([]PreparedSend, len(d.senders))
-	for i, s := range d.senders {
-		ps, err := s.Prepare(reports...)
-		if err != nil {
-			return nil, err
-		}
-		sends[i] = ps
+// Send fans out to each Sender in parallel and returns any errors. Send blocks
+// until all sub-sends have finished.
+func (d *Dispatcher) Send(report metrics.StampedMetricReport) error {
+
+	// First, register that each report will be handled by this Dispatcher's endpoints.
+	endpoints := d.Endpoints()
+	d.recorder.Register(report.Id, endpoints)
+
+	// Next, forward the reports to each subsequent sender.
+	errors := make([]error, len(d.senders))
+	wg := sync.WaitGroup{}
+	wg.Add(len(d.senders))
+	for i, ps := range d.senders {
+		go func(i int, s Sender) {
+			// If the send generates an error, we assume that the downstream sender will register that
+			// error with the stats recorder.
+			errors[i] = s.Send(report)
+			wg.Done()
+		}(i, ps)
 	}
-	return &dispatcherSend{d, reports, sends}, nil
+	wg.Wait()
+	return multierror.Append(nil, errors...).ErrorOrNil()
 }
 
 // Use increments the Dispatcher's usage count.
@@ -70,36 +81,16 @@ func (d *Dispatcher) Release() error {
 }
 
 func (d *Dispatcher) Endpoints() (handlers []string) {
+	seen := make(map[string]bool)
 	for _, s := range d.senders {
-		handlers = append(handlers, s.Endpoints()...)
+		for _, e := range s.Endpoints() {
+			if _, exists := seen[e]; !exists {
+				seen[e] = true
+				handlers = append(handlers, e)
+			}
+		}
 	}
 	return
-}
-
-type dispatcherSend struct {
-	dispatcher *Dispatcher
-	reports    []metrics.StampedMetricReport
-	sends      []PreparedSend
-}
-
-// Send fans out to each PreparedSend in parallel and returns the first error, if any. Send blocks
-// until all sub-sends have finished.
-func (ds *dispatcherSend) Send() error {
-	endpoints := ds.dispatcher.Endpoints()
-	for _, r := range ds.reports {
-		ds.dispatcher.recorder.Register(r.Id, endpoints...)
-	}
-	errors := make([]error, len(ds.sends))
-	wg := sync.WaitGroup{}
-	wg.Add(len(ds.sends))
-	for i, ps := range ds.sends {
-		go func(i int, ps PreparedSend) {
-			errors[i] = ps.Send()
-			wg.Done()
-		}(i, ps)
-	}
-	wg.Wait()
-	return multierror.Append(nil, errors...).ErrorOrNil()
 }
 
 func NewDispatcher(senders []Sender, recorder stats.Recorder) *Dispatcher {

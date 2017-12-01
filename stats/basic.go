@@ -36,7 +36,7 @@ type Basic struct {
 	current      Snapshot
 }
 
-func (s *Basic) Register(id string, handlers ...string) {
+func (s *Basic) Register(id string, handlers []string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.pendingCount++

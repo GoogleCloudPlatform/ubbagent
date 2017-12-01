@@ -19,17 +19,17 @@ import "time"
 // A Recorder records the result of sending a metrics.StampedMetricReport to one or more endpoints.
 //
 // A Recorder expects the following flow:
-// 1. The Register method is called immediately prior to performing a send. The method is passed an
-//    ExpectedSend instance, which is likely provided by sender.PreparedSend. The agent's
-//    aggregator.Aggregator instance calls Register.
+// 1. The Register method is called prior to performing a send. The method is passed the ID of the
+//    StampedMetricReport being sent and a list of the handlers that will perform the operation.
+//    Register is called by the first Sender in a pipeline, generally a sender.Dispatcher.
 // 2. As each handler succeeds or fails in performing its portion of the overall operation, it
-//    registers the result using the SendSucceeded and SendFailed methods. The handlers are most
-//    likely instances of sender.RetryingSender, wrapping endpoints.
+//    registers the result using the SendSucceeded and SendFailed methods. The handlers are
+//    generally instances of sender.RetryingSender, wrapping endpoints.
 //
-// The id value should be set to the value of a StampedMetricReport.Id. A handler should most
-// likely be set to the name of an endpoint handling part of the send operation.
+// The id value should be set to the value of a StampedMetricReport.Id. A handler should generally
+// be set to the name of an endpoint handling part of the send operation.
 type Recorder interface {
-	Register(id string, handlers ...string)
+	Register(id string, handlers []string)
 	SendSucceeded(id string, handler string)
 	SendFailed(id string, handler string)
 }
@@ -59,6 +59,6 @@ func NewNoopRecorder() Recorder {
 
 type noopRecorder struct{}
 
-func (*noopRecorder) Register(string, ...string)   {}
+func (*noopRecorder) Register(string, []string)    {}
 func (*noopRecorder) SendSucceeded(string, string) {}
 func (*noopRecorder) SendFailed(string, string)    {}

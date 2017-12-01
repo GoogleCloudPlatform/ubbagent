@@ -155,7 +155,7 @@ type recordedEntry struct {
 	handler string
 }
 
-func (sr *mockStatsRecorder) Register(string, ...string) {}
+func (sr *mockStatsRecorder) Register(string, []string) {}
 
 func (sr *mockStatsRecorder) SendSucceeded(id string, handler string) {
 	sr.mutex.Lock()
@@ -224,7 +224,7 @@ func TestRetryingSender(t *testing.T) {
 		ep := newMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		ep.buildErr = errors.New("build failure")
-		_, err := rs.Prepare(report1)
+		err := rs.Send(report1)
 		if err == nil || err.Error() != ep.buildErr.Error() {
 			t.Fatalf("build error: expected: %v, got: %v", ep.buildErr, err)
 		}
@@ -236,11 +236,7 @@ func TestRetryingSender(t *testing.T) {
 		ep := newMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		mc.SetNow(time.Unix(2000, 0))
-		ps, err := rs.Prepare(report1)
-		if err != nil {
-			t.Fatalf("empty queue: unexpected error preparing report: %+v", err)
-		}
-		if err := ps.Send(); err != nil {
+		if err := rs.Send(report1); err != nil {
 			t.Fatalf("empty queue: unexpected error sending report: %+v", err)
 		}
 		select {
@@ -262,11 +258,7 @@ func TestRetryingSender(t *testing.T) {
 		rs := newRetryingSender(ep, persist, newMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		now := time.Unix(3000, 0)
 		mc.SetNow(now)
-		ps, err := rs.Prepare(report1)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		if err := ps.Send(); err != nil {
+		if err := rs.Send(report1); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 		// Exponential delay minimum is 2 seconds (defined above as testMinDelay)
@@ -290,18 +282,10 @@ func TestRetryingSender(t *testing.T) {
 		ep.setSendErr(errors.New("Send failure"))
 		mc.SetNow(time.Unix(4000, 0))
 
-		ps1, err := rs.Prepare(report1)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		ps2, err := rs.Prepare(report2)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		if err := ps1.Send(); err != nil {
+		if err := rs.Send(report1); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
-		if err := ps2.Send(); err != nil {
+		if err := rs.Send(report2); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 
@@ -333,24 +317,11 @@ func TestRetryingSender(t *testing.T) {
 		ep.setSendErr(errors.New("non-fatal"))
 		mc.SetNow(time.Unix(4000, 0))
 
-		ps1, err := rs.Prepare(report1)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		ps2, err := rs.Prepare(report2)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		ps3, err := rs.Prepare(report3)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-
 		ep.doAndWait(t, 1, func() {
-			if err := ps1.Send(); err != nil {
+			if err := rs.Send(report1); err != nil {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
-			if err := ps2.Send(); err != nil {
+			if err := rs.Send(report2); err != nil {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
 		})
@@ -375,7 +346,7 @@ func TestRetryingSender(t *testing.T) {
 		// Now we clear the error and make sure a successful send makes it to our sent chan.
 		ep.doAndWait(t, 4, func() {
 			ep.setSendErr(nil)
-			if err := ps3.Send(); err != nil {
+			if err := rs.Send(report3); err != nil {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
 		})
@@ -395,18 +366,10 @@ func TestRetryingSender(t *testing.T) {
 		ep.setSendErr(errors.New("Send failure"))
 		mc.SetNow(time.Unix(4000, 0))
 
-		ps1, err := rs.Prepare(report1)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		ps2, err := rs.Prepare(report2)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		if err := ps1.Send(); err != nil {
+		if err := rs.Send(report1); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
-		if err := ps2.Send(); err != nil {
+		if err := rs.Send(report2); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 
@@ -452,11 +415,7 @@ func TestRetryingSender(t *testing.T) {
 		mc.SetNow(time.Unix(5000, 0))
 
 		ep.doAndWait(t, 1, func() {
-			ps, err := rs.Prepare(report1)
-			if err != nil {
-				t.Fatalf("Unexpected prepare error: %+v", err)
-			}
-			if err := ps.Send(); err != nil {
+			if err := rs.Send(report1); err != nil {
 				t.Fatalf("Unexpected send error: %+v", err)
 			}
 		})
@@ -484,18 +443,10 @@ func TestRetryingSender(t *testing.T) {
 		rs := newRetryingSender(ep, persist, sr, mc, testMinDelay, testMaxDelay)
 		mc.SetNow(time.Unix(4000, 0))
 
-		ps1, err := rs.Prepare(report1)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		ps2, err := rs.Prepare(report2)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		if err := ps1.Send(); err != nil {
+		if err := rs.Send(report1); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
-		if err := ps2.Send(); err != nil {
+		if err := rs.Send(report2); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 
@@ -514,11 +465,7 @@ func TestRetryingSender(t *testing.T) {
 		// Now we set a send failure and try again. The failure should be registered.
 
 		ep.sendErr = errors.New("FATAL")
-		ps3, err := rs.Prepare(report3)
-		if err != nil {
-			t.Fatalf("Unexpected prepare error: %+v", err)
-		}
-		if err := ps3.Send(); err != nil {
+		if err := rs.Send(report3); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 
