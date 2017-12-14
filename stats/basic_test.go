@@ -27,7 +27,7 @@ func TestSimple(t *testing.T) {
 
 	mc.SetNow(time.Unix(1000, 0))
 
-	s.Register("report1", "handler1", "handler2")
+	s.Register("report1", []string{"handler1", "handler2"})
 	s.SendSucceeded("report1", "handler1")
 	s.SendSucceeded("report1", "handler2")
 
@@ -44,7 +44,7 @@ func TestSimple(t *testing.T) {
 
 	mc.SetNow(time.Unix(1100, 0))
 
-	s.Register("report2", "handler1", "handler2", "handler3")
+	s.Register("report2", []string{"handler1", "handler2", "handler3"})
 	s.SendSucceeded("report2", "handler1")
 
 	// There's still one handler remaining, so the stats should not have updated yet.
@@ -83,7 +83,7 @@ func TestSimple(t *testing.T) {
 		t.Fatalf("snap.TotalFailureCount: want=%v, got=%v", want, got)
 	}
 
-	s.Register("report3", "handler1", "handler2")
+	s.Register("report3", []string{"handler1", "handler2"})
 	s.SendSucceeded("report3", "handler1")
 	s.SendSucceeded("report3", "handler2")
 
@@ -101,7 +101,7 @@ func TestSimple(t *testing.T) {
 
 	// Test that the pending set gets trimmed to MAX_PENDING.
 	for i := 0; i < *maxPendingSends+10; i++ {
-		s.Register(fmt.Sprintf("report%v", i), "handler1", "handler2")
+		s.Register(fmt.Sprintf("report%v", i), []string{"handler1", "handler2"})
 		s.SendSucceeded("report3", "handler1")
 	}
 
