@@ -19,13 +19,15 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
-// EndpointReport is an Endpoint-specific structure that contains a MetricBatch formatted for
-// consumption by the remote service represented by the Endpoint. A report may contain additional
-// information, such as a unique ID used for deduplication. The Dispatcher handles send failure
-// retries, and may call the Endpoint's Send method multiple times with the same Report instance.
+// EndpointReport is an Endpoint-specific structure that contains a StampedMetricReport formatted
+// for consumption by the remote service represented by the Endpoint. A report may contain
+// additional information, such as a unique ID used for deduplication. The Dispatcher handles send
+// failure retries, and may call the Endpoint's Send method multiple times with the same Report
+// instance.
 type EndpointReport interface {
-	// BatchId returns the original Id field from the metrics.MetricBatch used to create this report.
-	BatchId() string
+	// Id returns the original Id field from the metrics.StampedMetricReport used to create this
+	// report.
+	Id() string
 }
 
 // Endpoint represents a metric reporting endpoint that the agent reports to. For example, Cloud
@@ -43,9 +45,9 @@ type Endpoint interface {
 	// will be a pointer to an instance of the endpoint's specific report type.
 	Send(EndpointReport) error
 
-	// BuildReport returns a pointer to an EndpointReport built from the given MetricBatch. The
-	// contents of the report are specific to the endpoint.
-	BuildReport(metrics.MetricBatch) (EndpointReport, error)
+	// BuildReport returns a pointer to an EndpointReport built from the given StampedMetricReport.
+	// The contents of the report are specific to the endpoint.
+	BuildReport(report metrics.StampedMetricReport) (EndpointReport, error)
 
 	// EmptyReport returns a pointer to an empty EndpointReport structure and is used when loading
 	// previously serialized reports from persistent state.

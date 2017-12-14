@@ -27,7 +27,6 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
-	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/golang/glog"
 )
 
@@ -49,7 +48,6 @@ type Aggregator struct {
 	bufferTime    time.Duration
 	sender        sender.Sender
 	persistence   persistence.Persistence
-	recorder      stats.Recorder
 	currentBucket *bucket
 	pushTimer     *time.Timer
 	push          chan chan bool
@@ -61,17 +59,16 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder) *Aggregator {
-	return newAggregator(metric, bufferTime, sender, persistence, recorder, clock.NewRealClock())
+func NewAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
+	return newAggregator(metric, bufferTime, sender, persistence, clock.NewRealClock())
 }
 
-func newAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock) *Aggregator {
+func newAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		metric:      metric,
 		bufferTime:  bufferTime,
 		sender:      sender,
 		persistence: persistence,
-		recorder:    recorder,
 		clock:       clock,
 		push:        make(chan chan bool),
 		add:         make(chan addMsg),
@@ -89,14 +86,14 @@ func newAggregator(metric config.MetricDefinition, bufferTime time.Duration, sen
 // the Aggregator's config object. Two reports can be aggregated if they have the same name, contain
 // the same labels, and don't contain overlapping time ranges denoted by StartTime and EndTme.
 func (h *Aggregator) AddReport(report metrics.MetricReport) error {
-	glog.V(2).Infoln("Aggregator:AddReport()")
+	glog.V(2).Infof("aggregator: received report: %v", report.Name)
 	if err := report.Validate(h.metric); err != nil {
 		return err
 	}
 	h.closeMutex.RLock()
 	defer h.closeMutex.RUnlock()
 	if h.closed {
-		return errors.New("Aggregator: AddReport called on closed aggregator")
+		return errors.New("aggregator: AddReport called on closed aggregator")
 	}
 	msg := addMsg{
 		report: report,
@@ -171,14 +168,14 @@ func (h *Aggregator) loadState() bool {
 		return true
 	}
 	// Some other error loading existing state.
-	panic(fmt.Sprintf("Error loading aggregator state: %+v", err))
+	panic(fmt.Sprintf("error loading aggregator state: %+v", err))
 }
 
 func (h *Aggregator) persistState() {
 	// TODO(volkman): always persist a metric's previous end time, even if no bucket is persisted,
 	// so that the start time of the next report after a restart is validated.
 	if err := h.persistence.Value(h.persistenceName()).Store(h.currentBucket); err != nil {
-		panic(fmt.Sprintf("Error persisting aggregator state: %+v", err))
+		panic(fmt.Sprintf("error persisting aggregator state: %+v", err))
 	}
 }
 
@@ -197,24 +194,22 @@ func (h *Aggregator) pushBucket() {
 		}
 	}
 	if len(finishedReports) > 0 {
-		glog.V(2).Infoln("Aggregator:pushBucket(): sending batch")
-		batch, err := metrics.NewMetricBatch(finishedReports)
-		if err != nil {
-			glog.Errorf("aggregator: error creating batch: %+v", err)
-			return
+		if len(finishedReports) == 1 {
+			glog.V(2).Infoln("aggregator: sending 1 report")
+		} else {
+			glog.V(2).Infof("aggregator: sending %v reports", len(finishedReports))
 		}
-		ps, err := h.sender.Prepare(batch)
-		if err != nil {
-			glog.Errorf("aggregator: error preparing finished bucket: %+v", err)
-			return
-		}
-
-		// Register this send with the stats recorder.
-		h.recorder.Register(ps)
-
-		if err := ps.Send(); err != nil {
-			glog.Errorf("aggregator: error sending finished bucket: %+v", err)
-			return
+		for _, r := range finishedReports {
+			sr, err := metrics.NewStampedMetricReport(r)
+			if err != nil {
+				glog.Errorf("aggregator: error creating stamped report: %+v", err)
+				continue
+			}
+			err = h.sender.Send(sr)
+			if err != nil {
+				glog.Errorf("aggregator: error sending report: %+v", err)
+				continue
+			}
 		}
 	}
 	h.currentBucket = newBucket(now)
@@ -242,7 +237,7 @@ func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 		return false, nil
 	}
 	if mr.StartTime.Before(ar.EndTime) {
-		return false, errors.New(fmt.Sprintf("Time conflict: %v < %v", mr.StartTime, ar.EndTime))
+		return false, fmt.Errorf("time conflict: %v < %v", mr.StartTime, ar.EndTime)
 	}
 	// Only one of these values should be non-zero. We rely on prior validation to ensure the proper
 	// value (i.e., the one specified in the MetricDefinition) is provided.

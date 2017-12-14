@@ -45,12 +45,12 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 	for i := range endpoints {
 		senders[i] = sender.NewRetryingSender(endpoints[i], p, r)
 	}
-	d := sender.NewDispatcher(senders)
+	d := sender.NewDispatcher(senders, r)
 
 	aggregators := make(map[string]pipeline.Head)
 	bufferTime := time.Duration(cfg.Metrics.BufferSeconds) * time.Second
 	for _, def := range cfg.Metrics.Definitions {
-		aggregators[def.Name] = aggregator.NewAggregator(def, bufferTime, d, p, r)
+		aggregators[def.Name] = aggregator.NewAggregator(def, bufferTime, d, p)
 	}
 
 	return pipeline.NewSelector(aggregators), nil

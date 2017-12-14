@@ -40,7 +40,7 @@ var minRetryDelay = flag.Duration("min_retry_delay", 2*time.Second, "minimum exp
 var maxRetryDelay = flag.Duration("max_retry_delay", 60*time.Second, "maximum exponential backoff delay")
 var maxQueueTime = flag.Duration("max_queue_time", 3*time.Hour, "maximum amount of time to keep an entry in the retry queue")
 
-// RetryingSender is a Sender handles sending batches to remote endpoints.
+// RetryingSender is a Sender handles sending reports to remote endpoints.
 // It buffers reports and retries in the event of a send failure, using exponential backoff between
 // retry attempts. Minimum and maximum delays are configurable via the "retrymin" and "retrymax"
 // flags.
@@ -63,11 +63,6 @@ type RetryingSender struct {
 type addMsg struct {
 	report endpoint.EndpointReport
 	result chan error
-}
-
-type retryingSend struct {
-	rs     *RetryingSender
-	report endpoint.EndpointReport
 }
 
 type queueEntry struct {
@@ -104,33 +99,35 @@ func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persi
 	return rs
 }
 
-func (s *retryingSend) Send() error {
-	err := s.rs.send(s.report)
+func (rs *RetryingSender) Send(report metrics.StampedMetricReport) error {
+	rs.closeMutex.RLock()
+	defer rs.closeMutex.RUnlock()
+	if rs.closed {
+		return errors.New("RetryingSender: Send called on closed sender")
+	}
+
+	epr, err := rs.endpoint.BuildReport(report)
+	if err != nil {
+		rs.recorder.SendFailed(report.Id, rs.endpoint.Name())
+		return err
+	}
+
+	msg := addMsg{
+		report: epr,
+		result: make(chan error),
+	}
+	rs.add <- msg
+	err = <-msg.result
+
 	if err != nil {
 		// Record this immediate failure.
-		s.rs.recorder.SendFailed(s.BatchId(), s.rs.endpoint.Name())
+		rs.recorder.SendFailed(report.Id, rs.endpoint.Name())
 	}
 	return err
 }
 
-func (s *retryingSend) BatchId() string {
-	return s.report.BatchId()
-}
-
-func (s *retryingSend) Handlers() []string {
-	return []string{s.rs.endpoint.Name()}
-}
-
-func (rs *RetryingSender) Prepare(batch metrics.MetricBatch) (PreparedSend, error) {
-	var report endpoint.EndpointReport
-	var err error
-	if report, err = rs.endpoint.BuildReport(batch); err != nil {
-		return nil, err
-	}
-	return &retryingSend{
-		rs:     rs,
-		report: report,
-	}, nil
+func (rs *RetryingSender) Endpoints() []string {
+	return []string{rs.endpoint.Name()}
 }
 
 // Use increments the RetryingSender's usage count.
@@ -157,8 +154,8 @@ func (rs *RetryingSender) Release() error {
 	})
 }
 
-// send persists batch and queues it for sending to this sender's associated Endpoint. A call to
-// send blocks until the report is persisted.
+// send persists the given reports and queues them for sending to this sender's associated Endpoint.
+// A call to send blocks until the report is persisted.
 func (rs *RetryingSender) send(report endpoint.EndpointReport) error {
 	rs.closeMutex.RLock()
 	defer rs.closeMutex.RUnlock()
@@ -191,13 +188,21 @@ func (rs *RetryingSender) run() {
 		select {
 		case msg, ok := <-rs.add:
 			if ok {
-				entry, err := newQueueEntry(msg.report, rs.clock.Now())
+				now := rs.clock.Now()
+				entry, err := newQueueEntry(msg.report, now)
 				if err != nil {
 					msg.result <- err
-				} else {
-					msg.result <- rs.queue.Enqueue(entry)
-					rs.maybeSend()
+					break
 				}
+				err = rs.queue.Enqueue(entry)
+				if err != nil {
+					msg.result <- err
+					break
+				}
+
+				// Successfully queued the message
+				msg.result <- nil
+				rs.maybeSend()
 			} else {
 				// Channel was closed.
 				rs.wait.Done()
@@ -243,14 +248,14 @@ func (rs *RetryingSender) maybeSend() {
 					break
 				} else if expired {
 					glog.Errorf("RetryingSender.maybeSend: %+v (retry expired)", senderr)
-					rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
+					rs.recorder.SendFailed(report.Id(), rs.endpoint.Name())
 				} else {
 					glog.Errorf("RetryingSender.maybeSend: %+v", senderr)
-					rs.recorder.SendFailed(report.BatchId(), rs.endpoint.Name())
+					rs.recorder.SendFailed(report.Id(), rs.endpoint.Name())
 				}
 			} else {
 				// Send was successful.
-				rs.recorder.SendSucceeded(report.BatchId(), rs.endpoint.Name())
+				rs.recorder.SendSucceeded(report.Id(), rs.endpoint.Name())
 			}
 		}
 
