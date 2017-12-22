@@ -62,8 +62,8 @@ func (mr MetricReport) Validate(def config.MetricDefinition) error {
 
 // StampedMetricReport is a MetricReport stamped with a unique identifier.
 type StampedMetricReport struct {
-	Id string
-	MetricReport
+	MetricReport `json:",inline"`
+	Id           string
 }
 
 // NewStampedMetricReport creates a new StampedMetricReport with a random, unique identifier.

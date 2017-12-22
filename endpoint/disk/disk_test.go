@@ -82,8 +82,8 @@ func TestDiskEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error building report: %+v", err)
 	}
-	if report2.Id() != "report2" {
-		t.Fatalf("expected report ID to be 'report2', got: %v", report2.Id())
+	if report2.Id != "report2" {
+		t.Fatalf("expected report ID to be 'report2', got: %v", report2.Id)
 	}
 	if err := ep.Send(report2); err != nil {
 		t.Fatalf("error sending report: %+v", err)

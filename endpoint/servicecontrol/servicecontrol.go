@@ -24,7 +24,6 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/golang/glog"
-	"github.com/google/uuid"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	servicecontrol "google.golang.org/api/servicecontrol/v1"
@@ -85,12 +84,14 @@ func (ep *ServiceControlEndpoint) Name() string {
 }
 
 func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
-	r := report.(*serviceControlReport)
+	req := &servicecontrol.ReportRequest{
+		Operations: []*servicecontrol.Operation{ep.format(report)},
+	}
 	glog.V(2).Infoln("ServiceControlEndpoint:Send(): serviceName: ", ep.serviceName, " body: ", func() string {
-		r_json, _ := r.Request.MarshalJSON()
+		r_json, _ := req.MarshalJSON()
 		return string(r_json)
 	}())
-	_, err := ep.service.Services.Report(ep.serviceName, &r.Request).Do()
+	_, err := ep.service.Services.Report(ep.serviceName, req).Do()
 	if err != nil && !googleapi.IsNotModified(err) {
 		return err
 	}
@@ -100,62 +101,44 @@ func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
 }
 
 func (ep *ServiceControlEndpoint) BuildReport(r metrics.StampedMetricReport) (endpoint.EndpointReport, error) {
-	reports := []metrics.StampedMetricReport{r}
-	ops := make([]*servicecontrol.Operation, len(reports))
-
-	// TODO(volkman): introduce an interface that allows taking multiple reports from the retry queue
-	// for batching. For now, we just iterate over a slice of length 1.
-	for i := range reports {
-		m := &reports[i]
-		id, err := uuid.NewRandom()
-		if err != nil {
-			return nil, err
-		}
-
-		value := servicecontrol.MetricValue{
-			StartTime: m.StartTime.UTC().Format(time.RFC3339Nano),
-			EndTime:   m.EndTime.UTC().Format(time.RFC3339Nano),
-		}
-		if m.Value.IntValue != 0 {
-			value.Int64Value = &m.Value.IntValue
-		} else if m.Value.DoubleValue != 0 {
-			value.DoubleValue = &m.Value.DoubleValue
-		}
-
-		ops[i] = &servicecontrol.Operation{
-			OperationId: id.String(),
-			// ServiceControl requires this field but doesn't indicate what it's supposed to be.
-			OperationName: fmt.Sprintf("%v/report", ep.serviceName),
-			StartTime:     m.StartTime.UTC().Format(time.RFC3339Nano),
-			EndTime:       m.EndTime.UTC().Format(time.RFC3339Nano),
-			ConsumerId:    ep.consumerId,
-			UserLabels:    m.Labels,
-			MetricValueSets: []*servicecontrol.MetricValueSet{
-				{
-					MetricName:   fmt.Sprintf("%v/%v", ep.serviceName, m.Name),
-					MetricValues: []*servicecontrol.MetricValue{&value},
-				},
-			},
-		}
-
-		if ops[i].UserLabels == nil {
-			ops[i].UserLabels = make(map[string]string)
-		}
-
-		// Add the agent ID label
-		ops[i].UserLabels[agentIdLabel] = ep.agentId
-	}
-
-	return &serviceControlReport{
-		ReportId: r.Id,
-		Request: servicecontrol.ReportRequest{
-			Operations: ops,
-		},
-	}, nil
+	return endpoint.NewEndpointReport(r, nil)
 }
 
-func (*ServiceControlEndpoint) EmptyReport() endpoint.EndpointReport {
-	return &serviceControlReport{}
+func (ep *ServiceControlEndpoint) format(r endpoint.EndpointReport) *servicecontrol.Operation {
+	value := servicecontrol.MetricValue{
+		StartTime: r.StartTime.UTC().Format(time.RFC3339Nano),
+		EndTime:   r.EndTime.UTC().Format(time.RFC3339Nano),
+	}
+	if r.Value.IntValue != 0 {
+		value.Int64Value = &r.Value.IntValue
+	} else if r.Value.DoubleValue != 0 {
+		value.DoubleValue = &r.Value.DoubleValue
+	}
+
+	op := &servicecontrol.Operation{
+		OperationId: r.Id,
+		// ServiceControl requires this field but doesn't indicate what it's supposed to be.
+		OperationName: fmt.Sprintf("%v/report", ep.serviceName),
+		StartTime:     r.StartTime.UTC().Format(time.RFC3339Nano),
+		EndTime:       r.EndTime.UTC().Format(time.RFC3339Nano),
+		ConsumerId:    ep.consumerId,
+		UserLabels:    r.Labels,
+		MetricValueSets: []*servicecontrol.MetricValueSet{
+			{
+				MetricName:   fmt.Sprintf("%v/%v", ep.serviceName, r.Name),
+				MetricValues: []*servicecontrol.MetricValue{&value},
+			},
+		},
+	}
+
+	if op.UserLabels == nil {
+		op.UserLabels = make(map[string]string)
+	}
+
+	// Add the agent ID label
+	op.UserLabels[agentIdLabel] = ep.agentId
+
+	return op
 }
 
 // Use is a no-op. ServiceControlEndpoint doesn't track usage.
