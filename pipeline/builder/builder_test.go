@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
@@ -40,7 +41,7 @@ func TestBuild(t *testing.T) {
 	cfg := &config.Config{
 		Metrics: &config.Metrics{
 			BufferSeconds: 10,
-			Definitions: []config.MetricDefinition{
+			Definitions: []metrics.Definition{
 				{
 					Name: "int-metric",
 					Type: "int",

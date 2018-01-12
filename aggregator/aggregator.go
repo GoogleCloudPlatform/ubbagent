@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
-	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
@@ -44,7 +43,7 @@ type addMsg struct {
 // See pipeline.Pipeline.
 type Aggregator struct {
 	clock         clock.Clock
-	metric        config.MetricDefinition
+	metric        metrics.Definition
 	bufferTime    time.Duration
 	sender        sender.Sender
 	persistence   persistence.Persistence
@@ -59,11 +58,11 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
+func NewAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
 	return newAggregator(metric, bufferTime, sender, persistence, clock.NewRealClock())
 }
 
-func newAggregator(metric config.MetricDefinition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
+func newAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		metric:      metric,
 		bufferTime:  bufferTime,
@@ -240,7 +239,7 @@ func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 		return false, fmt.Errorf("time conflict: %v < %v", mr.StartTime, ar.EndTime)
 	}
 	// Only one of these values should be non-zero. We rely on prior validation to ensure the proper
-	// value (i.e., the one specified in the MetricDefinition) is provided.
+	// value (i.e., the one specified in the metrics.Definition) is provided.
 	ar.Value.IntValue += mr.Value.IntValue
 	ar.Value.DoubleValue += mr.Value.DoubleValue
 

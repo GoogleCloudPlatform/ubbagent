@@ -19,16 +19,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 func TestMetricReport_Validate(t *testing.T) {
-	int_metric := config.MetricDefinition{
+	int_metric := metrics.Definition{
 		Name: "int-metric",
 		Type: "int",
 	}
-	double_metric := config.MetricDefinition{
+	double_metric := metrics.Definition{
 		Name: "double-metric",
 		Type: "double",
 	}

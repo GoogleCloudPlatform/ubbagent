@@ -18,12 +18,13 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 func TestMetrics_Validate(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		validConfig := config.Metrics{
-			Definitions: []config.MetricDefinition{
+			Definitions: []metrics.Definition{
 				{Name: "int-metric", Type: "int"},
 				{Name: "int-metric2", Type: "int"},
 				{Name: "double-metric", Type: "double"},
@@ -38,7 +39,7 @@ func TestMetrics_Validate(t *testing.T) {
 
 	t.Run("invalid: duplicate metric", func(t *testing.T) {
 		duplicateName := config.Metrics{
-			Definitions: []config.MetricDefinition{
+			Definitions: []metrics.Definition{
 				{Name: "int-metric", Type: "int"},
 				{Name: "int-metric", Type: "int"},
 				{Name: "double-metric", Type: "double"},
@@ -53,7 +54,7 @@ func TestMetrics_Validate(t *testing.T) {
 
 	t.Run("invalid: invalid type", func(t *testing.T) {
 		invalidType := config.Metrics{
-			Definitions: []config.MetricDefinition{
+			Definitions: []metrics.Definition{
 				{Name: "int-metric", Type: "int"},
 				{Name: "int-metric2", Type: "foo"},
 				{Name: "double-metric", Type: "double"},
@@ -69,16 +70,16 @@ func TestMetrics_Validate(t *testing.T) {
 
 func TestMetrics_GetMetricDefinition(t *testing.T) {
 	validConfig := config.Metrics{
-		Definitions: []config.MetricDefinition{
+		Definitions: []metrics.Definition{
 			{Name: "int-metric", Type: "int"},
 			{Name: "int-metric2", Type: "int"},
 			{Name: "double-metric", Type: "double"},
 		},
 	}
 
-	expected := config.MetricDefinition{
-		Name:        "int-metric2",
-		Type:        "int",
+	expected := metrics.Definition{
+		Name: "int-metric2",
+		Type: "int",
 	}
 	actual := validConfig.GetMetricDefinition("int-metric2")
 	if *actual != expected {

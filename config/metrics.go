@@ -17,19 +17,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"sync"
 )
-
-const (
-	IntType    = "int"
-	DoubleType = "double"
-)
-
-// MetricDefinition describes a single reportable metric's name and type.
-type MetricDefinition struct {
-	Name        string
-	Type        string
-}
 
 // Metrics contains the metric definitions that the agent expects to receive.
 type Metrics struct {
@@ -37,18 +27,18 @@ type Metrics struct {
 	BufferSeconds int64
 
 	// The list of reportable metrics
-	Definitions []MetricDefinition `json:"definitions"`
+	Definitions []metrics.Definition `json:"definitions"`
 
 	// Private cache of definitions by name for faster lookup.
 	initOnce          sync.Once
-	definitionsByName map[string]*MetricDefinition
+	definitionsByName map[string]*metrics.Definition
 }
 
-// GetMetricDefinition returns the MetricDefinition with the given name, or nil if it does not
+// GetMetricDefinition returns the metrics.Definition with the given name, or nil if it does not
 // exist.
-func (c *Metrics) GetMetricDefinition(name string) *MetricDefinition {
+func (c *Metrics) GetMetricDefinition(name string) *metrics.Definition {
 	c.initOnce.Do(func() {
-		c.definitionsByName = make(map[string]*MetricDefinition)
+		c.definitionsByName = make(map[string]*metrics.Definition)
 		for i := range c.Definitions {
 			def := &c.Definitions[i]
 			c.definitionsByName[def.Name] = def
@@ -62,16 +52,13 @@ func (c *Metrics) GetMetricDefinition(name string) *MetricDefinition {
 func (m *Metrics) Validate(c *Config) error {
 	usedNames := make(map[string]bool)
 	for _, def := range m.Definitions {
-		if def.Name == "" {
-			return errors.New("missing metric name")
+		if err := def.Validate(); err != nil {
+			return err
 		}
 		if usedNames[def.Name] {
 			return errors.New(fmt.Sprintf("metric %v: duplicate name: %v", def.Name, def.Name))
 		}
 		usedNames[def.Name] = true
-		if def.Type != IntType && def.Type != DoubleType {
-			return errors.New(fmt.Sprintf("metric %s: invalid type: %v", def.Name, def.Type))
-		}
 	}
 	return nil
 }

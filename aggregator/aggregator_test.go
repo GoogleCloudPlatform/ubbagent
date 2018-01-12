@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
-	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 )
@@ -107,7 +106,7 @@ func TestNewAggregator(t *testing.T) {
 		// Ensures that a new aggregator loads previous state
 		p := persistence.NewMemoryPersistence()
 
-		metric := config.MetricDefinition{
+		metric := metrics.Definition{
 			Name: "int-metric",
 			Type: "int",
 		}
@@ -207,7 +206,7 @@ func TestNewAggregator(t *testing.T) {
 
 func TestAggregator_Use(t *testing.T) {
 	s := newMockSender("sender")
-	metric := config.MetricDefinition{}
+	metric := metrics.Definition{}
 	bufTime := 10 * time.Second
 
 	// Test multiple usages of the Aggregator.
@@ -227,7 +226,7 @@ func TestAggregator_Use(t *testing.T) {
 }
 
 func TestAggregator_AddReport(t *testing.T) {
-	metric := config.MetricDefinition{
+	metric := metrics.Definition{
 		Name: "int-metric",
 		Type: "int",
 	}

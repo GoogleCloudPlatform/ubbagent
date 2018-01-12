@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/ghodss/yaml"
 )
 
@@ -90,14 +91,14 @@ endpoints:
 		},
 		Metrics: &config.Metrics{
 			BufferSeconds: 10,
-			Definitions: []config.MetricDefinition{
+			Definitions: []metrics.Definition{
 				{
-					Name:        "int-metric",
-					Type:        "int",
+					Name: "int-metric",
+					Type: "int",
 				},
 				{
-					Name:        "double-metric",
-					Type:        "double",
+					Name: "double-metric",
+					Type: "double",
 				},
 			},
 		},
@@ -192,10 +193,10 @@ func TestConfig_Validate(t *testing.T) {
 
 	goodMetrics := &config.Metrics{
 		BufferSeconds: 10,
-		Definitions: []config.MetricDefinition{
+		Definitions: []metrics.Definition{
 			{
-				Name:        "int-metric",
-				Type:        "int",
+				Name: "int-metric",
+				Type: "int",
 			},
 		},
 	}
@@ -212,12 +213,12 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("missing service account key", func(t *testing.T) {
 		c := &config.Config{
-			Metrics: goodMetrics,
+			Metrics:   goodMetrics,
 			Endpoints: goodEndpoints,
 			Identities: []config.Identity{
 				{
 					Name: "gcp",
-					GCP: &config.GCPIdentity{},
+					GCP:  &config.GCPIdentity{},
 				},
 			},
 		}
@@ -267,9 +268,9 @@ func TestConfig_Validate(t *testing.T) {
 		// More tests in the TestMetrics_Validate method.
 		c := &config.Config{
 			Identities: goodIdentities,
-			Endpoints: goodEndpoints,
+			Endpoints:  goodEndpoints,
 			Metrics: &config.Metrics{
-				Definitions: []config.MetricDefinition{
+				Definitions: []metrics.Definition{
 					{Name: "foo", Type: "foo"},
 				},
 			},
@@ -293,7 +294,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing endpoint name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Disk: &config.DiskEndpoint{
@@ -312,7 +313,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing endpoint type", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
@@ -328,7 +329,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("too many endpoint types", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
@@ -351,7 +352,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("multiple endpoints with the same name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
@@ -378,7 +379,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing identity name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
@@ -398,7 +399,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("nonexistent identity name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
@@ -419,7 +420,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing service name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
@@ -439,7 +440,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing consumer ID", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
@@ -459,7 +460,7 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("invalid consumer ID", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
 				{
 					Name: "foo",
