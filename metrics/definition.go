@@ -35,7 +35,7 @@ func (m *Definition) Validate() error {
 		return errors.New("missing metric name")
 	}
 	if m.Type != IntType && m.Type != DoubleType {
-		return fmt.Errorf("metric %s: invalid type: %v", m.Name, m.Type)
+		return fmt.Errorf("metric %v: invalid value type: %v", m.Name, m.Type)
 	}
 	return nil
 }

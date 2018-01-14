@@ -18,41 +18,93 @@ import (
 	"errors"
 	"fmt"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"sync"
+	"reflect"
 )
 
-// Metrics contains the metric definitions that the agent expects to receive.
-type Metrics struct {
+type Metrics []Metric
+
+type Metric struct {
+	metrics.Definition `json:",inline"`
+	Endpoints          []MetricEndpoint `json:"endpoints"`
+
+	// oneof
+	Reported *ReportedMetric `json:"reported"`
+}
+
+type MetricEndpoint struct {
+	Name string `json:"name"`
+}
+
+type ReportedMetric struct {
 	// The number of seconds that metrics should be aggregated prior to forwarding
-	BufferSeconds int64
+	BufferSeconds int64 `json:"bufferSeconds"`
+}
 
-	// The list of reportable metrics
-	Definitions []metrics.Definition `json:"definitions"`
+func (m *Metric) Validate(c *Config) error {
+	if err := m.Definition.Validate(); err != nil {
+		return err
+	}
+	types := 0
+	for _, v := range []Validatable{m.Reported} {
+		if reflect.ValueOf(v).IsNil() {
+			continue
+		}
+		if err := v.Validate(c); err != nil {
+			return err
+		}
+		types++
+	}
 
-	// Private cache of definitions by name for faster lookup.
-	initOnce          sync.Once
-	definitionsByName map[string]*metrics.Definition
+	if types == 0 {
+		return fmt.Errorf("metric %v: missing type configuration", m.Name)
+	}
+
+	if types > 1 {
+		return fmt.Errorf("metric %v: multiple type configurations", m.Name)
+	}
+
+	if len(m.Endpoints) == 0 {
+		return fmt.Errorf("metric %v: no endpoints defined", m.Name)
+	}
+
+	usedEndpoints := make(map[string]bool)
+	for _, e := range m.Endpoints {
+		if e.Name == "" {
+			return fmt.Errorf("metric %v: endpoint missing name", m.Name)
+		}
+		if !c.Endpoints.exists(e.Name) {
+			return fmt.Errorf("metric %v: endpoint does not exist: %v", m.Name, e.Name)
+		}
+		if usedEndpoints[e.Name] {
+			return fmt.Errorf("metric %v: endpoint listed twice: %v", m.Name, e.Name)
+		}
+		usedEndpoints[e.Name] = true
+	}
+
+	return nil
+}
+
+func (rm *ReportedMetric) Validate(c *Config) error {
+	return nil
 }
 
 // GetMetricDefinition returns the metrics.Definition with the given name, or nil if it does not
 // exist.
-func (c *Metrics) GetMetricDefinition(name string) *metrics.Definition {
-	c.initOnce.Do(func() {
-		c.definitionsByName = make(map[string]*metrics.Definition)
-		for i := range c.Definitions {
-			def := &c.Definitions[i]
-			c.definitionsByName[def.Name] = def
+func (m Metrics) GetMetricDefinition(name string) *metrics.Definition {
+	for i := range m {
+		if m[i].Name == name {
+			return &m[i].Definition
 		}
-	})
-	return c.definitionsByName[name]
+	}
+	return nil
 }
 
 // Validate checks validity of metric configuration. Specifically, it must not contain duplicate
 // metric definitions, and metric definitions must specify valid type names.
-func (m *Metrics) Validate(c *Config) error {
+func (m Metrics) Validate(c *Config) error {
 	usedNames := make(map[string]bool)
-	for _, def := range m.Definitions {
-		if err := def.Validate(); err != nil {
+	for _, def := range m {
+		if err := def.Validate(c); err != nil {
 			return err
 		}
 		if usedNames[def.Name] {

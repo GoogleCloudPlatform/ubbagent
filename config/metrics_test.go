@@ -22,16 +22,53 @@ import (
 )
 
 func TestMetrics_Validate(t *testing.T) {
+
+	conf := config.Config{
+		Endpoints: config.Endpoints{
+			{
+				Name: "disk1",
+				Disk: &config.DiskEndpoint{
+					ReportDir:     "/tmp/foo1",
+					ExpireSeconds: 3600,
+				},
+			},
+			{
+				Name: "disk2",
+				Disk: &config.DiskEndpoint{
+					ReportDir:     "/tmp/foo2",
+					ExpireSeconds: 3600,
+				},
+			},
+		},
+	}
+
+	goodReported := &config.ReportedMetric{
+		BufferSeconds: 10,
+	}
+	goodEndpoints := []config.MetricEndpoint{
+		{Name: "disk1"},
+	}
+
 	t.Run("valid", func(t *testing.T) {
 		validConfig := config.Metrics{
-			Definitions: []metrics.Definition{
-				{Name: "int-metric", Type: "int"},
-				{Name: "int-metric2", Type: "int"},
-				{Name: "double-metric", Type: "double"},
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:  goodEndpoints,
+				Reported:   goodReported,
+			},
+			{
+				Definition: metrics.Definition{Name: "int-metric2", Type: "int"},
+				Endpoints:  goodEndpoints,
+				Reported:   goodReported,
+			},
+			{
+				Definition: metrics.Definition{Name: "double-metric", Type: "double"},
+				Endpoints:  goodEndpoints,
+				Reported:   goodReported,
 			},
 		}
 
-		err := validConfig.Validate(nil)
+		err := validConfig.Validate(&conf)
 		if err != nil {
 			t.Fatalf("Expected no error, got: %s", err)
 		}
@@ -39,30 +76,118 @@ func TestMetrics_Validate(t *testing.T) {
 
 	t.Run("invalid: duplicate metric", func(t *testing.T) {
 		duplicateName := config.Metrics{
-			Definitions: []metrics.Definition{
-				{Name: "int-metric", Type: "int"},
-				{Name: "int-metric", Type: "int"},
-				{Name: "double-metric", Type: "double"},
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:  goodEndpoints,
+				Reported:   goodReported,
+			},
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:  goodEndpoints,
+				Reported:   goodReported,
 			},
 		}
 
-		err := duplicateName.Validate(nil)
+		err := duplicateName.Validate(&conf)
 		if err == nil || err.Error() != "metric int-metric: duplicate name: int-metric" {
 			t.Fatalf("Expected error, got: %s", err)
 		}
 	})
 
-	t.Run("invalid: invalid type", func(t *testing.T) {
+	t.Run("invalid: invalid value type", func(t *testing.T) {
 		invalidType := config.Metrics{
-			Definitions: []metrics.Definition{
-				{Name: "int-metric", Type: "int"},
-				{Name: "int-metric2", Type: "foo"},
-				{Name: "double-metric", Type: "double"},
+			{
+				Definition: metrics.Definition{Name: "int-metric2", Type: "foo"},
+				Endpoints:  goodEndpoints,
+				Reported:   goodReported,
 			},
 		}
 
-		err := invalidType.Validate(nil)
-		if err == nil || err.Error() != "metric int-metric2: invalid type: foo" {
+		err := invalidType.Validate(&conf)
+		if err == nil || err.Error() != "metric int-metric2: invalid value type: foo" {
+			t.Fatalf("Expected error, got: %s", err)
+		}
+	})
+
+	t.Run("invalid: missing type configuration", func(t *testing.T) {
+		invalidType := config.Metrics{
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:  goodEndpoints,
+			},
+		}
+
+		err := invalidType.Validate(&conf)
+		if err == nil || err.Error() != "metric int-metric: missing type configuration" {
+			t.Fatalf("Expected error, got: %s", err)
+		}
+	})
+
+	t.Run("invalid: no endpoints defined", func(t *testing.T) {
+		invalidType := config.Metrics{
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Reported:   goodReported,
+			},
+		}
+
+		err := invalidType.Validate(&conf)
+		if err == nil || err.Error() != "metric int-metric: no endpoints defined" {
+			t.Fatalf("Expected error, got: %s", err)
+		}
+	})
+
+	t.Run("invalid: endpoint missing name", func(t *testing.T) {
+		invalidType := config.Metrics{
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Reported:   goodReported,
+				Endpoints: []config.MetricEndpoint{
+					{Name: "disk1"},
+					{},
+				},
+			},
+		}
+
+		err := invalidType.Validate(&conf)
+		if err == nil || err.Error() != "metric int-metric: endpoint missing name" {
+			t.Fatalf("Expected error, got: %s", err)
+		}
+	})
+
+	t.Run("invalid: endpoint does not exist", func(t *testing.T) {
+		invalidType := config.Metrics{
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Reported:   goodReported,
+				Endpoints: []config.MetricEndpoint{
+					{Name: "disk1"},
+					{Name: "bogus"},
+				},
+			},
+		}
+
+		err := invalidType.Validate(&conf)
+		if err == nil || err.Error() != "metric int-metric: endpoint does not exist: bogus" {
+			t.Fatalf("Expected error, got: %s", err)
+		}
+	})
+
+	t.Run("invalid: endpoint listed twice", func(t *testing.T) {
+		invalidType := config.Metrics{
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Reported:   goodReported,
+				Endpoints: []config.MetricEndpoint{
+					{Name: "disk1"},
+					{Name: "disk2"},
+					{Name: "disk2"},
+				},
+			},
+		}
+
+		err := invalidType.Validate(&conf)
+		if err == nil || err.Error() != "metric int-metric: endpoint listed twice: disk2" {
 			t.Fatalf("Expected error, got: %s", err)
 		}
 	})
@@ -70,11 +195,9 @@ func TestMetrics_Validate(t *testing.T) {
 
 func TestMetrics_GetMetricDefinition(t *testing.T) {
 	validConfig := config.Metrics{
-		Definitions: []metrics.Definition{
-			{Name: "int-metric", Type: "int"},
-			{Name: "int-metric2", Type: "int"},
-			{Name: "double-metric", Type: "double"},
-		},
+		{Definition: metrics.Definition{Name: "int-metric", Type: "int"}},
+		{Definition: metrics.Definition{Name: "int-metric2", Type: "int"}},
+		{Definition: metrics.Definition{Name: "double-metric", Type: "double"}},
 	}
 
 	expected := metrics.Definition{
