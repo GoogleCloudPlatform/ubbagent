@@ -22,16 +22,16 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-// Selector is a pipeline.Head that routes a MetricReport to another pipeline.Head based on the
+// Selector is a pipeline.Input that routes a MetricReport to another pipeline.Input based on the
 // metric name.
 type Selector struct {
-	// Map of metric names to pipeline.Head objects.
-	heads   map[string]Head
+	// Map of metric names to pipeline.Input objects.
+	inputs  map[string]Input
 	tracker UsageTracker
 }
 
 func (s *Selector) AddReport(report metrics.MetricReport) error {
-	a, ok := s.heads[report.Name]
+	a, ok := s.inputs[report.Name]
 	if !ok {
 		return fmt.Errorf("selector: unknown metric: %v", report.Name)
 	}
@@ -49,12 +49,12 @@ func (s *Selector) Use() {
 // See pipeline.Component.Release.
 func (s *Selector) Release() error {
 	return s.tracker.Release(func() error {
-		errors := make([]error, len(s.heads))
+		errors := make([]error, len(s.inputs))
 		wg := sync.WaitGroup{}
-		wg.Add(len(s.heads))
+		wg.Add(len(s.inputs))
 		var i int
-		for _, a := range s.heads {
-			go func(i int, a Head) {
+		for _, a := range s.inputs {
+			go func(i int, a Input) {
 				errors[i] = a.Release()
 				wg.Done()
 			}(i, a)
@@ -65,9 +65,9 @@ func (s *Selector) Release() error {
 	})
 }
 
-func NewSelector(heads map[string]Head) *Selector {
-	for _, a := range heads {
+func NewSelector(inputs map[string]Input) *Selector {
+	for _, a := range inputs {
 		a.Use()
 	}
-	return &Selector{heads: heads}
+	return &Selector{inputs: inputs}
 }

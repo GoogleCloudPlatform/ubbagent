@@ -23,26 +23,26 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
-type mockHead struct {
+type mockInput struct {
 	released bool
 	report   *metrics.MetricReport
 }
 
-func (s *mockHead) AddReport(report metrics.MetricReport) error {
+func (s *mockInput) AddReport(report metrics.MetricReport) error {
 	s.report = &report
 	return nil
 }
 
-func (s *mockHead) Use() {}
+func (s *mockInput) Use() {}
 
-func (s *mockHead) Release() error {
+func (s *mockInput) Release() error {
 	s.released = true
 	return nil
 }
 
 func TestSelector(t *testing.T) {
-	mock1 := &mockHead{}
-	mock2 := &mockHead{}
+	mock1 := &mockInput{}
+	mock2 := &mockInput{}
 
 	report1 := metrics.MetricReport{
 		Name:      "metric1",
@@ -71,12 +71,12 @@ func TestSelector(t *testing.T) {
 		},
 	}
 
-	heads := map[string]pipeline.Head{
+	inputs := map[string]pipeline.Input{
 		"metric1": mock1,
 		"metric2": mock2,
 	}
 
-	s := pipeline.NewSelector(heads)
+	s := pipeline.NewSelector(inputs)
 
 	t.Run("proper selection", func(t *testing.T) {
 		if err := s.AddReport(report1); err != nil {
