@@ -29,9 +29,9 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
-// Head represents the start of a pipeline. It is a Component that accepts metric reports as input.
-type Head interface {
-	// Head is also a Component.
+// Input represents a Component that accepts reports from an external source.
+type Input interface {
+	// Input is also a Component.
 	Component
 
 	// AddReport adds a report to the pipeline. It returns an error if one is known immediately,
@@ -56,7 +56,7 @@ type Component interface {
 	// 3. Call Release on all downstream components, waiting for their release operations to
 	//    complete.
 	//
-	// As a result, calling Release on all of the pipeline Head components should result in a graceful
+	// As a result, calling Release on all of the pipeline Input components should result in a graceful
 	// shutdown of all Components in the correct order.
 	//
 	// Release returns an error if it or any of its downstream components generate one.

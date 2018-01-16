@@ -31,8 +31,8 @@ import (
 )
 
 // Build builds pipeline containing a configured Aggregator and all of the resources
-// (persistence, endpoints) behind it. It returns the pipeline.Head.
-func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pipeline.Head, error) {
+// (persistence, endpoints) behind it. It returns the pipeline.Input.
+func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pipeline.Input, error) {
 	agentId, err := agentid.CreateOrGet(p)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		senders[endpoints[i].Name()] = sender.NewRetryingSender(endpoints[i], p, r)
 	}
 
-	aggregators := make(map[string]pipeline.Head)
+	aggregators := make(map[string]pipeline.Input)
 	for _, metric := range cfg.Metrics {
 		var msenders []sender.Sender
 		for _, me := range metric.Endpoints {

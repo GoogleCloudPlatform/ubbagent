@@ -27,7 +27,7 @@ import (
 )
 
 type HttpInterface struct {
-	pipeline pipeline.Head
+	pipeline pipeline.Input
 	provider stats.Provider
 	port     int
 	mux      http.ServeMux
@@ -36,7 +36,7 @@ type HttpInterface struct {
 
 // NewHttpInterface creates a new agent interface that listens on the given port. The interface
 // must be started with a call to ListenAndServe().
-func NewHttpInterface(pipeline pipeline.Head, provider stats.Provider, port int) *HttpInterface {
+func NewHttpInterface(pipeline pipeline.Input, provider stats.Provider, port int) *HttpInterface {
 	h := &HttpInterface{pipeline: pipeline, provider: provider, port: port}
 	h.mux.HandleFunc("/report", h.handleAdd)
 	h.mux.HandleFunc("/status", h.handleStatus)
