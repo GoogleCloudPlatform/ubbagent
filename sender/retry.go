@@ -15,7 +15,6 @@
 package sender
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"math"
@@ -61,21 +60,13 @@ type RetryingSender struct {
 }
 
 type addMsg struct {
-	report endpoint.EndpointReport
+	entry  queueEntry
 	result chan error
 }
 
 type queueEntry struct {
+	Report   endpoint.EndpointReport
 	SendTime time.Time
-	Report   json.RawMessage
-}
-
-func newQueueEntry(report endpoint.EndpointReport, sendTime time.Time) (*queueEntry, error) {
-	bytes, err := json.Marshal(report)
-	if err != nil {
-		return nil, err
-	}
-	return &queueEntry{Report: json.RawMessage(bytes), SendTime: sendTime}, nil
 }
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
@@ -113,7 +104,7 @@ func (rs *RetryingSender) Send(report metrics.StampedMetricReport) error {
 	}
 
 	msg := addMsg{
-		report: epr,
+		entry:  queueEntry{epr, rs.clock.Now()},
 		result: make(chan error),
 	}
 	rs.add <- msg
@@ -154,22 +145,6 @@ func (rs *RetryingSender) Release() error {
 	})
 }
 
-// send persists the given reports and queues them for sending to this sender's associated Endpoint.
-// A call to send blocks until the report is persisted.
-func (rs *RetryingSender) send(report endpoint.EndpointReport) error {
-	rs.closeMutex.RLock()
-	defer rs.closeMutex.RUnlock()
-	if rs.closed {
-		return errors.New("RetryingSender: Send called on closed sender")
-	}
-	msg := addMsg{
-		report: report,
-		result: make(chan error),
-	}
-	rs.add <- msg
-	return <-msg.result
-}
-
 func (rs *RetryingSender) run() {
 	// Start with an initial call to maybeSend() to start sending any persisted state.
 	rs.maybeSend()
@@ -188,13 +163,7 @@ func (rs *RetryingSender) run() {
 		select {
 		case msg, ok := <-rs.add:
 			if ok {
-				now := rs.clock.Now()
-				entry, err := newQueueEntry(msg.report, now)
-				if err != nil {
-					msg.result <- err
-					break
-				}
-				err = rs.queue.Enqueue(entry)
+				err := rs.queue.Enqueue(msg.entry)
 				if err != nil {
 					msg.result <- err
 					break
@@ -230,33 +199,27 @@ func (rs *RetryingSender) maybeSend() {
 			// We failed to load from the persistent queue. This isn't recoverable.
 			panic("RetryingSender.maybeSend: loading from retry queue: " + loaderr.Error())
 		}
-		report := rs.endpoint.EmptyReport()
-		if loaderr := json.Unmarshal(entry.Report, report); loaderr != nil {
-			// Failed to unmarshal this report. Log an error and attempt to pop it off the queue down below.
-			glog.Errorf("Failed to unmarshal report; removing from queue: %+v", loaderr)
-		} else {
-			if senderr := rs.endpoint.Send(report); senderr != nil {
-				// We've encountered a send error. If the error is considered transient and the entry hasn't
-				// reached its maximum queue time, we'll leave it in the queue and retry. Otherwise it's
-				// removed from the queue, logged, and recorded as a failure.
-				expired := rs.clock.Now().Sub(entry.SendTime) > *maxQueueTime
-				if !expired && rs.endpoint.IsTransient(senderr) {
-					// Set next attempt
-					rs.lastAttempt = now
-					rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
-					glog.Warningf("RetryingSender.maybeSend: %+v (will retry)", senderr)
-					break
-				} else if expired {
-					glog.Errorf("RetryingSender.maybeSend: %+v (retry expired)", senderr)
-					rs.recorder.SendFailed(report.Id(), rs.endpoint.Name())
-				} else {
-					glog.Errorf("RetryingSender.maybeSend: %+v", senderr)
-					rs.recorder.SendFailed(report.Id(), rs.endpoint.Name())
-				}
+		if senderr := rs.endpoint.Send(entry.Report); senderr != nil {
+			// We've encountered a send error. If the error is considered transient and the entry hasn't
+			// reached its maximum queue time, we'll leave it in the queue and retry. Otherwise it's
+			// removed from the queue, logged, and recorded as a failure.
+			expired := rs.clock.Now().Sub(entry.SendTime) > *maxQueueTime
+			if !expired && rs.endpoint.IsTransient(senderr) {
+				// Set next attempt
+				rs.lastAttempt = now
+				rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
+				glog.Warningf("RetryingSender.maybeSend: %+v (will retry)", senderr)
+				break
+			} else if expired {
+				glog.Errorf("RetryingSender.maybeSend: %+v (retry expired)", senderr)
+				rs.recorder.SendFailed(entry.Report.Id, rs.endpoint.Name())
 			} else {
-				// Send was successful.
-				rs.recorder.SendSucceeded(report.Id(), rs.endpoint.Name())
+				glog.Errorf("RetryingSender.maybeSend: %+v", senderr)
+				rs.recorder.SendFailed(entry.Report.Id, rs.endpoint.Name())
 			}
+		} else {
+			// Send was successful.
+			rs.recorder.SendSucceeded(entry.Report.Id, rs.endpoint.Name())
 		}
 
 		// At this point we've either successfully sent the report or encountered a non-transient error.

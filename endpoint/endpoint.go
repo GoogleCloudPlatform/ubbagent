@@ -15,19 +15,36 @@
 package endpoint
 
 import (
+	"encoding/json"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
-// EndpointReport is an Endpoint-specific structure that contains a StampedMetricReport formatted
-// for consumption by the remote service represented by the Endpoint. A report may contain
-// additional information, such as a unique ID used for deduplication. The Dispatcher handles send
-// failure retries, and may call the Endpoint's Send method multiple times with the same Report
-// instance.
-type EndpointReport interface {
-	// Id returns the original Id field from the metrics.StampedMetricReport used to create this
-	// report.
-	Id() string
+// EndpointReport is a metrics.StampedMetricReport containing optional endpoint-specific context
+// that can be used to help ensure idempotence across retries. For example, if a reporting service
+// requires a unique ID or timestamp that remains the same during each retry so that requests can
+// be deduplicated, that identifier can be generated in BuildReport, persisted in the
+// EndpointReport's context, and resent with each retry.
+type EndpointReport struct {
+	metrics.StampedMetricReport `json:",inline"`
+	Context                     json.RawMessage
+}
+
+// UnmarshalContext unmarshals an EndpointReport's context into the given struct.
+func (er *EndpointReport) UnmarshalContext(ctx interface{}) error {
+	return json.Unmarshal(er.Context, ctx)
+}
+
+func NewEndpointReport(report metrics.StampedMetricReport, context interface{}) (EndpointReport, error) {
+	var msg json.RawMessage
+	if context != nil {
+		bytes, err := json.Marshal(context)
+		if err != nil {
+			return EndpointReport{}, err
+		}
+		msg = json.RawMessage(bytes)
+	}
+	return EndpointReport{report, msg}, nil
 }
 
 // Endpoint represents a metric reporting endpoint that the agent reports to. For example, Cloud
@@ -41,17 +58,13 @@ type Endpoint interface {
 	// of the same type of endpoint with different names.
 	Name() string
 
-	// Send sends an EndpointReport previously built by this Endpoint. The EndpointReport value
-	// will be a pointer to an instance of the endpoint's specific report type.
+	// Send sends the given EndpointReport - previously built by this endpoint - to the reporting
+	// service.
 	Send(EndpointReport) error
 
-	// BuildReport returns a pointer to an EndpointReport built from the given StampedMetricReport.
-	// The contents of the report are specific to the endpoint.
+	// BuildReport builds an EndpointReport from the given StampedMetricReport, optionally attaching
+	// context.
 	BuildReport(report metrics.StampedMetricReport) (EndpointReport, error)
-
-	// EmptyReport returns a pointer to an empty EndpointReport structure and is used when loading
-	// previously serialized reports from persistent state.
-	EmptyReport() EndpointReport
 
 	// IsTransient returns true if the given error indicates that the operation failed due to some
 	// transient error and can be retried.

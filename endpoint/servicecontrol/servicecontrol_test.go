@@ -80,8 +80,8 @@ func TestServiceControlEndpoint(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error building report: %+v", err)
 		}
-		if report1.Id() != "report1" {
-			t.Fatalf("expected report ID to be 'report1', got: %v", report1.Id())
+		if report1.Id != "report1" {
+			t.Fatalf("expected report ID to be 'report1', got: %v", report1.Id)
 		}
 		if err := ep.Send(report1); err != nil {
 			t.Fatalf("error sending report: %+v", err)

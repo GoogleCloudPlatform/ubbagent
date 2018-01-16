@@ -33,15 +33,6 @@ const (
 	testMaxDelay = 60 * time.Second
 )
 
-// Type mockReport is a mock endpoint.EndpointReport.
-type mockReport struct {
-	Report metrics.StampedMetricReport
-}
-
-func (r mockReport) Id() string {
-	return r.Report.Id
-}
-
 // Type waitForCalls is a base type that provides a doAndWait function.
 type waitForCalls struct {
 	calls    int32
@@ -100,13 +91,9 @@ func (ep *mockEndpoint) Send(report endpoint.EndpointReport) error {
 
 func (ep *mockEndpoint) BuildReport(report metrics.StampedMetricReport) (endpoint.EndpointReport, error) {
 	if ep.buildErr != nil {
-		return nil, ep.buildErr
+		return endpoint.EndpointReport{}, ep.buildErr
 	}
-	return &mockReport{Report: report}, nil
-}
-
-func (ep *mockEndpoint) EmptyReport() endpoint.EndpointReport {
-	return &mockReport{}
+	return endpoint.NewEndpointReport(report, nil)
 }
 
 func (ep *mockEndpoint) Use() {}
@@ -241,9 +228,8 @@ func TestRetryingSender(t *testing.T) {
 		}
 		select {
 		case rep := <-ep.sent:
-			mr := rep.(*mockReport)
-			if !reflect.DeepEqual(mr.Report, report1) {
-				t.Fatalf("Sent report contains incorrect report: expected: %+v got: %+v", report1, mr.Report)
+			if !reflect.DeepEqual(rep.StampedMetricReport, report1) {
+				t.Fatalf("Sent report contains incorrect report: expected: %+v got: %+v", report1, rep.StampedMetricReport)
 			}
 		case <-time.After(5 * time.Second):
 			t.Fatal("Failed to receive sent report after 5 seconds")
