@@ -3,7 +3,7 @@
 This metering agent simplifies usage metering of applications and can be used as part of a usage-based billing strategy. It performs the following functions:
 * Accepts usage reports from a local source, such as an application processing requests
 * Aggregates that usage and persists it across restarts
-* Ultimately forwards usage to one or more endpoints, retrying in the case of failures
+* Forwards usage to one or more endpoints, retrying in the case of failures
 
 # Build and run
 
@@ -18,21 +18,37 @@ bin/ubbagent --help
 
 ```yaml
 # The identity section contains authentication information used by the agent.
-identity:
-  # A base64-encoded service account key used to report usage to
-  # Google Service Control.
-  encodedServiceAccountKey: [base64-encoded key]
+identities:
+- name: gcp
+  gcp:
+    # A base64-encoded service account key used to report usage to
+    # Google Service Control.
+    encodedServiceAccountKey: [base64-encoded key]
 
 # The metrics section defines the metric names and types that the agent
 # is configured to record.
 metrics:
-  # bufferSeconds indicates how long values area aggregated prior to being sent to endpoints.
-  bufferSeconds: 10
-  definitions:
-  - name: requests
-    type: int
-  - name: instance-seconds
-    type: int
+- name: requests
+  type: int
+
+  # The endpoints section of a metric defines which endpoints the metric data is sent to.
+  endpoints:
+  - name: on_disk
+  - name: servicecontrol
+
+  # A 'reported' metric is one whose values are provided by an external application via the agent's
+  # HTTP interface.
+  reported:
+    # bufferSeconds indicates how long values area aggregated prior to being sent to endpoints.
+    bufferSeconds: 10
+
+- name: instance-seconds
+  type: int
+  endpoints:
+  - name: on_disk
+  - name: servicecontrol
+  reported:
+    bufferSeconds: 10
 
 # The endpoints section defines where metering data is ultimately sent. Currently
 # supported endpoints include:
@@ -45,6 +61,7 @@ endpoints:
     expireSeconds: 3600
 - name: servicecontrol
   servicecontrol:
+    identity: gcp
     serviceName: some-service-name.myapi.com
     consumerId: project:<project_id>
 ```
@@ -82,4 +99,4 @@ curl http://localhost:3456/status
 ```
 
 # Design
-See [DESIGN.md](DESIGN.md).
+See [DESIGN.md](doc/DESIGN.md).

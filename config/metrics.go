@@ -17,8 +17,9 @@ package config
 import (
 	"errors"
 	"fmt"
-	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"reflect"
+
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 type Metrics []Metric
