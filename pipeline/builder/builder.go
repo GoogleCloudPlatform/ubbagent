@@ -46,7 +46,12 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		senders[endpoints[i].Name()] = sender.NewRetryingSender(endpoints[i], p, r)
 	}
 
+	// Aggregators for Reported metrics are added to the aggregators map.
 	aggregators := make(map[string]pipeline.Input)
+
+	// Components for additional non-Reported metrics are added to the additional list.
+	var additional []pipeline.Component
+
 	for _, metric := range cfg.Metrics {
 		var msenders []sender.Sender
 		for _, me := range metric.Endpoints {
@@ -59,7 +64,8 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		}
 	}
 
-	return pipeline.NewSelector(aggregators), nil
+	selector := pipeline.NewSelector(aggregators)
+	return pipeline.NewCompositeInput(selector, additional), nil
 }
 
 func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint, error) {
