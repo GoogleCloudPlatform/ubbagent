@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,8 @@
 package pipeline
 
 import (
-	"sync"
-
 	"fmt"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"github.com/hashicorp/go-multierror"
 )
 
 // Type selector is a pipeline.Input that routes a MetricReport to another pipeline.Input based on
@@ -49,19 +46,13 @@ func (s *selector) Use() {
 // See pipeline.Component.Release.
 func (s *selector) Release() error {
 	return s.tracker.Release(func() error {
-		errors := make([]error, len(s.inputs))
-		wg := sync.WaitGroup{}
-		wg.Add(len(s.inputs))
-		var i int
-		for _, a := range s.inputs {
-			go func(i int, a Input) {
-				errors[i] = a.Release()
-				wg.Done()
-			}(i, a)
+		components := make([]Component, len(s.inputs))
+		i := 0
+		for _, v := range s.inputs {
+			components[i] = v
 			i++
 		}
-		wg.Wait()
-		return multierror.Append(nil, errors...).ErrorOrNil()
+		return ReleaseAll(components)
 	})
 }
 
@@ -72,4 +63,35 @@ func NewSelector(inputs map[string]Input) Input {
 		a.Use()
 	}
 	return &selector{inputs: inputs}
+}
+
+type compositeInput struct {
+	delegate   Input
+	components []Component
+	tracker    UsageTracker
+}
+
+func (p *compositeInput) AddReport(report metrics.MetricReport) error {
+	return p.delegate.AddReport(report)
+}
+
+func (p *compositeInput) Use() {
+	p.tracker.Use()
+}
+
+func (p *compositeInput) Release() error {
+	return p.tracker.Release(func() error {
+		return ReleaseAll(p.components)
+	})
+}
+
+// NewCompositeInput creates a new CompositeInput. The delegate parameter is required; If a pipeline
+// does not define any external inputs, delegate can be an empty Selector. The components slice is
+// the collection of additional components excluding delegate.
+func NewCompositeInput(delegate Input, additional []Component) *compositeInput {
+	components := append(additional, delegate)
+	for _, c := range components {
+		c.Use()
+	}
+	return &compositeInput{delegate: delegate, components: components}
 }

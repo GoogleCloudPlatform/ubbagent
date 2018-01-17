@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -147,4 +147,58 @@ func TestSelector(t *testing.T) {
 			t.Fatalf("expected that input2.released == true")
 		}
 	})
+}
+
+func TestCompositeInput(t *testing.T) {
+	input := &mockInput{}
+	add1 := &mockInput{}
+	add2 := &mockInput{}
+
+	report := metrics.MetricReport{
+		Name:      "metric1",
+		StartTime: time.Unix(10, 0),
+		EndTime:   time.Unix(11, 0),
+		Value: metrics.MetricValue{
+			IntValue: 1,
+		},
+	}
+
+	composite := pipeline.NewCompositeInput(input, []pipeline.Component{add1, add2})
+
+	if input.used != true {
+		t.Fatalf("expected that input.used == true")
+	}
+	if input.released != false {
+		t.Fatalf("expected that input.released == false")
+	}
+	if add1.used != true {
+		t.Fatalf("expected that add1.used == true")
+	}
+	if add1.released != false {
+		t.Fatalf("expected that add1.released == false")
+	}
+	if add2.used != true {
+		t.Fatalf("expected that add2.used == true")
+	}
+	if add2.released != false {
+		t.Fatalf("expected that add2.released == false")
+	}
+
+	composite.AddReport(report)
+
+	if !reflect.DeepEqual(input.report, &report) {
+		t.Fatalf("expected report to be passed to delegate")
+	}
+
+	composite.Release()
+
+	if input.released != true {
+		t.Fatalf("expected that input.released == true")
+	}
+	if add1.released != true {
+		t.Fatalf("expected that add1.released == true")
+	}
+	if add2.released != true {
+		t.Fatalf("expected that add2.released == true")
+	}
 }
