@@ -22,15 +22,15 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-// Selector is a pipeline.Input that routes a MetricReport to another pipeline.Input based on the
-// metric name.
-type Selector struct {
+// Type selector is a pipeline.Input that routes a MetricReport to another pipeline.Input based on
+// the metric name.
+type selector struct {
 	// Map of metric names to pipeline.Input objects.
 	inputs  map[string]Input
 	tracker UsageTracker
 }
 
-func (s *Selector) AddReport(report metrics.MetricReport) error {
+func (s *selector) AddReport(report metrics.MetricReport) error {
 	a, ok := s.inputs[report.Name]
 	if !ok {
 		return fmt.Errorf("selector: unknown metric: %v", report.Name)
@@ -40,14 +40,14 @@ func (s *Selector) AddReport(report metrics.MetricReport) error {
 
 // Use increments the Selector's usage count.
 // See pipeline.Component.Use.
-func (s *Selector) Use() {
+func (s *selector) Use() {
 	s.tracker.Use()
 }
 
 // Release decrements the Selector's usage count. If it reaches 0, Release releases all of the
 // underlying Aggregators concurrently and waits for the operations to finish.
 // See pipeline.Component.Release.
-func (s *Selector) Release() error {
+func (s *selector) Release() error {
 	return s.tracker.Release(func() error {
 		errors := make([]error, len(s.inputs))
 		wg := sync.WaitGroup{}
@@ -65,9 +65,11 @@ func (s *Selector) Release() error {
 	})
 }
 
-func NewSelector(inputs map[string]Input) *Selector {
+// NewSelector creates an Input that selects from the given inputs based on metric name. The inputs
+// parameter is a map of metric name to the corresponding Input that handles it.
+func NewSelector(inputs map[string]Input) Input {
 	for _, a := range inputs {
 		a.Use()
 	}
-	return &Selector{inputs: inputs}
+	return &selector{inputs: inputs}
 }
