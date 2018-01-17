@@ -22,23 +22,17 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
-type Metrics []Metric
+type metricValidator interface {
+	Validate(m *Metric, c *Config) error
+}
 
 type Metric struct {
 	metrics.Definition `json:",inline"`
 	Endpoints          []MetricEndpoint `json:"endpoints"`
 
 	// oneof
-	Reported *ReportedMetric `json:"reported"`
-}
-
-type MetricEndpoint struct {
-	Name string `json:"name"`
-}
-
-type ReportedMetric struct {
-	// The number of seconds that metrics should be aggregated prior to forwarding
-	BufferSeconds int64 `json:"bufferSeconds"`
+	Reported  *ReportedMetric `json:"reported"`
+	Heartbeat *Heartbeat      `json:"heartbeat"`
 }
 
 func (m *Metric) Validate(c *Config) error {
@@ -46,12 +40,12 @@ func (m *Metric) Validate(c *Config) error {
 		return err
 	}
 	types := 0
-	for _, v := range []Validatable{m.Reported} {
+	for _, v := range []metricValidator{m.Reported, m.Heartbeat} {
 		if reflect.ValueOf(v).IsNil() {
 			continue
 		}
-		if err := v.Validate(c); err != nil {
-			return err
+		if err := v.Validate(m, c); err != nil {
+			return fmt.Errorf("metric %v: %v", m.Name, err)
 		}
 		types++
 	}
@@ -85,9 +79,7 @@ func (m *Metric) Validate(c *Config) error {
 	return nil
 }
 
-func (rm *ReportedMetric) Validate(c *Config) error {
-	return nil
-}
+type Metrics []Metric
 
 // GetMetricDefinition returns the metrics.Definition with the given name, or nil if it does not
 // exist.
@@ -112,6 +104,38 @@ func (m Metrics) Validate(c *Config) error {
 			return errors.New(fmt.Sprintf("metric %v: duplicate name: %v", def.Name, def.Name))
 		}
 		usedNames[def.Name] = true
+	}
+	return nil
+}
+
+type MetricEndpoint struct {
+	Name string `json:"name"`
+}
+
+type ReportedMetric struct {
+	// The number of seconds that metrics should be aggregated prior to forwarding
+	BufferSeconds int64 `json:"bufferSeconds"`
+}
+
+func (rm *ReportedMetric) Validate(m *Metric, c *Config) error {
+	if rm.BufferSeconds <= 0 {
+		return fmt.Errorf("bufferSeconds must be > 0")
+	}
+	return nil
+}
+
+type Heartbeat struct {
+	IntervalSeconds int64               `json:"intervalSeconds"`
+	Value           metrics.MetricValue `json:"value"`
+	Labels          map[string]string   `json:"labels"`
+}
+
+func (h *Heartbeat) Validate(m *Metric, c *Config) error {
+	if h.IntervalSeconds <= 0 {
+		return fmt.Errorf("intervalSeconds must be > 0")
+	}
+	if err := h.Value.Validate(m.Definition); err != nil {
+		return err
 	}
 	return nil
 }

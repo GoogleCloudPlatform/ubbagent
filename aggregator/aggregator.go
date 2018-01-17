@@ -199,12 +199,7 @@ func (h *Aggregator) pushBucket() {
 			glog.V(2).Infof("aggregator: sending %v reports", len(finishedReports))
 		}
 		for _, r := range finishedReports {
-			sr, err := metrics.NewStampedMetricReport(r)
-			if err != nil {
-				glog.Errorf("aggregator: error creating stamped report: %+v", err)
-				continue
-			}
-			err = h.sender.Send(sr)
+			err := h.sender.Send(metrics.NewStampedMetricReport(r))
 			if err != nil {
 				glog.Errorf("aggregator: error sending report: %+v", err)
 				continue
