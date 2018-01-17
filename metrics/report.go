@@ -28,6 +28,22 @@ type MetricValue struct {
 	DoubleValue float64
 }
 
+func (mv MetricValue) Validate(def Definition) error {
+	switch def.Type {
+	case IntType:
+		if mv.DoubleValue != 0 {
+			return fmt.Errorf("double value specified for integer metric: %v", mv.DoubleValue)
+		}
+		break
+	case DoubleType:
+		if mv.IntValue != 0 {
+			return fmt.Errorf("integer value specified for double metric: %v", mv.IntValue)
+		}
+		break
+	}
+	return nil
+}
+
 // Report represents an aggregated interval for a unique metric + labels combination.
 type MetricReport struct {
 	Name      string
@@ -44,17 +60,8 @@ func (mr MetricReport) Validate(def Definition) error {
 	if mr.StartTime.After(mr.EndTime) {
 		return fmt.Errorf("metric %v: StartTime > EndTime: %v > %v", mr.Name, mr.StartTime, mr.EndTime)
 	}
-	switch def.Type {
-	case IntType:
-		if mr.Value.DoubleValue != 0 {
-			return fmt.Errorf("metric %v: double value specified for integer metric: %v", mr.Name, mr.Value.DoubleValue)
-		}
-		break
-	case DoubleType:
-		if mr.Value.IntValue != 0 {
-			return fmt.Errorf("metric %v: integer value specified for double metric: %v", mr.Name, mr.Value.IntValue)
-		}
-		break
+	if err := mr.Value.Validate(def); err != nil {
+		return fmt.Errorf("metric %v: %v", mr.Name, err)
 	}
 	return nil
 }
@@ -66,13 +73,13 @@ type StampedMetricReport struct {
 }
 
 // NewStampedMetricReport creates a new StampedMetricReport with a random, unique identifier.
-func NewStampedMetricReport(report MetricReport) (StampedMetricReport, error) {
+func NewStampedMetricReport(report MetricReport) StampedMetricReport {
 	var stamped StampedMetricReport
 	id, err := uuid.NewRandom()
 	if err != nil {
-		return stamped, err
+		panic(fmt.Sprintf("cannot create uuid for report: %+v", err))
 	}
 	stamped.Id = id.String()
 	stamped.MetricReport = report
-	return stamped, nil
+	return stamped
 }

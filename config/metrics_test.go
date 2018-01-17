@@ -191,6 +191,106 @@ func TestMetrics_Validate(t *testing.T) {
 			t.Fatalf("Expected error, got: %s", err)
 		}
 	})
+
+	t.Run("reported: bufferSeconds must be > 0", func(t *testing.T) {
+		cases := []struct {
+			val int64
+			msg string
+		}{
+			{-1, "metric int-metric: bufferSeconds must be > 0"},
+			{0, "metric int-metric: bufferSeconds must be > 0"},
+			{1, ""},
+		}
+		for _, c := range cases {
+			invalidType := config.Metrics{
+				{
+					Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+					Endpoints:  goodEndpoints,
+					Reported: &config.ReportedMetric{
+						BufferSeconds: c.val,
+					},
+				},
+			}
+
+			err := invalidType.Validate(&conf)
+			if c.msg == "" && err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if c.msg != "" && (err == nil || err.Error() != c.msg) {
+				t.Fatalf("Expected error, got: %v", err)
+			}
+		}
+	})
+
+	t.Run("heartbeat: intervalSeconds must be > 0", func(t *testing.T) {
+		cases := []struct {
+			val int64
+			msg string
+		}{
+			{-1, "metric int-metric: intervalSeconds must be > 0"},
+			{0, "metric int-metric: intervalSeconds must be > 0"},
+			{1, ""},
+		}
+		for _, c := range cases {
+			invalidType := config.Metrics{
+				{
+					Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+					Endpoints:  goodEndpoints,
+					Heartbeat: &config.Heartbeat{
+						IntervalSeconds: c.val,
+						Value: metrics.MetricValue{
+							IntValue: 10,
+						},
+					},
+				},
+			}
+
+			err := invalidType.Validate(&conf)
+			if c.msg == "" && err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if c.msg != "" && (err == nil || err.Error() != c.msg) {
+				t.Fatalf("Expected error, got: %v", err)
+			}
+		}
+	})
+
+	t.Run("heartbeat: value must match metric type", func(t *testing.T) {
+		validType := config.Metrics{
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:  goodEndpoints,
+				Heartbeat: &config.Heartbeat{
+					IntervalSeconds: 10,
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
+				},
+			},
+		}
+
+		if err := validType.Validate(&conf); err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		invalidType := config.Metrics{
+			{
+				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:  goodEndpoints,
+				Heartbeat: &config.Heartbeat{
+					IntervalSeconds: 10,
+					Value: metrics.MetricValue{
+						DoubleValue: 10,
+					},
+				},
+			},
+		}
+
+		err := invalidType.Validate(&conf)
+		if err == nil || err.Error() != "metric int-metric: double value specified for integer metric: 10" {
+			t.Fatalf("Expected error, got: %v", err)
+		}
+	})
 }
 
 func TestMetrics_GetMetricDefinition(t *testing.T) {

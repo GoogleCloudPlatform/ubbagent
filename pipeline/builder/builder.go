@@ -28,6 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/GoogleCloudPlatform/ubbagent/source"
 )
 
 // Build builds pipeline containing a configured Aggregator and all of the resources
@@ -61,6 +62,9 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		if metric.Reported != nil {
 			bufferTime := time.Duration(metric.Reported.BufferSeconds) * time.Second
 			aggregators[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
+		} else if metric.Heartbeat != nil {
+			hb := source.NewHeartbeat(metric.Definition, *metric.Heartbeat, d)
+			additional = append(additional, hb)
 		}
 	}
 
