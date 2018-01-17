@@ -24,6 +24,7 @@ import (
 )
 
 type mockInput struct {
+	used     bool
 	released bool
 	report   *metrics.MetricReport
 }
@@ -33,7 +34,9 @@ func (s *mockInput) AddReport(report metrics.MetricReport) error {
 	return nil
 }
 
-func (s *mockInput) Use() {}
+func (s *mockInput) Use() {
+	s.used = true
+}
 
 func (s *mockInput) Release() error {
 	s.released = true
@@ -110,6 +113,38 @@ func TestSelector(t *testing.T) {
 		}
 		if err.Error() != "selector: unknown metric: metric3" {
 			t.Fatalf("unexpected error message: %v", err.Error())
+		}
+	})
+
+	t.Run("inputs are used and released", func(t *testing.T) {
+		input1 := &mockInput{}
+		input2 := &mockInput{}
+
+		s := pipeline.NewSelector(map[string]pipeline.Input{
+			"input1": input1,
+			"input2": input2,
+		})
+
+		if input1.used != true {
+			t.Fatalf("expected that input1.used == true")
+		}
+		if input1.released != false {
+			t.Fatalf("expected that input1.released == false")
+		}
+		if input2.used != true {
+			t.Fatalf("expected that input2.used == true")
+		}
+		if input2.released != false {
+			t.Fatalf("expected that input2.released == false")
+		}
+
+		s.Release()
+
+		if input1.released != true {
+			t.Fatalf("expected that input1.released == true")
+		}
+		if input2.released != true {
+			t.Fatalf("expected that input2.released == true")
 		}
 	})
 }
