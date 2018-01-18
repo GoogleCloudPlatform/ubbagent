@@ -24,44 +24,8 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 )
-
-type mockSender struct {
-	id         string
-	sendErr    error
-	sendCalled bool
-	released   bool
-}
-
-func (s *mockSender) Send(report metrics.StampedMetricReport) error {
-	s.sendCalled = true
-	return s.sendErr
-}
-
-func (s *mockSender) Endpoints() []string {
-	return []string{s.id}
-}
-
-func (s *mockSender) Use() {}
-
-func (s *mockSender) Release() error {
-	s.released = true
-	return nil
-}
-
-type mockStatsRecorder struct {
-	registered map[string][]string
-}
-
-func (msr *mockStatsRecorder) Register(id string, handlers []string) {
-	if msr.registered == nil {
-		msr.registered = make(map[string][]string)
-	}
-	msr.registered[id] = handlers
-}
-
-func (msr *mockStatsRecorder) SendSucceeded(id string, handler string) {}
-func (msr *mockStatsRecorder) SendFailed(id string, handler string)    {}
 
 func TestDispatcher(t *testing.T) {
 	report := metrics.StampedMetricReport{
@@ -75,31 +39,31 @@ func TestDispatcher(t *testing.T) {
 	}
 
 	t.Run("all sub-senders are invoked", func(t *testing.T) {
-		ms1 := &mockSender{id: "ms1"}
-		ms2 := &mockSender{id: "ms2"}
+		ms1 := testlib.NewMockSender("ms1")
+		ms2 := testlib.NewMockSender("ms2")
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
 		if err := ds.Send(report); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
-		if !ms1.sendCalled {
-			t.Fatal("ms1.sendCalled == false")
+		if ms1.GetCalls() == 0 {
+			t.Fatal("ms1.GetCalls() == 0")
 		}
-		if !ms2.sendCalled {
-			t.Fatal("ms2.sendCalled == false")
+		if ms2.GetCalls() == 0 {
+			t.Fatal("ms2.GetCalls() == 0")
 		}
 	})
 
 	t.Run("send failure", func(t *testing.T) {
-		ms1 := &mockSender{id: "ms1"}
-		ms2 := &mockSender{id: "ms2"}
-		ms2.sendErr = errors.New("testabcd")
+		ms1 := testlib.NewMockSender("ms1")
+		ms2 := testlib.NewMockSender("ms2")
+		ms2.SetSendError(errors.New("testabcd"))
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
 		err := ds.Send(report)
-		if !ms1.sendCalled {
-			t.Fatal("ms1.sendCalled == false")
+		if ms1.GetCalls() == 0 {
+			t.Fatal("ms1.GetCalls() == 0")
 		}
-		if !ms2.sendCalled {
-			t.Fatal("ms2.sendCalled == false")
+		if ms2.GetCalls() == 0 {
+			t.Fatal("ms2.GetCalls() == 0")
 		}
 		if err == nil {
 			t.Fatal("Expected send error, got none")
@@ -110,8 +74,8 @@ func TestDispatcher(t *testing.T) {
 	})
 
 	t.Run("dispatcher returns aggregated endpoints", func(t *testing.T) {
-		ms1 := &mockSender{id: "ms1"}
-		ms2 := &mockSender{id: "ms2"}
+		ms1 := testlib.NewMockSender("ms1")
+		ms2 := testlib.NewMockSender("ms2")
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
 
 		if want, got := []string{"ms1", "ms2"}, ds.Endpoints(); !reflect.DeepEqual(want, got) {
@@ -120,7 +84,7 @@ func TestDispatcher(t *testing.T) {
 	})
 
 	t.Run("multiple usages", func(t *testing.T) {
-		s := &mockSender{id: "sender"}
+		s := testlib.NewMockSender("sender")
 		ds := sender.NewDispatcher([]sender.Sender{s}, stats.NewNoopRecorder())
 
 		// Test multiple usages of the Dispatcher.
@@ -128,22 +92,21 @@ func TestDispatcher(t *testing.T) {
 		ds.Use()
 
 		ds.Release() // Usage count should still be 1.
-		if s.released {
+		if s.Released {
 			t.Fatal("sender.released expected to be false")
 		}
 
 		ds.Release() // Usage count should be 0; sender should be released.
-		if !s.released {
+		if !s.Released {
 			t.Fatal("sender.released expected to be true")
 		}
 	})
 
 	// Ensure that a StatsRecorder is notified about a send
 	t.Run("Send registers with stats recorder", func(t *testing.T) {
-
-		ms1 := &mockSender{id: "sender1"}
-		ms2 := &mockSender{id: "sender2"}
-		msr := &mockStatsRecorder{}
+		ms1 := testlib.NewMockSender("sender1")
+		ms2 := testlib.NewMockSender("sender2")
+		msr := testlib.NewMockStatsRecorder()
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, msr)
 
 		r1 := metrics.StampedMetricReport{
@@ -182,7 +145,7 @@ func TestDispatcher(t *testing.T) {
 			"r2": {"sender1", "sender2"},
 		}
 
-		if want, got := expected, msr.registered; !reflect.DeepEqual(want, got) {
+		if want, got := expected, msr.GetRegistered(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("Recorded stats entries: got=%+v, want=%+v", got, want)
 		}
 	})
