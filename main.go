@@ -33,6 +33,7 @@ var configPath = flag.String("config", "", "configuration file")
 var stateDir = flag.String("state-dir", "", "persistent state directory")
 var noState = flag.Bool("no-state", false, "do not store persistent state")
 var localPort = flag.Int("local-port", 0, "local HTTP daemon port")
+var noHttp = flag.Bool("no-http", false, "do not start the HTTP daemon")
 
 // main is the entry point to the standalone agent. It constructs a new app.App with the config file
 // specified using the --config flag, and it starts the http interface. SIGINT will initiate a
@@ -52,8 +53,8 @@ func main() {
 		os.Exit(2)
 	}
 
-	if *localPort == 0 {
-		fmt.Fprintln(os.Stderr, "local-port must be > 0")
+	if *localPort <= 0 && !*noHttp {
+		fmt.Fprintln(os.Stderr, "local-port must be > 0 (or use --no-http)")
 		flag.Usage()
 		os.Exit(2)
 	}
@@ -76,24 +77,30 @@ func main() {
 		exitf("startup: %+v", err)
 	}
 
-	rest := http.NewHttpInterface(head, recorder, *localPort)
-	if err := rest.Start(func(err error) {
-		// Process async http errors (which may be an immediate port in use error).
-		if err != httplib.ErrServerClosed {
-			exitf("http: %+v", err)
+	var rest *http.HttpInterface
+	if *localPort > 0 {
+		rest = http.NewHttpInterface(head, recorder, *localPort)
+		if err := rest.Start(func(err error) {
+			// Process async http errors (which may be an immediate port in use error).
+			if err != httplib.ErrServerClosed {
+				exitf("http: %+v", err)
+			}
+		}); err != nil {
+			exitf("startup: %+v", err)
 		}
-	}); err != nil {
-		exitf("startup: %+v", err)
+		infof("Listening locally on port %v", *localPort)
+	} else {
+		infof("Not starting HTTP daemon")
 	}
-
-	infof("Listening locally on port %v", *localPort)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
 
 	infof("Shutting down...")
-	rest.Shutdown()
+	if rest != nil {
+		rest.Shutdown()
+	}
 	if err := head.Release(); err != nil {
 		glog.Warningf("shutdown: %+v", err)
 	}
