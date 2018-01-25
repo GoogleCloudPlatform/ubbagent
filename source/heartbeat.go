@@ -15,14 +15,15 @@
 package source
 
 import (
+	"sync"
+	"time"
+
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/golang/glog"
-	"sync"
-	"time"
 )
 
 type heartbeat struct {

@@ -15,13 +15,14 @@
 package source
 
 import (
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
-	"github.com/GoogleCloudPlatform/ubbagent/config"
-	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"reflect"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 // TODO(volkman): extract reusable mock objects into a separate test package.
