@@ -16,6 +16,7 @@ package pipeline
 
 import (
 	"fmt"
+
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
