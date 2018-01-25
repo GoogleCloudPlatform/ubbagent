@@ -67,7 +67,7 @@ type Component interface {
 // Release methods, and calls a close function when Release decrements the usage count to 0.
 type UsageTracker struct {
 	count int
-	mu sync.Mutex
+	mu    sync.Mutex
 }
 
 func (u *UsageTracker) Use() {

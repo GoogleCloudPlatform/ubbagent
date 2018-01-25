@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
@@ -38,16 +39,29 @@ func TestBuild(t *testing.T) {
 	}
 
 	cfg := &config.Config{
-		Metrics: &config.Metrics{
-			BufferSeconds: 10,
-			Definitions: []config.MetricDefinition{
-				{
+		Metrics: config.Metrics{
+			{
+				Definition: metrics.Definition{
 					Name: "int-metric",
 					Type: "int",
 				},
-				{
+				Reported: &config.ReportedMetric{
+					BufferSeconds: 10,
+				},
+				Endpoints: []config.MetricEndpoint{
+					{Name: "on_disk"},
+				},
+			},
+			{
+				Definition: metrics.Definition{
 					Name: "double-metric",
 					Type: "double",
+				},
+				Reported: &config.ReportedMetric{
+					BufferSeconds: 10,
+				},
+				Endpoints: []config.MetricEndpoint{
+					{Name: "on_disk"},
 				},
 			},
 		},

@@ -17,61 +17,101 @@ package config
 import (
 	"errors"
 	"fmt"
-	"sync"
+	"reflect"
+
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
-const (
-	IntType    = "int"
-	DoubleType = "double"
-)
+type Metrics []Metric
 
-// MetricDefinition describes a single reportable metric's name and type.
-type MetricDefinition struct {
-	Name        string
-	Type        string
+type Metric struct {
+	metrics.Definition `json:",inline"`
+	Endpoints          []MetricEndpoint `json:"endpoints"`
+
+	// oneof
+	Reported *ReportedMetric `json:"reported"`
 }
 
-// Metrics contains the metric definitions that the agent expects to receive.
-type Metrics struct {
+type MetricEndpoint struct {
+	Name string `json:"name"`
+}
+
+type ReportedMetric struct {
 	// The number of seconds that metrics should be aggregated prior to forwarding
-	BufferSeconds int64
-
-	// The list of reportable metrics
-	Definitions []MetricDefinition `json:"definitions"`
-
-	// Private cache of definitions by name for faster lookup.
-	initOnce          sync.Once
-	definitionsByName map[string]*MetricDefinition
+	BufferSeconds int64 `json:"bufferSeconds"`
 }
 
-// GetMetricDefinition returns the MetricDefinition with the given name, or nil if it does not
-// exist.
-func (c *Metrics) GetMetricDefinition(name string) *MetricDefinition {
-	c.initOnce.Do(func() {
-		c.definitionsByName = make(map[string]*MetricDefinition)
-		for i := range c.Definitions {
-			def := &c.Definitions[i]
-			c.definitionsByName[def.Name] = def
+func (m *Metric) Validate(c *Config) error {
+	if err := m.Definition.Validate(); err != nil {
+		return err
+	}
+	types := 0
+	for _, v := range []Validatable{m.Reported} {
+		if reflect.ValueOf(v).IsNil() {
+			continue
 		}
-	})
-	return c.definitionsByName[name]
+		if err := v.Validate(c); err != nil {
+			return err
+		}
+		types++
+	}
+
+	if types == 0 {
+		return fmt.Errorf("metric %v: missing type configuration", m.Name)
+	}
+
+	if types > 1 {
+		return fmt.Errorf("metric %v: multiple type configurations", m.Name)
+	}
+
+	if len(m.Endpoints) == 0 {
+		return fmt.Errorf("metric %v: no endpoints defined", m.Name)
+	}
+
+	usedEndpoints := make(map[string]bool)
+	for _, e := range m.Endpoints {
+		if e.Name == "" {
+			return fmt.Errorf("metric %v: endpoint missing name", m.Name)
+		}
+		if !c.Endpoints.exists(e.Name) {
+			return fmt.Errorf("metric %v: endpoint does not exist: %v", m.Name, e.Name)
+		}
+		if usedEndpoints[e.Name] {
+			return fmt.Errorf("metric %v: endpoint listed twice: %v", m.Name, e.Name)
+		}
+		usedEndpoints[e.Name] = true
+	}
+
+	return nil
+}
+
+func (rm *ReportedMetric) Validate(c *Config) error {
+	return nil
+}
+
+// GetMetricDefinition returns the metrics.Definition with the given name, or nil if it does not
+// exist.
+func (m Metrics) GetMetricDefinition(name string) *metrics.Definition {
+	for i := range m {
+		if m[i].Name == name {
+			return &m[i].Definition
+		}
+	}
+	return nil
 }
 
 // Validate checks validity of metric configuration. Specifically, it must not contain duplicate
 // metric definitions, and metric definitions must specify valid type names.
-func (m *Metrics) Validate(c *Config) error {
+func (m Metrics) Validate(c *Config) error {
 	usedNames := make(map[string]bool)
-	for _, def := range m.Definitions {
-		if def.Name == "" {
-			return errors.New("missing metric name")
+	for _, def := range m {
+		if err := def.Validate(c); err != nil {
+			return err
 		}
 		if usedNames[def.Name] {
 			return errors.New(fmt.Sprintf("metric %v: duplicate name: %v", def.Name, def.Name))
 		}
 		usedNames[def.Name] = true
-		if def.Type != IntType && def.Type != DoubleType {
-			return errors.New(fmt.Sprintf("metric %s: invalid type: %v", def.Name, def.Type))
-		}
 	}
 	return nil
 }

@@ -24,7 +24,7 @@ import (
 // Config contains configuration for the agent.
 type Config struct {
 	Identities Identities `json:"identities"`
-	Metrics    *Metrics   `json:"metrics"`
+	Metrics    Metrics    `json:"metrics"`
 	Endpoints  Endpoints  `json:"endpoints"`
 }
 

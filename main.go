@@ -25,8 +25,8 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/http"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/builder"
-	"github.com/golang/glog"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/golang/glog"
 )
 
 var configPath = flag.String("config", "", "configuration file")

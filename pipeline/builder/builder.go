@@ -41,16 +41,22 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 	if err != nil {
 		return nil, err
 	}
-	senders := make([]sender.Sender, len(endpoints))
+	senders := make(map[string]sender.Sender)
 	for i := range endpoints {
-		senders[i] = sender.NewRetryingSender(endpoints[i], p, r)
+		senders[endpoints[i].Name()] = sender.NewRetryingSender(endpoints[i], p, r)
 	}
-	d := sender.NewDispatcher(senders, r)
 
 	aggregators := make(map[string]pipeline.Head)
-	bufferTime := time.Duration(cfg.Metrics.BufferSeconds) * time.Second
-	for _, def := range cfg.Metrics.Definitions {
-		aggregators[def.Name] = aggregator.NewAggregator(def, bufferTime, d, p)
+	for _, metric := range cfg.Metrics {
+		var msenders []sender.Sender
+		for _, me := range metric.Endpoints {
+			msenders = append(msenders, senders[me.Name])
+		}
+		d := sender.NewDispatcher(msenders, r)
+		if metric.Reported != nil {
+			bufferTime := time.Duration(metric.Reported.BufferSeconds) * time.Second
+			aggregators[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
+		}
 	}
 
 	return pipeline.NewSelector(aggregators), nil

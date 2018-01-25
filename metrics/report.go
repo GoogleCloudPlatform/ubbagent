@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/google/uuid"
 )
 
@@ -38,7 +37,7 @@ type MetricReport struct {
 	Value     MetricValue
 }
 
-func (mr MetricReport) Validate(def config.MetricDefinition) error {
+func (mr MetricReport) Validate(def Definition) error {
 	if mr.Name != def.Name {
 		return fmt.Errorf("incorrect metric name: %v", mr.Name)
 	}
@@ -46,12 +45,12 @@ func (mr MetricReport) Validate(def config.MetricDefinition) error {
 		return fmt.Errorf("metric %v: StartTime > EndTime: %v > %v", mr.Name, mr.StartTime, mr.EndTime)
 	}
 	switch def.Type {
-	case config.IntType:
+	case IntType:
 		if mr.Value.DoubleValue != 0 {
 			return fmt.Errorf("metric %v: double value specified for integer metric: %v", mr.Name, mr.Value.DoubleValue)
 		}
 		break
-	case config.DoubleType:
+	case DoubleType:
 		if mr.Value.IntValue != 0 {
 			return fmt.Errorf("metric %v: integer value specified for double metric: %v", mr.Name, mr.Value.IntValue)
 		}

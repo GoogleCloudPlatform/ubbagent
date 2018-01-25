@@ -38,6 +38,16 @@ func (endpoints Endpoints) Validate(c *Config) error {
 	return nil
 }
 
+// Returns whether an endpoint with the given name exists.
+func (endpoints Endpoints) exists(name string) bool {
+	for _, v := range endpoints {
+		if v.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // Endpoint describes a single remote endpoint used for sending aggregated metrics.
 type Endpoint struct {
 	Name           string                  `json:"name"`
@@ -106,8 +116,8 @@ func (e *ServiceControlEndpoint) Validate(c *Config) error {
 		return errors.New("servicecontrol: missing consumer ID")
 	}
 	if !(strings.HasPrefix(e.ConsumerId, "project:") ||
-			strings.HasPrefix(e.ConsumerId, "project_number:") ||
-			strings.HasPrefix(e.ConsumerId, "apiKey:")) {
+		strings.HasPrefix(e.ConsumerId, "project_number:") ||
+		strings.HasPrefix(e.ConsumerId, "apiKey:")) {
 		return errors.New(`servicecontrol: invalid consumer ID (must start with "project:", "projectNumber:", or "apiKey:")`)
 	}
 	return nil
@@ -115,7 +125,7 @@ func (e *ServiceControlEndpoint) Validate(c *Config) error {
 
 type PubSubEndpoint struct {
 	Identity string `json:"identity"`
-	Topic string `json:"topic"`
+	Topic    string `json:"topic"`
 }
 
 func (e *PubSubEndpoint) Validate(c *Config) error {
