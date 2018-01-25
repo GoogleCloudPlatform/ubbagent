@@ -45,11 +45,11 @@ func TestDispatcher(t *testing.T) {
 		if err := ds.Send(report); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
-		if ms1.GetCalls() == 0 {
-			t.Fatal("ms1.GetCalls() == 0")
+		if ms1.Calls() == 0 {
+			t.Fatal("ms1.Calls() == 0")
 		}
-		if ms2.GetCalls() == 0 {
-			t.Fatal("ms2.GetCalls() == 0")
+		if ms2.Calls() == 0 {
+			t.Fatal("ms2.Calls() == 0")
 		}
 	})
 
@@ -59,11 +59,11 @@ func TestDispatcher(t *testing.T) {
 		ms2.SetSendError(errors.New("testabcd"))
 		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
 		err := ds.Send(report)
-		if ms1.GetCalls() == 0 {
-			t.Fatal("ms1.GetCalls() == 0")
+		if ms1.Calls() == 0 {
+			t.Fatal("ms1.Calls() == 0")
 		}
-		if ms2.GetCalls() == 0 {
-			t.Fatal("ms2.GetCalls() == 0")
+		if ms2.Calls() == 0 {
+			t.Fatal("ms2.Calls() == 0")
 		}
 		if err == nil {
 			t.Fatal("Expected send error, got none")
@@ -145,7 +145,7 @@ func TestDispatcher(t *testing.T) {
 			"r2": {"sender1", "sender2"},
 		}
 
-		if want, got := expected, msr.GetRegistered(); !reflect.DeepEqual(want, got) {
+		if want, got := expected, msr.Registered(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("Recorded stats entries: got=%+v, want=%+v", got, want)
 		}
 	})

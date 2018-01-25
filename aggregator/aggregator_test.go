@@ -85,7 +85,7 @@ func TestNewAggregator(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		reports := ms.GetReports()
+		reports := ms.Reports()
 		if len(reports) > 0 {
 			t.Fatalf("Expected no reports, got: %+v", reports)
 		}
@@ -104,7 +104,7 @@ func TestNewAggregator(t *testing.T) {
 		})
 
 		expected := []metrics.MetricReport{report1, report2}
-		reports = ms.GetReports()
+		reports = ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -124,7 +124,7 @@ func TestNewAggregator(t *testing.T) {
 		})
 
 		expected = []metrics.MetricReport{report3}
-		reports = ms.GetReports()
+		reports = ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -191,7 +191,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := ms.GetReports()
+		reports := ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -239,7 +239,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := ms.GetReports()
+		reports := ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -307,7 +307,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := ms.GetReports()
+		reports := ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -399,7 +399,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			mockClock.SetNow(time.Unix(10, 0))
 		})
 
-		reports := ms.GetReports()
+		reports := ms.Reports()
 		if len(reports) != 2 {
 			t.Fatalf("Expected push of 2 reports after timeout, got: %+v", reports)
 		}
@@ -432,7 +432,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			mockClock.SetNow(time.Unix(30, 0))
 		})
 
-		reports = ms.GetReports()
+		reports = ms.Reports()
 		if len(reports) != 2 {
 			t.Fatalf("Expected push of 2 reports after timeout, got: %+v", reports)
 		}
@@ -458,7 +458,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 		a.Release()
 
-		if len(ms.GetReports()) == 0 {
+		if len(ms.Reports()) == 0 {
 			t.Fatal("Expected push after Release, but sender contains no reports")
 		}
 	})

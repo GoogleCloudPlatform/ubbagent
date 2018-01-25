@@ -84,7 +84,7 @@ func TestRetryingSender(t *testing.T) {
 				t.Fatalf("empty queue: unexpected error sending report: %+v", err)
 			}
 		})
-		rep := ep.GetReports()[0]
+		rep := ep.Reports()[0]
 		if !reflect.DeepEqual(rep.StampedMetricReport, report1) {
 			t.Fatalf("Sent report contains incorrect report: expected: %+v got: %+v", report1, rep.StampedMetricReport)
 		}
@@ -109,7 +109,7 @@ func TestRetryingSender(t *testing.T) {
 			now = expectedNext
 			mc.SetNow(now)
 		}
-		if want, got := int32(5), ep.GetCalls(); want != got {
+		if want, got := int32(5), ep.Calls(); want != got {
 			t.Fatalf("Expected %v send calls, got: %v", want, got)
 		}
 	})
@@ -134,7 +134,7 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// Check the sent chan size - it should still be empty since a send error is set.
-		r := ep.GetReports()
+		r := ep.Reports()
 		if len(r) != 0 {
 			t.Fatalf("Report count should be 0, but was: %v", len(r))
 		}
@@ -145,7 +145,7 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// The sender should have cleared its queue. Our sent chan should be length 2.
-		r = ep.GetReports()
+		r = ep.Reports()
 		if len(r) != 2 {
 			t.Fatalf("Report count should be 2, but was: %v", len(r))
 		}
@@ -169,7 +169,7 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// Check the sent chan size - it should still be empty since a send error is set.
-		r := ep.GetReports()
+		r := ep.Reports()
 		if len(r) != 0 {
 			t.Fatalf("Report count should be 0, but was: %v", len(r))
 		}
@@ -182,7 +182,7 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// Check the sent chan size - it should still be empty since a send error is set.
-		r = ep.GetReports()
+		r = ep.Reports()
 		if len(r) != 0 {
 			t.Fatalf("Report count should be 0, but was: %v", len(r))
 		}
@@ -196,7 +196,7 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// Our sent chan should be length 1.
-		r = ep.GetReports()
+		r = ep.Reports()
 		if len(r) != 1 {
 			t.Fatalf("Report count should be 1, but was: %v", len(r))
 		}
@@ -224,13 +224,13 @@ func TestRetryingSender(t *testing.T) {
 
 		// Check the sent chan size - it should still be empty since the mock endpoint always errors on
 		// sends.
-		if want, got := 0, len(ep.GetReports()); want != got {
-			t.Fatalf("len(ep.GetReports()): want=%+v, got=%+v", want, got)
+		if want, got := 0, len(ep.Reports()); want != got {
+			t.Fatalf("len(ep.Reports()): want=%+v, got=%+v", want, got)
 		}
-		if want, got := 0, len(sr.GetSucceeded()); want != got {
+		if want, got := 0, len(sr.Succeeded()); want != got {
 			t.Fatalf("len(sr.succeeded): want=%+v, got=%+v", want, got)
 		}
-		if want, got := 0, len(sr.GetFailed()); want != got {
+		if want, got := 0, len(sr.Failed()); want != got {
 			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
 		}
 
@@ -240,13 +240,13 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// Still 0 sends since both entries expired.
-		if want, got := 0, len(ep.GetReports()); want != got {
-			t.Fatalf("len(ep.GetReports): want=%+v, got=%+v", want, got)
+		if want, got := 0, len(ep.Reports()); want != got {
+			t.Fatalf("len(ep.Reports): want=%+v, got=%+v", want, got)
 		}
-		if want, got := 0, len(sr.GetSucceeded()); want != got {
+		if want, got := 0, len(sr.Succeeded()); want != got {
 			t.Fatalf("len(sr.succeeded): want=%+v, got=%+v", want, got)
 		}
-		if want, got := 2, len(sr.GetFailed()); want != got {
+		if want, got := 2, len(sr.Failed()); want != got {
 			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
 		}
 	})
@@ -275,7 +275,7 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// The sender should have cleared its queue. Our sent chan should be length 2.
-		if len(ep.GetReports()) == 0 {
+		if len(ep.Reports()) == 0 {
 			t.Fatal("Send chan should not be empty")
 		}
 	})
@@ -299,11 +299,11 @@ func TestRetryingSender(t *testing.T) {
 			mc.SetNow(time.Unix(4300, 0))
 		})
 
-		if want, got := []testlib.RecordedEntry{{report1.Id, "mockep"}, {report2.Id, "mockep"}}, sr.GetSucceeded(); !reflect.DeepEqual(want, got) {
+		if want, got := []testlib.RecordedEntry{{report1.Id, "mockep"}, {report2.Id, "mockep"}}, sr.Succeeded(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("sr.succeeded: want=%+v, got=%+v", want, got)
 		}
 
-		if want, got := 0, len(sr.GetFailed()); want != got {
+		if want, got := 0, len(sr.Failed()); want != got {
 			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
 		}
 
@@ -319,12 +319,12 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// No changes to sr.succeeded
-		if want, got := []testlib.RecordedEntry{{report1.Id, "mockep"}, {report2.Id, "mockep"}}, sr.GetSucceeded(); !reflect.DeepEqual(want, got) {
+		if want, got := []testlib.RecordedEntry{{report1.Id, "mockep"}, {report2.Id, "mockep"}}, sr.Succeeded(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("sr.succeeded: want=%+v, got=%+v", want, got)
 		}
 
 		// There should now be one failure.
-		if want, got := []testlib.RecordedEntry{{report3.Id, "mockep"}}, sr.GetFailed(); !reflect.DeepEqual(want, got) {
+		if want, got := []testlib.RecordedEntry{{report3.Id, "mockep"}}, sr.Failed(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
 		}
 	})

@@ -47,7 +47,7 @@ func (wfc *waitForCalls) called() {
 	wfc.waitChan <- true
 }
 
-func (wfc *waitForCalls) GetCalls() int32 {
+func (wfc *waitForCalls) Calls() int32 {
 	return atomic.LoadInt32(&wfc.calls)
 }
 
@@ -90,7 +90,7 @@ func (s *MockSender) Release() error {
 	return nil
 }
 
-func (s *MockSender) GetReports() (reports []metrics.MetricReport) {
+func (s *MockSender) Reports() (reports []metrics.MetricReport) {
 	s.mu.Lock()
 	reports = s.reports
 	s.reports = []metrics.MetricReport{}
@@ -105,7 +105,7 @@ func (s *MockSender) SetSendError(err error) {
 // NewMockSender creates a new MockSender with the given endpoint IDs.
 func NewMockSender(endpoints ...string) *MockSender {
 	ms := &MockSender{endpoints: endpoints}
-	ms.GetReports()
+	ms.Reports()
 	ms.wfcInit()
 	return ms
 }
@@ -158,7 +158,7 @@ func (ep *MockEndpoint) IsTransient(err error) bool {
 	return err != nil && err.Error() != "FATAL"
 }
 
-func (ep *MockEndpoint) GetReports() (reports []endpoint.EndpointReport) {
+func (ep *MockEndpoint) Reports() (reports []endpoint.EndpointReport) {
 	ep.mu.Lock()
 	reports = ep.reports
 	ep.reports = []endpoint.EndpointReport{}
@@ -181,7 +181,7 @@ func (ep *MockEndpoint) SetBuildErr(err error) {
 // NewMockEndpoint creates a new MockEndpoint with the given name.
 func NewMockEndpoint(name string) *MockEndpoint {
 	ep := &MockEndpoint{name: name}
-	ep.GetReports()
+	ep.Reports()
 	ep.wfcInit()
 	return ep
 }
@@ -223,19 +223,19 @@ func (sr *MockStatsRecorder) SendFailed(id string, handler string) {
 	sr.called()
 }
 
-func (sr *MockStatsRecorder) GetRegistered() map[string][]string {
+func (sr *MockStatsRecorder) Registered() map[string][]string {
 	sr.mu.RLock()
 	defer sr.mu.RUnlock()
 	return sr.registered
 }
 
-func (sr *MockStatsRecorder) GetSucceeded() []RecordedEntry {
+func (sr *MockStatsRecorder) Succeeded() []RecordedEntry {
 	sr.mu.RLock()
 	defer sr.mu.RUnlock()
 	return sr.succeeded
 }
 
-func (sr *MockStatsRecorder) GetFailed() []RecordedEntry {
+func (sr *MockStatsRecorder) Failed() []RecordedEntry {
 	sr.mu.RLock()
 	defer sr.mu.RUnlock()
 	return sr.failed
