@@ -28,11 +28,12 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/GoogleCloudPlatform/ubbagent/source"
 )
 
 // Build builds pipeline containing a configured Aggregator and all of the resources
-// (persistence, endpoints) behind it. It returns the pipeline.Head.
-func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pipeline.Head, error) {
+// (persistence, endpoints) behind it. It returns the pipeline.Input.
+func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pipeline.Input, error) {
 	agentId, err := agentid.CreateOrGet(p)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,12 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		senders[endpoints[i].Name()] = sender.NewRetryingSender(endpoints[i], p, r)
 	}
 
-	aggregators := make(map[string]pipeline.Head)
+	// Aggregators for Reported metrics are added to the aggregators map.
+	aggregators := make(map[string]pipeline.Input)
+
+	// Components for additional non-Reported metrics are added to the additional list.
+	var additional []pipeline.Component
+
 	for _, metric := range cfg.Metrics {
 		var msenders []sender.Sender
 		for _, me := range metric.Endpoints {
@@ -56,10 +62,14 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		if metric.Reported != nil {
 			bufferTime := time.Duration(metric.Reported.BufferSeconds) * time.Second
 			aggregators[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
+		} else if metric.Heartbeat != nil {
+			hb := source.NewHeartbeat(metric.Definition, *metric.Heartbeat, d)
+			additional = append(additional, hb)
 		}
 	}
 
-	return pipeline.NewSelector(aggregators), nil
+	selector := pipeline.NewSelector(aggregators)
+	return pipeline.NewCompositeInput(selector, additional), nil
 }
 
 func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint, error) {

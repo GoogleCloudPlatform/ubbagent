@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,26 +23,29 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
-type mockHead struct {
+type mockInput struct {
+	used     bool
 	released bool
 	report   *metrics.MetricReport
 }
 
-func (s *mockHead) AddReport(report metrics.MetricReport) error {
+func (s *mockInput) AddReport(report metrics.MetricReport) error {
 	s.report = &report
 	return nil
 }
 
-func (s *mockHead) Use() {}
+func (s *mockInput) Use() {
+	s.used = true
+}
 
-func (s *mockHead) Release() error {
+func (s *mockInput) Release() error {
 	s.released = true
 	return nil
 }
 
 func TestSelector(t *testing.T) {
-	mock1 := &mockHead{}
-	mock2 := &mockHead{}
+	mock1 := &mockInput{}
+	mock2 := &mockInput{}
 
 	report1 := metrics.MetricReport{
 		Name:      "metric1",
@@ -71,12 +74,12 @@ func TestSelector(t *testing.T) {
 		},
 	}
 
-	heads := map[string]pipeline.Head{
+	inputs := map[string]pipeline.Input{
 		"metric1": mock1,
 		"metric2": mock2,
 	}
 
-	s := pipeline.NewSelector(heads)
+	s := pipeline.NewSelector(inputs)
 
 	t.Run("proper selection", func(t *testing.T) {
 		if err := s.AddReport(report1); err != nil {
@@ -112,4 +115,90 @@ func TestSelector(t *testing.T) {
 			t.Fatalf("unexpected error message: %v", err.Error())
 		}
 	})
+
+	t.Run("inputs are used and released", func(t *testing.T) {
+		input1 := &mockInput{}
+		input2 := &mockInput{}
+
+		s := pipeline.NewSelector(map[string]pipeline.Input{
+			"input1": input1,
+			"input2": input2,
+		})
+
+		if input1.used != true {
+			t.Fatalf("expected that input1.used == true")
+		}
+		if input1.released != false {
+			t.Fatalf("expected that input1.released == false")
+		}
+		if input2.used != true {
+			t.Fatalf("expected that input2.used == true")
+		}
+		if input2.released != false {
+			t.Fatalf("expected that input2.released == false")
+		}
+
+		s.Release()
+
+		if input1.released != true {
+			t.Fatalf("expected that input1.released == true")
+		}
+		if input2.released != true {
+			t.Fatalf("expected that input2.released == true")
+		}
+	})
+}
+
+func TestCompositeInput(t *testing.T) {
+	input := &mockInput{}
+	add1 := &mockInput{}
+	add2 := &mockInput{}
+
+	report := metrics.MetricReport{
+		Name:      "metric1",
+		StartTime: time.Unix(10, 0),
+		EndTime:   time.Unix(11, 0),
+		Value: metrics.MetricValue{
+			IntValue: 1,
+		},
+	}
+
+	composite := pipeline.NewCompositeInput(input, []pipeline.Component{add1, add2})
+
+	if input.used != true {
+		t.Fatalf("expected that input.used == true")
+	}
+	if input.released != false {
+		t.Fatalf("expected that input.released == false")
+	}
+	if add1.used != true {
+		t.Fatalf("expected that add1.used == true")
+	}
+	if add1.released != false {
+		t.Fatalf("expected that add1.released == false")
+	}
+	if add2.used != true {
+		t.Fatalf("expected that add2.used == true")
+	}
+	if add2.released != false {
+		t.Fatalf("expected that add2.released == false")
+	}
+
+	composite.AddReport(report)
+
+	if !reflect.DeepEqual(input.report, &report) {
+		t.Fatalf("expected report to be passed to delegate")
+	}
+
+	composite.Release()
+
+	if input.released != true {
+		t.Fatalf("expected that input.released == true")
+	}
+	if add1.released != true {
+		t.Fatalf("expected that add1.released == true")
+	}
+	if add2.released != true {
+		t.Fatalf("expected that add2.released == true")
+	}
 }

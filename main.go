@@ -72,14 +72,14 @@ func main() {
 	}
 
 	recorder := stats.NewBasic()
-	head, err := builder.Build(cfg, p, recorder)
+	input, err := builder.Build(cfg, p, recorder)
 	if err != nil {
 		exitf("startup: %+v", err)
 	}
 
 	var rest *http.HttpInterface
 	if *localPort > 0 {
-		rest = http.NewHttpInterface(head, recorder, *localPort)
+		rest = http.NewHttpInterface(input, recorder, *localPort)
 		if err := rest.Start(func(err error) {
 			// Process async http errors (which may be an immediate port in use error).
 			if err != httplib.ErrServerClosed {
@@ -101,7 +101,7 @@ func main() {
 	if rest != nil {
 		rest.Shutdown()
 	}
-	if err := head.Release(); err != nil {
+	if err := input.Release(); err != nil {
 		glog.Warningf("shutdown: %+v", err)
 	}
 	glog.Flush()
