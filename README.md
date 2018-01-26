@@ -100,3 +100,22 @@ curl http://localhost:3456/status
 
 # Design
 See [DESIGN.md](doc/DESIGN.md).
+
+# Kubernetes
+The easiest way to deploy the metering agent into a Kubernetes cluster is as
+a sidecar container alongside the software being metered. A Dockerfile is
+provided that builds such a container. It accepts the following parameters
+as environment variables:
+
+* `AGENT_CONFIG_FILE` - Required. The path to a file containing the agent's
+configuration.
+* `AGENT_STATE_DIR` - Optional. The path under which the agent stores state.
+If this parameter is not specified, no state will be stored.
+* `AGENT_LOCAL_PORT` - Optional. The pod-local port on which the agent's
+HTTP API will listen for reports and provide status. If this parameter
+is not specified, the agent will not start its HTTP server.
+
+The configuration file is run through envsubst, so it can contain
+any additional parameters as well. For example, a service account
+key and a servicecontrol consumerId may be stored in a Kubernetes
+secret and passed in as environment variables.
