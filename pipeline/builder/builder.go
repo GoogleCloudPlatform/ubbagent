@@ -63,7 +63,7 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 			bufferTime := time.Duration(metric.Reported.BufferSeconds) * time.Second
 			aggregators[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
 		} else if metric.Heartbeat != nil {
-			hb := source.NewHeartbeat(metric.Definition, *metric.Heartbeat, d)
+			hb := source.NewHeartbeat(metric.Definition, *metric.Heartbeat, &sender.InputAdapter{Sender: d})
 			additional = append(additional, hb)
 		}
 	}

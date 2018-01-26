@@ -44,33 +44,33 @@ func TestHeartbeat(t *testing.T) {
 
 	t.Run("sender used and released", func(t *testing.T) {
 		mc := clock.NewMockClock()
-		s := testlib.NewMockSender()
-		hb := newHeartbeat(def, heartbeat, s, mc)
+		i := testlib.NewMockInput()
+		hb := newHeartbeat(def, heartbeat, i, mc)
 
-		if s.Used != true {
-			t.Fatalf("expected s.Used == true")
+		if i.Used != true {
+			t.Fatalf("expected i.Used == true")
 		}
-		if s.Released != false {
-			t.Fatalf("expected s.Released == false")
+		if i.Released != false {
+			t.Fatalf("expected i.Released == false")
 		}
 
 		hb.Release()
 
-		if s.Released != true {
-			t.Fatalf("expected s.Released == true")
+		if i.Released != true {
+			t.Fatalf("expected i.Released == true")
 		}
 	})
 
 	t.Run("proper value and labels sent", func(t *testing.T) {
 		mc := clock.NewMockClock()
-		s := testlib.NewMockSender()
-		hb := newHeartbeat(def, heartbeat, s, mc)
+		i := testlib.NewMockInput()
+		hb := newHeartbeat(def, heartbeat, i, mc)
 
-		s.DoAndWait(t, 1, func() {
+		i.DoAndWait(t, 1, func() {
 			mc.SetNow(mc.Now().Add(10 * time.Second))
 		})
 
-		reports := s.Reports()
+		reports := i.Reports()
 		if len(reports) != 1 {
 			t.Fatalf("expected 1 report")
 		}
@@ -88,24 +88,24 @@ func TestHeartbeat(t *testing.T) {
 
 	t.Run("no coverage gap", func(t *testing.T) {
 		mc := clock.NewMockClock()
-		s := testlib.NewMockSender()
-		hb := newHeartbeat(def, heartbeat, s, mc)
+		i := testlib.NewMockInput()
+		hb := newHeartbeat(def, heartbeat, i, mc)
 
 		// First fire
-		s.DoAndWait(t, 1, func() {
+		i.DoAndWait(t, 1, func() {
 			mc.SetNow(mc.Now().Add(10 * time.Second))
 		})
 		// Second fire; timer is a bit late
-		s.DoAndWait(t, 2, func() {
+		i.DoAndWait(t, 2, func() {
 			mc.SetNow(mc.Now().Add(11 * time.Second))
 		})
 		// Third fire; should still be on schedule (10 + 11 + 9 == 30)
-		s.DoAndWait(t, 3, func() {
+		i.DoAndWait(t, 3, func() {
 			mc.SetNow(mc.Now().Add(9 * time.Second))
 		})
 		hb.Release()
 
-		reports := s.Reports()
+		reports := i.Reports()
 		if len(reports) != 3 {
 			t.Fatalf("expected 3 reports")
 		}

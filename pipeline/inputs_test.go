@@ -21,31 +21,12 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 )
 
-type mockInput struct {
-	used     bool
-	released bool
-	report   *metrics.MetricReport
-}
-
-func (s *mockInput) AddReport(report metrics.MetricReport) error {
-	s.report = &report
-	return nil
-}
-
-func (s *mockInput) Use() {
-	s.used = true
-}
-
-func (s *mockInput) Release() error {
-	s.released = true
-	return nil
-}
-
 func TestSelector(t *testing.T) {
-	mock1 := &mockInput{}
-	mock2 := &mockInput{}
+	mock1 := testlib.NewMockInput()
+	mock2 := testlib.NewMockInput()
 
 	report1 := metrics.MetricReport{
 		Name:      "metric1",
@@ -85,23 +66,25 @@ func TestSelector(t *testing.T) {
 		if err := s.AddReport(report1); err != nil {
 			t.Fatalf("unexpected error adding report1: %v", err)
 		}
-		if mock1.report == nil || !reflect.DeepEqual(mock1.report, &report1) {
+		reports1 := mock1.Reports()
+		reports2 := mock2.Reports()
+		if len(reports1) != 1 || !reflect.DeepEqual(reports1[0], report1) {
 			t.Fatalf("mock1 has unexpected report")
 		}
-		if mock2.report != nil {
+		if len(reports2) != 0 {
 			t.Fatalf("mock2 should not have a report")
 		}
-
-		mock1.report = nil
-		mock2.report = nil
 
 		if err := s.AddReport(report2); err != nil {
 			t.Fatalf("unexpected error adding report2: %v", err)
 		}
-		if mock2.report == nil || !reflect.DeepEqual(mock2.report, &report2) {
+
+		reports1 = mock1.Reports()
+		reports2 = mock2.Reports()
+		if len(reports2) != 1 || !reflect.DeepEqual(reports2[0], report2) {
 			t.Fatalf("mock2 has unexpected report")
 		}
-		if mock1.report != nil {
+		if len(reports1) != 0 {
 			t.Fatalf("mock1 should not have a report")
 		}
 	})
@@ -117,42 +100,42 @@ func TestSelector(t *testing.T) {
 	})
 
 	t.Run("inputs are used and released", func(t *testing.T) {
-		input1 := &mockInput{}
-		input2 := &mockInput{}
+		input1 := testlib.NewMockInput()
+		input2 := testlib.NewMockInput()
 
 		s := pipeline.NewSelector(map[string]pipeline.Input{
 			"input1": input1,
 			"input2": input2,
 		})
 
-		if input1.used != true {
+		if input1.Used != true {
 			t.Fatalf("expected that input1.used == true")
 		}
-		if input1.released != false {
+		if input1.Released != false {
 			t.Fatalf("expected that input1.released == false")
 		}
-		if input2.used != true {
+		if input2.Used != true {
 			t.Fatalf("expected that input2.used == true")
 		}
-		if input2.released != false {
+		if input2.Released != false {
 			t.Fatalf("expected that input2.released == false")
 		}
 
 		s.Release()
 
-		if input1.released != true {
+		if input1.Released != true {
 			t.Fatalf("expected that input1.released == true")
 		}
-		if input2.released != true {
+		if input2.Released != true {
 			t.Fatalf("expected that input2.released == true")
 		}
 	})
 }
 
 func TestCompositeInput(t *testing.T) {
-	input := &mockInput{}
-	add1 := &mockInput{}
-	add2 := &mockInput{}
+	input := testlib.NewMockInput()
+	add1 := testlib.NewMockInput()
+	add2 := testlib.NewMockInput()
 
 	report := metrics.MetricReport{
 		Name:      "metric1",
@@ -165,40 +148,41 @@ func TestCompositeInput(t *testing.T) {
 
 	composite := pipeline.NewCompositeInput(input, []pipeline.Component{add1, add2})
 
-	if input.used != true {
+	if input.Used != true {
 		t.Fatalf("expected that input.used == true")
 	}
-	if input.released != false {
+	if input.Released != false {
 		t.Fatalf("expected that input.released == false")
 	}
-	if add1.used != true {
+	if add1.Used != true {
 		t.Fatalf("expected that add1.used == true")
 	}
-	if add1.released != false {
+	if add1.Released != false {
 		t.Fatalf("expected that add1.released == false")
 	}
-	if add2.used != true {
+	if add2.Used != true {
 		t.Fatalf("expected that add2.used == true")
 	}
-	if add2.released != false {
+	if add2.Released != false {
 		t.Fatalf("expected that add2.released == false")
 	}
 
 	composite.AddReport(report)
 
-	if !reflect.DeepEqual(input.report, &report) {
+	reports := input.Reports()
+	if len(reports) != 1 || !reflect.DeepEqual(reports[0], report) {
 		t.Fatalf("expected report to be passed to delegate")
 	}
 
 	composite.Release()
 
-	if input.released != true {
+	if input.Released != true {
 		t.Fatalf("expected that input.released == true")
 	}
-	if add1.released != true {
+	if add1.Released != true {
 		t.Fatalf("expected that add1.released == true")
 	}
-	if add2.released != true {
+	if add2.Released != true {
 		t.Fatalf("expected that add2.released == true")
 	}
 }

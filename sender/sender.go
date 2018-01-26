@@ -38,3 +38,21 @@ type Sender interface {
 	// Endpoints returns the transitive list of endpoints that this sender will ultimately send to.
 	Endpoints() []string
 }
+
+// Type InputAdapter is a pipeline.Input that converts incoming reports to StampedMetricReport
+// objects and sends them directly to a delegate Sender.
+type InputAdapter struct {
+	Sender Sender
+}
+
+func (a *InputAdapter) AddReport(report metrics.MetricReport) error {
+	return a.Sender.Send(metrics.NewStampedMetricReport(report))
+}
+
+func (a *InputAdapter) Use() {
+	a.Sender.Use()
+}
+
+func (a *InputAdapter) Release() error {
+	return a.Sender.Release()
+}

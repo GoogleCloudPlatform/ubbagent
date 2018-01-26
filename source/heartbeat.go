@@ -22,14 +22,13 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
-	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/golang/glog"
 )
 
 type heartbeat struct {
 	def     metrics.Definition
 	hb      config.Heartbeat
-	sender  sender.Sender
+	input   pipeline.Input
 	clock   clock.Clock
 	close   chan bool
 	wait    sync.WaitGroup
@@ -44,7 +43,7 @@ func (h *heartbeat) Release() error {
 	return h.tracker.Release(func() error {
 		h.close <- true
 		h.wait.Wait()
-		return h.sender.Release()
+		return h.input.Release()
 	})
 }
 
@@ -65,7 +64,7 @@ func (h *heartbeat) run(start time.Time) {
 				Value:     h.hb.Value,
 				Labels:    h.hb.Labels,
 			}
-			err := h.sender.Send(metrics.NewStampedMetricReport(report))
+			err := h.input.AddReport(report)
 			if err != nil {
 				glog.Errorf("heartbeat: error sending report: %+v", err)
 			}
@@ -79,14 +78,14 @@ func (h *heartbeat) run(start time.Time) {
 	h.wait.Done()
 }
 
-func newHeartbeat(def metrics.Definition, hb config.Heartbeat, sender sender.Sender, clock clock.Clock) pipeline.Component {
-	sender.Use()
-	c := &heartbeat{def: def, hb: hb, sender: sender, clock: clock, close: make(chan bool, 1)}
+func newHeartbeat(def metrics.Definition, hb config.Heartbeat, input pipeline.Input, clock clock.Clock) pipeline.Component {
+	input.Use()
+	c := &heartbeat{def: def, hb: hb, input: input, clock: clock, close: make(chan bool, 1)}
 	c.wait.Add(1)
 	go c.run(clock.Now().UTC().Round(1 * time.Second))
 	return c
 }
 
-func NewHeartbeat(def metrics.Definition, hb config.Heartbeat, sender sender.Sender) pipeline.Component {
-	return newHeartbeat(def, hb, sender, clock.NewRealClock())
+func NewHeartbeat(def metrics.Definition, hb config.Heartbeat, input pipeline.Input) pipeline.Component {
+	return newHeartbeat(def, hb, input, clock.NewRealClock())
 }

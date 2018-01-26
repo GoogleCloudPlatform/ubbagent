@@ -56,6 +56,58 @@ func (wfc *waitForCalls) wfcInit() {
 	wfc.waitChan = make(chan bool, 100)
 }
 
+// Type MockInput is a mock pipeline.Input.
+type MockInput struct {
+	waitForCalls
+	Used     bool
+	Released bool
+
+	reports []metrics.MetricReport // must hold mu to read/write
+	addErr  error
+  mu      sync.Mutex
+}
+
+func (i *MockInput) AddReport(report metrics.MetricReport) error {
+	i.mu.Lock()
+	err := i.addErr
+	if err == nil {
+		i.reports = append(i.reports, report)
+	}
+	i.mu.Unlock()
+	i.called()
+	return err
+}
+
+func (i *MockInput) Use() {
+	i.Used = true
+}
+
+func (i *MockInput) Release() error {
+	i.Released = true
+	return nil
+}
+
+func (i *MockInput) Reports() (reports []metrics.MetricReport) {
+	i.mu.Lock()
+	reports = i.reports
+	i.reports = []metrics.MetricReport{}
+	i.mu.Unlock()
+	return
+}
+
+func (i *MockInput) SetAddError(err error) {
+	i.addErr = err
+}
+
+// NewMockSender creates a new MockInput.
+func NewMockInput() *MockInput {
+	mi := &MockInput{}
+	mi.Reports()
+	mi.wfcInit()
+	return mi
+}
+
+// Type MockSender is a mock sender.Sender.
 type MockSender struct {
 	waitForCalls
 	Used     bool
