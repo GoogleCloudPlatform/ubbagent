@@ -15,12 +15,13 @@
 package testlib
 
 import (
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
-	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
 // Type waitForCalls is a base type that provides a doAndWait function.
