@@ -16,91 +16,14 @@ package source
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 )
-
-// TODO(volkman): extract reusable mock objects into a separate test package.
-type mockSender struct {
-	Reports  []metrics.MetricReport // must hold sendMutex to read/write
-	Used     bool
-	Released bool
-
-	sendMutex sync.Mutex
-	waitChan  chan bool
-	waitDone  chan bool
-}
-
-func (s *mockSender) Send(report metrics.StampedMetricReport) error {
-	s.sendMutex.Lock()
-	s.Reports = append(s.Reports, report.MetricReport)
-	if s.waitChan != nil {
-		s.waitChan <- true
-		if <-s.waitDone {
-			s.waitChan = nil
-			s.waitDone = nil
-		}
-	}
-	s.sendMutex.Unlock()
-	return nil
-}
-
-func (s *mockSender) Endpoints() (empty []string) {
-	return
-}
-
-func (s *mockSender) Use() {
-	s.Used = true
-}
-
-func (s *mockSender) Release() error {
-	s.Released = true
-	return nil
-}
-
-func (s *mockSender) getReports() (reports []metrics.MetricReport) {
-	s.sendMutex.Lock()
-	reports = s.Reports
-	s.Reports = []metrics.MetricReport{}
-	s.sendMutex.Unlock()
-	return
-}
-
-func (s *mockSender) doAndWait(t *testing.T, expected int, f func()) {
-	waitChan := make(chan bool, 1)
-	waitDone := make(chan bool, 1)
-	s.sendMutex.Lock()
-	s.waitChan = waitChan
-	s.waitDone = waitDone
-	f()
-	s.sendMutex.Unlock()
-	count := 0
-	end := time.Now().Add(5 * time.Second)
-	for {
-		select {
-		case <-waitChan:
-			count += 1
-			if count >= expected {
-				s.waitDone <- true
-				return
-			}
-			s.waitDone <- false
-		case <-time.After(end.Sub(time.Now())):
-			t.Fatal("doAndWait: nothing happened after 5 seconds")
-		}
-	}
-}
-
-func newMockSender() *mockSender {
-	ms := &mockSender{}
-	ms.getReports()
-	return ms
-}
 
 func TestHeartbeat(t *testing.T) {
 
@@ -121,7 +44,7 @@ func TestHeartbeat(t *testing.T) {
 
 	t.Run("sender used and released", func(t *testing.T) {
 		mc := clock.NewMockClock()
-		s := newMockSender()
+		s := testlib.NewMockSender()
 		hb := newHeartbeat(def, heartbeat, s, mc)
 
 		if s.Used != true {
@@ -140,14 +63,14 @@ func TestHeartbeat(t *testing.T) {
 
 	t.Run("proper value and labels sent", func(t *testing.T) {
 		mc := clock.NewMockClock()
-		s := newMockSender()
+		s := testlib.NewMockSender()
 		hb := newHeartbeat(def, heartbeat, s, mc)
 
-		s.doAndWait(t, 1, func() {
+		s.DoAndWait(t, 1, func() {
 			mc.SetNow(mc.Now().Add(10 * time.Second))
 		})
 
-		reports := s.getReports()
+		reports := s.Reports()
 		if len(reports) != 1 {
 			t.Fatalf("expected 1 report")
 		}
@@ -165,24 +88,24 @@ func TestHeartbeat(t *testing.T) {
 
 	t.Run("no coverage gap", func(t *testing.T) {
 		mc := clock.NewMockClock()
-		s := newMockSender()
+		s := testlib.NewMockSender()
 		hb := newHeartbeat(def, heartbeat, s, mc)
 
 		// First fire
-		s.doAndWait(t, 1, func() {
+		s.DoAndWait(t, 1, func() {
 			mc.SetNow(mc.Now().Add(10 * time.Second))
 		})
 		// Second fire; timer is a bit late
-		s.doAndWait(t, 1, func() {
+		s.DoAndWait(t, 2, func() {
 			mc.SetNow(mc.Now().Add(11 * time.Second))
 		})
 		// Third fire; should still be on schedule (10 + 11 + 9 == 30)
-		s.doAndWait(t, 1, func() {
+		s.DoAndWait(t, 3, func() {
 			mc.SetNow(mc.Now().Add(9 * time.Second))
 		})
 		hb.Release()
 
-		reports := s.getReports()
+		reports := s.Reports()
 		if len(reports) != 3 {
 			t.Fatalf("expected 3 reports")
 		}
