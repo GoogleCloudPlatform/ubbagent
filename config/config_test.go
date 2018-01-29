@@ -63,8 +63,7 @@ metrics:
   - name: on_disk
 - name: double-metric
   type: double
-  aggregation:
-    bufferSeconds: 10
+  passthrough: {}
   endpoints:
   - name: on_disk
   - name: pubsub
@@ -83,6 +82,16 @@ endpoints:
     identity: gcp
     serviceName: test-service.bogus.com
     consumerId: project_number:123456
+
+sources:
+- name: instance-seconds
+  heartbeat:
+    metric: int-metric
+    intervalSeconds: 10
+    value:
+      intValue: 10
+    labels:
+      foo: bar
 `
 
 	// Run the jsonKeyText variable through ghodss/yaml so that it's formatted the same as the input
@@ -117,9 +126,7 @@ endpoints:
 					Name: "double-metric",
 					Type: "double",
 				},
-				Aggregation: &config.Aggregation{
-					BufferSeconds: 10,
-				},
+				Passthrough: &config.Passthrough{},
 				Endpoints: []config.MetricEndpoint{
 					{Name: "on_disk"},
 					{Name: "pubsub"},
@@ -147,6 +154,19 @@ endpoints:
 					Identity:    "gcp",
 					ServiceName: "test-service.bogus.com",
 					ConsumerId:  "project_number:123456",
+				},
+			},
+		},
+		Sources: []config.Source{
+			{
+				Name: "instance-seconds",
+				Heartbeat: &config.Heartbeat{
+					Metric:          "int-metric",
+					IntervalSeconds: 10,
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
+					Labels: map[string]string{"foo": "bar"},
 				},
 			},
 		},
