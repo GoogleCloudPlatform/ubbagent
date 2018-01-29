@@ -36,19 +36,19 @@ metrics:
   - name: on_disk
   - name: servicecontrol
 
-  # A 'reported' metric is one whose values are provided by an external application via the agent's
-  # HTTP interface.
-  reported:
-    # bufferSeconds indicates how long values area aggregated prior to being sent to endpoints.
+  # The aggregation section indicates that reports that the agent receives for this metric should
+  # be aggregated for a specified period of time prior to being sent to the reporting endpoint.
+  aggregation:
     bufferSeconds: 10
 
 - name: instance-seconds
   type: int
+  # The empty passthrough second indicates that no aggregation should occur for this metric.
+  # Reports received are immediately sent to the reporting endpoint.
+  passthrough: {}
   endpoints:
   - name: on_disk
   - name: servicecontrol
-  reported:
-    bufferSeconds: 10
 
 # The endpoints section defines where metering data is ultimately sent. Currently
 # supported endpoints include:
@@ -64,6 +64,18 @@ endpoints:
     identity: gcp
     serviceName: some-service-name.myapi.com
     consumerId: project:<project_id>
+
+# The sources section lists metric data sources run by the agent itself. The currently-supported
+# source is 'heartbeat', which sends a defined value to a metric at a defined interval.
+sources:
+- name: instance-seconds
+  heartbeat:
+    metric: instance-seconds
+    intervalSeconds: 10
+    value:
+      intValue: 10
+    labels:
+      auto: true
 ```
 
 # Running

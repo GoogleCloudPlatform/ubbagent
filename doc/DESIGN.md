@@ -3,18 +3,29 @@
 ## Reporting Pipeline
 
 Behind the small HTTP interface is a pipeline constructed based on the agent's
-configuration. A basic pipeline with 3 user-reported metrics, a heartbeat metric,
-and 2 endpoints might look like this:
+configuration. The following diagram shows a basic pipeline consisting of:
+* 3 aggregated metrics
+* a passthrough metric
+* 2 endpoints
+* a heartbeat source
 
 ![Pipeline](pipeline.png)
 
-#### Metric value input
-For metrics of type `reported`, values are reported to the agent from an
-external source, either via its HTTP interface or through an SDK API call.
-These metric reports first reach a `Selector` which selects the appropriate
-`Aggregator` based on metric name.
+#### Sources
 
-Other metric types, such as `heartbeat`, serve as their own data source.
+Metric values can be reported to the agent via its HTTP interface or SDK API,
+or they can originate from one of the agent's built-in sources, such as a
+heartbeat. All metric values, including those from built-in sources, enter
+the pipeline at the same place and are subject to the same aggregation
+configuration.
+
+#### Metric value buffering
+
+Metrics can (and in most cases should) be defined with an aggregation period.
+If a metric is defined as `passthrough`, reports that the agent receives are
+sent directly to configured endpoints. Possible use cases for a `passthrough`
+metric are when the reporting process is handling buffering itself, such as
+a `heartbeat` source with a reasonable `intervalSeconds` value.
 
 #### Aggregator
 
