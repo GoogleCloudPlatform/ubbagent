@@ -321,7 +321,7 @@ func TestConfig_Validate(t *testing.T) {
 			Endpoints:  goodEndpoints,
 		}
 
-		if want, got := "missing metrics section", c.Validate(); got == nil || want != got.Error() {
+		if want, got := "no metrics defined", c.Validate(); got == nil || want != got.Error() {
 			t.Fatalf("wanted: %+v, got: %+v", want, got)
 		}
 	})
