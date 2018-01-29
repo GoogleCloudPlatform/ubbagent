@@ -42,7 +42,7 @@ func TestMetrics_Validate(t *testing.T) {
 		},
 	}
 
-	goodReported := &config.ReportedMetric{
+	goodAggregation := &config.Aggregation{
 		BufferSeconds: 10,
 	}
 	goodEndpoints := []config.MetricEndpoint{
@@ -52,19 +52,19 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		validConfig := config.Metrics{
 			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Endpoints:  goodEndpoints,
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:   goodEndpoints,
+				Aggregation: goodAggregation,
 			},
 			{
-				Definition: metrics.Definition{Name: "int-metric2", Type: "int"},
-				Endpoints:  goodEndpoints,
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric2", Type: "int"},
+				Endpoints:   goodEndpoints,
+				Aggregation: goodAggregation,
 			},
 			{
-				Definition: metrics.Definition{Name: "double-metric", Type: "double"},
-				Endpoints:  goodEndpoints,
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "double-metric", Type: "double"},
+				Endpoints:   goodEndpoints,
+				Aggregation: goodAggregation,
 			},
 		}
 
@@ -77,14 +77,14 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: duplicate metric", func(t *testing.T) {
 		duplicateName := config.Metrics{
 			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Endpoints:  goodEndpoints,
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:   goodEndpoints,
+				Aggregation: goodAggregation,
 			},
 			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Endpoints:  goodEndpoints,
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric", Type: "int"},
+				Endpoints:   goodEndpoints,
+				Aggregation: goodAggregation,
 			},
 		}
 
@@ -97,9 +97,9 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: invalid value type", func(t *testing.T) {
 		invalidType := config.Metrics{
 			{
-				Definition: metrics.Definition{Name: "int-metric2", Type: "foo"},
-				Endpoints:  goodEndpoints,
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric2", Type: "foo"},
+				Endpoints:   goodEndpoints,
+				Aggregation: goodAggregation,
 			},
 		}
 
@@ -109,7 +109,7 @@ func TestMetrics_Validate(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid: missing type configuration", func(t *testing.T) {
+	t.Run("invalid: missing buffering configuration", func(t *testing.T) {
 		invalidType := config.Metrics{
 			{
 				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
@@ -118,7 +118,7 @@ func TestMetrics_Validate(t *testing.T) {
 		}
 
 		err := invalidType.Validate(&conf)
-		if err == nil || err.Error() != "metric int-metric: missing type configuration" {
+		if err == nil || err.Error() != "metric int-metric: missing buffering configuration" {
 			t.Fatalf("Expected error, got: %s", err)
 		}
 	})
@@ -126,8 +126,8 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: no endpoints defined", func(t *testing.T) {
 		invalidType := config.Metrics{
 			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric", Type: "int"},
+				Aggregation: goodAggregation,
 			},
 		}
 
@@ -140,8 +140,8 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: endpoint missing name", func(t *testing.T) {
 		invalidType := config.Metrics{
 			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric", Type: "int"},
+				Aggregation: goodAggregation,
 				Endpoints: []config.MetricEndpoint{
 					{Name: "disk1"},
 					{},
@@ -158,8 +158,8 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: endpoint does not exist", func(t *testing.T) {
 		invalidType := config.Metrics{
 			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric", Type: "int"},
+				Aggregation: goodAggregation,
 				Endpoints: []config.MetricEndpoint{
 					{Name: "disk1"},
 					{Name: "bogus"},
@@ -176,8 +176,8 @@ func TestMetrics_Validate(t *testing.T) {
 	t.Run("invalid: endpoint listed twice", func(t *testing.T) {
 		invalidType := config.Metrics{
 			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Reported:   goodReported,
+				Definition:  metrics.Definition{Name: "int-metric", Type: "int"},
+				Aggregation: goodAggregation,
 				Endpoints: []config.MetricEndpoint{
 					{Name: "disk1"},
 					{Name: "disk2"},
@@ -192,7 +192,7 @@ func TestMetrics_Validate(t *testing.T) {
 		}
 	})
 
-	t.Run("reported: bufferSeconds must be > 0", func(t *testing.T) {
+	t.Run("aggregation: bufferSeconds must be > 0", func(t *testing.T) {
 		cases := []struct {
 			val int64
 			msg string
@@ -206,7 +206,7 @@ func TestMetrics_Validate(t *testing.T) {
 				{
 					Definition: metrics.Definition{Name: "int-metric", Type: "int"},
 					Endpoints:  goodEndpoints,
-					Reported: &config.ReportedMetric{
+					Aggregation: &config.Aggregation{
 						BufferSeconds: c.val,
 					},
 				},
@@ -219,76 +219,6 @@ func TestMetrics_Validate(t *testing.T) {
 			if c.msg != "" && (err == nil || err.Error() != c.msg) {
 				t.Fatalf("Expected error, got: %v", err)
 			}
-		}
-	})
-
-	t.Run("heartbeat: intervalSeconds must be > 0", func(t *testing.T) {
-		cases := []struct {
-			val int64
-			msg string
-		}{
-			{-1, "metric int-metric: intervalSeconds must be > 0"},
-			{0, "metric int-metric: intervalSeconds must be > 0"},
-			{1, ""},
-		}
-		for _, c := range cases {
-			invalidType := config.Metrics{
-				{
-					Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-					Endpoints:  goodEndpoints,
-					Heartbeat: &config.Heartbeat{
-						IntervalSeconds: c.val,
-						Value: metrics.MetricValue{
-							IntValue: 10,
-						},
-					},
-				},
-			}
-
-			err := invalidType.Validate(&conf)
-			if c.msg == "" && err != nil {
-				t.Fatalf("Unexpected error: %v", err)
-			}
-			if c.msg != "" && (err == nil || err.Error() != c.msg) {
-				t.Fatalf("Expected error, got: %v", err)
-			}
-		}
-	})
-
-	t.Run("heartbeat: value must match metric type", func(t *testing.T) {
-		validType := config.Metrics{
-			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Endpoints:  goodEndpoints,
-				Heartbeat: &config.Heartbeat{
-					IntervalSeconds: 10,
-					Value: metrics.MetricValue{
-						IntValue: 10,
-					},
-				},
-			},
-		}
-
-		if err := validType.Validate(&conf); err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-
-		invalidType := config.Metrics{
-			{
-				Definition: metrics.Definition{Name: "int-metric", Type: "int"},
-				Endpoints:  goodEndpoints,
-				Heartbeat: &config.Heartbeat{
-					IntervalSeconds: 10,
-					Value: metrics.MetricValue{
-						DoubleValue: 10,
-					},
-				},
-			},
-		}
-
-		err := invalidType.Validate(&conf)
-		if err == nil || err.Error() != "metric int-metric: double value specified for integer metric: 10" {
-			t.Fatalf("Expected error, got: %v", err)
 		}
 	})
 }

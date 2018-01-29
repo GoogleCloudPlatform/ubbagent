@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 // Type selector is a pipeline.Input that routes a MetricReport to another pipeline.Input based on
@@ -66,33 +67,31 @@ func NewSelector(inputs map[string]Input) Input {
 	return &selector{inputs: inputs}
 }
 
-type compositeInput struct {
-	delegate   Input
-	components []Component
-	tracker    UsageTracker
+type callbackInput struct {
+	delegate Input
+	shutdown func() error
+	tracker  UsageTracker
 }
 
-func (p *compositeInput) AddReport(report metrics.MetricReport) error {
+func (p *callbackInput) AddReport(report metrics.MetricReport) error {
 	return p.delegate.AddReport(report)
 }
 
-func (p *compositeInput) Use() {
+func (p *callbackInput) Use() {
 	p.tracker.Use()
 }
 
-func (p *compositeInput) Release() error {
+func (p *callbackInput) Release() error {
 	return p.tracker.Release(func() error {
-		return ReleaseAll(p.components)
+		callbackErr := p.shutdown()
+		releaseError := p.delegate.Release()
+		return multierror.Append(callbackErr, releaseError).ErrorOrNil()
 	})
 }
 
-// NewCompositeInput creates a new CompositeInput. The delegate parameter is required; If a pipeline
-// does not define any external inputs, delegate can be an empty Selector. The components slice is
-// the collection of additional components excluding delegate.
-func NewCompositeInput(delegate Input, additional []Component) *compositeInput {
-	components := append(additional, delegate)
-	for _, c := range components {
-		c.Use()
-	}
-	return &compositeInput{delegate: delegate, components: components}
+// NewCallbackInput creates an Input that calls the given shutdown hook when the Input is released.
+// Shutdown is called before the Input's own delegate is released.
+func NewCallbackInput(delegate Input, shutdown func() error) Input {
+	delegate.Use()
+	return &callbackInput{delegate: delegate, shutdown: shutdown}
 }

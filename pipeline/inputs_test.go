@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 func TestSelector(t *testing.T) {
@@ -132,7 +133,7 @@ func TestSelector(t *testing.T) {
 	})
 }
 
-func TestCompositeInput(t *testing.T) {
+func TestCallbackInput(t *testing.T) {
 	input := testlib.NewMockInput()
 	add1 := testlib.NewMockInput()
 	add2 := testlib.NewMockInput()
@@ -146,7 +147,11 @@ func TestCompositeInput(t *testing.T) {
 		},
 	}
 
-	composite := pipeline.NewCompositeInput(input, []pipeline.Component{add1, add2})
+	cb := func() error {
+		return multierror.Append(add1.Release(), add2.Release()).ErrorOrNil()
+	}
+
+	composite := pipeline.NewCallbackInput(input, cb)
 
 	if input.Used != true {
 		t.Fatalf("expected that input.used == true")
@@ -154,14 +159,8 @@ func TestCompositeInput(t *testing.T) {
 	if input.Released != false {
 		t.Fatalf("expected that input.released == false")
 	}
-	if add1.Used != true {
-		t.Fatalf("expected that add1.used == true")
-	}
 	if add1.Released != false {
 		t.Fatalf("expected that add1.released == false")
-	}
-	if add2.Used != true {
-		t.Fatalf("expected that add2.used == true")
 	}
 	if add2.Released != false {
 		t.Fatalf("expected that add2.released == false")

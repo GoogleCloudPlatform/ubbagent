@@ -57,13 +57,13 @@ identities:
 metrics:
 - name: int-metric
   type: int
-  reported:
+  aggregation:
     bufferSeconds: 20
   endpoints:
   - name: on_disk
 - name: double-metric
   type: double
-  reported:
+  aggregation:
     bufferSeconds: 10
   endpoints:
   - name: on_disk
@@ -105,7 +105,7 @@ endpoints:
 					Name: "int-metric",
 					Type: "int",
 				},
-				Reported: &config.ReportedMetric{
+				Aggregation: &config.Aggregation{
 					BufferSeconds: 20,
 				},
 				Endpoints: []config.MetricEndpoint{
@@ -117,7 +117,7 @@ endpoints:
 					Name: "double-metric",
 					Type: "double",
 				},
-				Reported: &config.ReportedMetric{
+				Aggregation: &config.Aggregation{
 					BufferSeconds: 10,
 				},
 				Endpoints: []config.MetricEndpoint{
@@ -172,7 +172,7 @@ identities:
 metrics:
 - name: int-metric
   type: int
-  reported:
+  aggregation:
     bufferSeconds: 10
   endpoints:
   - name: on_disk
@@ -180,7 +180,7 @@ metrics:
   - name: servicecontrol
 - name: double-metric
   type: double
-  reported:
+  aggregation:
     bufferSeconds: 10
   endpoints:
   - name: on_disk
@@ -234,7 +234,7 @@ func TestConfig_Validate(t *testing.T) {
 				Name: "int-metric",
 				Type: "int",
 			},
-			Reported: &config.ReportedMetric{
+			Aggregation: &config.Aggregation{
 				BufferSeconds: 10,
 			},
 			Endpoints: []config.MetricEndpoint{

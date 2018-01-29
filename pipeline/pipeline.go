@@ -30,7 +30,7 @@ import (
 	"sync"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 )
 
 // Input represents a Component that accepts reports from an external source.
@@ -65,6 +65,14 @@ type Component interface {
 	//
 	// Release returns an error if it or any of its downstream components generate one.
 	Release() error
+}
+
+// Source represents an autonomous metric data source that runs within the Agent.
+type Source interface {
+
+	// Shutdown instructs the source to stop sending metric data, release any held components, and
+	// clean up resources.
+	Shutdown() error
 }
 
 // Type UsageTracker is a utility that helps track the usage of a Component. It provides Use and

@@ -30,9 +30,9 @@ type Metric struct {
 	metrics.Definition `json:",inline"`
 	Endpoints          []MetricEndpoint `json:"endpoints"`
 
-	// oneof
-	Reported  *ReportedMetric `json:"reported"`
-	Heartbeat *Heartbeat      `json:"heartbeat"`
+	// oneof - buffering configuration
+	Aggregation *Aggregation `json:"aggregation"`
+	Passthrough *Passthrough `json:"passthrough"`
 }
 
 func (m *Metric) Validate(c *Config) error {
@@ -40,7 +40,7 @@ func (m *Metric) Validate(c *Config) error {
 		return err
 	}
 	types := 0
-	for _, v := range []metricValidator{m.Reported, m.Heartbeat} {
+	for _, v := range []metricValidator{m.Aggregation, m.Passthrough} {
 		if reflect.ValueOf(v).IsNil() {
 			continue
 		}
@@ -51,11 +51,11 @@ func (m *Metric) Validate(c *Config) error {
 	}
 
 	if types == 0 {
-		return fmt.Errorf("metric %v: missing type configuration", m.Name)
+		return fmt.Errorf("metric %v: missing buffering configuration", m.Name)
 	}
 
 	if types > 1 {
-		return fmt.Errorf("metric %v: multiple type configurations", m.Name)
+		return fmt.Errorf("metric %v: multiple buffering configurations", m.Name)
 	}
 
 	if len(m.Endpoints) == 0 {
@@ -112,30 +112,21 @@ type MetricEndpoint struct {
 	Name string `json:"name"`
 }
 
-type ReportedMetric struct {
+type Aggregation struct {
 	// The number of seconds that metrics should be aggregated prior to forwarding
 	BufferSeconds int64 `json:"bufferSeconds"`
 }
 
-func (rm *ReportedMetric) Validate(m *Metric, c *Config) error {
+func (rm *Aggregation) Validate(m *Metric, c *Config) error {
 	if rm.BufferSeconds <= 0 {
 		return fmt.Errorf("bufferSeconds must be > 0")
 	}
 	return nil
 }
 
-type Heartbeat struct {
-	IntervalSeconds int64               `json:"intervalSeconds"`
-	Value           metrics.MetricValue `json:"value"`
-	Labels          map[string]string   `json:"labels"`
+type Passthrough struct {
 }
 
-func (h *Heartbeat) Validate(m *Metric, c *Config) error {
-	if h.IntervalSeconds <= 0 {
-		return fmt.Errorf("intervalSeconds must be > 0")
-	}
-	if err := h.Value.Validate(m.Definition); err != nil {
-		return err
-	}
+func (rm *Passthrough) Validate(m *Metric, c *Config) error {
 	return nil
 }

@@ -26,25 +26,21 @@ import (
 )
 
 type heartbeat struct {
-	def     metrics.Definition
-	hb      config.Heartbeat
-	input   pipeline.Input
-	clock   clock.Clock
-	close   chan bool
-	wait    sync.WaitGroup
-	tracker pipeline.UsageTracker
+	hb     config.Heartbeat
+	input  pipeline.Input
+	clock  clock.Clock
+	close  chan bool
+	wait   sync.WaitGroup
+	sdOnce sync.Once
 }
 
-func (h *heartbeat) Use() {
-	h.tracker.Use()
-}
-
-func (h *heartbeat) Release() error {
-	return h.tracker.Release(func() error {
+func (h *heartbeat) Shutdown() (err error) {
+	h.sdOnce.Do(func() {
 		h.close <- true
 		h.wait.Wait()
-		return h.input.Release()
+		err = h.input.Release()
 	})
+	return
 }
 
 func (h *heartbeat) run(start time.Time) {
@@ -58,7 +54,7 @@ func (h *heartbeat) run(start time.Time) {
 		select {
 		case <-timer.GetC():
 			report := metrics.MetricReport{
-				Name:      h.def.Name,
+				Name:      h.hb.Metric,
 				StartTime: start,
 				EndTime:   end,
 				Value:     h.hb.Value,
@@ -78,14 +74,14 @@ func (h *heartbeat) run(start time.Time) {
 	h.wait.Done()
 }
 
-func newHeartbeat(def metrics.Definition, hb config.Heartbeat, input pipeline.Input, clock clock.Clock) pipeline.Component {
+func newHeartbeat(hb config.Heartbeat, input pipeline.Input, clock clock.Clock) pipeline.Source {
 	input.Use()
-	c := &heartbeat{def: def, hb: hb, input: input, clock: clock, close: make(chan bool, 1)}
+	c := &heartbeat{hb: hb, input: input, clock: clock, close: make(chan bool, 1)}
 	c.wait.Add(1)
 	go c.run(clock.Now().UTC().Round(1 * time.Second))
 	return c
 }
 
-func NewHeartbeat(def metrics.Definition, hb config.Heartbeat, input pipeline.Input) pipeline.Component {
-	return newHeartbeat(def, hb, input, clock.NewRealClock())
+func NewHeartbeat(hb config.Heartbeat, input pipeline.Input) pipeline.Source {
+	return newHeartbeat(hb, input, clock.NewRealClock())
 }

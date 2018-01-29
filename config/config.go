@@ -26,6 +26,7 @@ type Config struct {
 	Identities Identities `json:"identities"`
 	Metrics    Metrics    `json:"metrics"`
 	Endpoints  Endpoints  `json:"endpoints"`
+	Sources    Sources    `json:"sources"`
 }
 
 // Validation

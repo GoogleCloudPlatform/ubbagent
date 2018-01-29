@@ -27,12 +27,8 @@ import (
 
 func TestHeartbeat(t *testing.T) {
 
-	def := metrics.Definition{
-		Name: "instanceSeconds",
-		Type: metrics.IntType,
-	}
-
 	heartbeat := config.Heartbeat{
+		Metric:          "instanceSeconds",
 		IntervalSeconds: 10,
 		Value: metrics.MetricValue{
 			IntValue: 10,
@@ -45,7 +41,7 @@ func TestHeartbeat(t *testing.T) {
 	t.Run("sender used and released", func(t *testing.T) {
 		mc := clock.NewMockClock()
 		i := testlib.NewMockInput()
-		hb := newHeartbeat(def, heartbeat, i, mc)
+		hb := newHeartbeat(heartbeat, i, mc)
 
 		if i.Used != true {
 			t.Fatalf("expected i.Used == true")
@@ -54,7 +50,7 @@ func TestHeartbeat(t *testing.T) {
 			t.Fatalf("expected i.Released == false")
 		}
 
-		hb.Release()
+		hb.Shutdown()
 
 		if i.Released != true {
 			t.Fatalf("expected i.Released == true")
@@ -64,7 +60,7 @@ func TestHeartbeat(t *testing.T) {
 	t.Run("proper value and labels sent", func(t *testing.T) {
 		mc := clock.NewMockClock()
 		i := testlib.NewMockInput()
-		hb := newHeartbeat(def, heartbeat, i, mc)
+		hb := newHeartbeat(heartbeat, i, mc)
 
 		i.DoAndWait(t, 1, func() {
 			mc.SetNow(mc.Now().Add(10 * time.Second))
@@ -83,13 +79,13 @@ func TestHeartbeat(t *testing.T) {
 			t.Fatalf("unexpected report labels")
 		}
 
-		hb.Release()
+		hb.Shutdown()
 	})
 
 	t.Run("no coverage gap", func(t *testing.T) {
 		mc := clock.NewMockClock()
 		i := testlib.NewMockInput()
-		hb := newHeartbeat(def, heartbeat, i, mc)
+		hb := newHeartbeat(heartbeat, i, mc)
 
 		// First fire
 		i.DoAndWait(t, 1, func() {
@@ -103,7 +99,7 @@ func TestHeartbeat(t *testing.T) {
 		i.DoAndWait(t, 3, func() {
 			mc.SetNow(mc.Now().Add(9 * time.Second))
 		})
-		hb.Release()
+		hb.Shutdown()
 
 		reports := i.Reports()
 		if len(reports) != 3 {

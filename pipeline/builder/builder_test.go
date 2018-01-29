@@ -45,7 +45,7 @@ func TestBuild(t *testing.T) {
 					Name: "int-metric",
 					Type: "int",
 				},
-				Reported: &config.ReportedMetric{
+				Aggregation: &config.Aggregation{
 					BufferSeconds: 10,
 				},
 				Endpoints: []config.MetricEndpoint{
@@ -57,7 +57,7 @@ func TestBuild(t *testing.T) {
 					Name: "double-metric",
 					Type: "double",
 				},
-				Reported: &config.ReportedMetric{
+				Aggregation: &config.Aggregation{
 					BufferSeconds: 10,
 				},
 				Endpoints: []config.MetricEndpoint{
@@ -71,6 +71,19 @@ func TestBuild(t *testing.T) {
 				Disk: &config.DiskEndpoint{
 					ReportDir:     filepath.Join(tmpdir, "reports"),
 					ExpireSeconds: 3600,
+				},
+			},
+		},
+		Sources: []config.Source{
+			{
+				Name: "instance-seconds",
+				Heartbeat: &config.Heartbeat{
+					Metric:          "int-metric",
+					IntervalSeconds: 10,
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
+					Labels: map[string]string{"foo": "bar"},
 				},
 			},
 		},
