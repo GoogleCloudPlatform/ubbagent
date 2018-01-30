@@ -17,89 +17,14 @@ package aggregator
 import (
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 )
-
-type mockSender struct {
-	id        string
-	reports   []metrics.MetricReport // must hold sendMutex to read/write
-	sendMutex sync.Mutex
-	errMutex  sync.Mutex
-	sendErr   error
-	waitChan  chan bool
-	waitDone  chan bool
-	released  bool
-}
-
-func (s *mockSender) Send(report metrics.StampedMetricReport) error {
-	s.sendMutex.Lock()
-	s.reports = append(s.reports, report.MetricReport)
-	if s.waitChan != nil {
-		s.waitChan <- true
-		if <-s.waitDone {
-			s.waitChan = nil
-			s.waitDone = nil
-		}
-	}
-	s.sendMutex.Unlock()
-	return nil
-}
-
-func (s *mockSender) Endpoints() (empty []string) {
-	return
-}
-
-func (s *mockSender) Use() {}
-
-func (s *mockSender) Release() error {
-	s.released = true
-	return nil
-}
-
-func (s *mockSender) getReports() (reports []metrics.MetricReport) {
-	s.sendMutex.Lock()
-	reports = s.reports
-	s.reports = []metrics.MetricReport{}
-	s.sendMutex.Unlock()
-	return
-}
-
-func (s *mockSender) doAndWait(t *testing.T, expected int, f func()) {
-	waitChan := make(chan bool, 1)
-	waitDone := make(chan bool, 1)
-	s.sendMutex.Lock()
-	s.waitChan = waitChan
-	s.waitDone = waitDone
-	f()
-	s.sendMutex.Unlock()
-	count := 0
-	end := time.Now().Add(5 * time.Second)
-	for {
-		select {
-		case <-waitChan:
-			count += 1
-			if count >= expected {
-				s.waitDone <- true
-				return
-			}
-			s.waitDone <- false
-		case <-time.After(end.Sub(time.Now())):
-			t.Fatal("doAndWait: nothing happened after 5 seconds")
-		}
-	}
-}
-
-func newMockSender(id string) *mockSender {
-	ms := &mockSender{id: id}
-	ms.getReports()
-	return ms
-}
 
 func TestNewAggregator(t *testing.T) {
 	t.Run("Load previous state", func(t *testing.T) {
@@ -148,7 +73,7 @@ func TestNewAggregator(t *testing.T) {
 			},
 		}
 
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		a := newAggregator(metric, bufTime, ms, p, mockClock)
@@ -160,7 +85,7 @@ func TestNewAggregator(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		reports := ms.getReports()
+		reports := ms.Reports()
 		if len(reports) > 0 {
 			t.Fatalf("Expected no reports, got: %+v", reports)
 		}
@@ -174,10 +99,12 @@ func TestNewAggregator(t *testing.T) {
 		a = newAggregator(metric, bufTime, ms, p, mockClock)
 
 		// Release the aggregator so that it flushes all of its current reports.
-		a.Release()
+		ms.DoAndWait(t, 2, func() {
+			a.Release()
+		})
 
 		expected := []metrics.MetricReport{report1, report2}
-		reports = ms.getReports()
+		reports = ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -192,12 +119,12 @@ func TestNewAggregator(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		ms.doAndWait(t, 1, func() {
+		ms.DoAndWait(t, 3, func() {
 			mockClock.SetNow(time.Unix(200, 0))
 		})
 
 		expected = []metrics.MetricReport{report3}
-		reports = ms.getReports()
+		reports = ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -205,7 +132,7 @@ func TestNewAggregator(t *testing.T) {
 }
 
 func TestAggregator_Use(t *testing.T) {
-	s := newMockSender("sender")
+	s := testlib.NewMockSender("sender")
 	metric := metrics.Definition{}
 	bufTime := 10 * time.Second
 
@@ -215,12 +142,12 @@ func TestAggregator_Use(t *testing.T) {
 	a.Use()
 
 	a.Release() // Usage count should still be 1.
-	if s.released {
+	if s.Released {
 		t.Fatal("sender.released expected to be false")
 	}
 
 	a.Release() // Usage count should be 0; sender should be released.
-	if !s.released {
+	if !s.Released {
 		t.Fatal("sender.released expected to be true")
 	}
 }
@@ -236,7 +163,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Zero state", func(t *testing.T) {
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
@@ -249,7 +176,7 @@ func TestAggregator_AddReport(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
-		ms.doAndWait(t, 1, func() {
+		ms.DoAndWait(t, 1, func() {
 			mockClock.SetNow(time.Unix(100, 0))
 		})
 
@@ -264,7 +191,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := ms.getReports()
+		reports := ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -274,7 +201,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Aggregation", func(t *testing.T) {
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
@@ -297,7 +224,7 @@ func TestAggregator_AddReport(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
-		ms.doAndWait(t, 1, func() {
+		ms.DoAndWait(t, 1, func() {
 			mockClock.SetNow(time.Unix(100, 0))
 		})
 
@@ -312,7 +239,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := ms.getReports()
+		reports := ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -322,7 +249,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Different labels", func(t *testing.T) {
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
@@ -351,7 +278,7 @@ func TestAggregator_AddReport(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
-		ms.doAndWait(t, 2, func() {
+		ms.DoAndWait(t, 2, func() {
 			mockClock.SetNow(time.Unix(100, 0))
 		})
 
@@ -380,7 +307,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			},
 		}
 
-		reports := ms.getReports()
+		reports := ms.Reports()
 		if !equalUnordered(reports, expected) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
@@ -390,7 +317,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Report validation error", func(t *testing.T) {
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
@@ -412,7 +339,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Time conflict", func(t *testing.T) {
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
@@ -441,7 +368,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Push after timeout", func(t *testing.T) {
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
@@ -468,11 +395,11 @@ func TestAggregator_AddReport(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		ms.doAndWait(t, 2, func() {
+		ms.DoAndWait(t, 2, func() {
 			mockClock.SetNow(time.Unix(10, 0))
 		})
 
-		reports := ms.getReports()
+		reports := ms.Reports()
 		if len(reports) != 2 {
 			t.Fatalf("Expected push of 2 reports after timeout, got: %+v", reports)
 		}
@@ -501,11 +428,11 @@ func TestAggregator_AddReport(t *testing.T) {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
 		}
 
-		ms.doAndWait(t, 2, func() {
+		ms.DoAndWait(t, 4, func() {
 			mockClock.SetNow(time.Unix(30, 0))
 		})
 
-		reports = ms.getReports()
+		reports = ms.Reports()
 		if len(reports) != 2 {
 			t.Fatalf("Expected push of 2 reports after timeout, got: %+v", reports)
 		}
@@ -515,7 +442,7 @@ func TestAggregator_AddReport(t *testing.T) {
 	t.Run("Push after Release", func(t *testing.T) {
 		mockClock := clock.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
-		ms := newMockSender("sender")
+		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
 
 		if err := a.AddReport(metrics.MetricReport{
@@ -531,7 +458,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 		a.Release()
 
-		if len(ms.getReports()) == 0 {
+		if len(ms.Reports()) == 0 {
 			t.Fatal("Expected push after Release, but sender contains no reports")
 		}
 	})
