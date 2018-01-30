@@ -57,14 +57,13 @@ identities:
 metrics:
 - name: int-metric
   type: int
-  reported:
+  aggregation:
     bufferSeconds: 20
   endpoints:
   - name: on_disk
 - name: double-metric
   type: double
-  reported:
-    bufferSeconds: 10
+  passthrough: {}
   endpoints:
   - name: on_disk
   - name: pubsub
@@ -83,6 +82,16 @@ endpoints:
     identity: gcp
     serviceName: test-service.bogus.com
     consumerId: project_number:123456
+
+sources:
+- name: instance-seconds
+  heartbeat:
+    metric: int-metric
+    intervalSeconds: 10
+    value:
+      intValue: 10
+    labels:
+      foo: bar
 `
 
 	// Run the jsonKeyText variable through ghodss/yaml so that it's formatted the same as the input
@@ -105,7 +114,7 @@ endpoints:
 					Name: "int-metric",
 					Type: "int",
 				},
-				Reported: &config.ReportedMetric{
+				Aggregation: &config.Aggregation{
 					BufferSeconds: 20,
 				},
 				Endpoints: []config.MetricEndpoint{
@@ -117,9 +126,7 @@ endpoints:
 					Name: "double-metric",
 					Type: "double",
 				},
-				Reported: &config.ReportedMetric{
-					BufferSeconds: 10,
-				},
+				Passthrough: &config.Passthrough{},
 				Endpoints: []config.MetricEndpoint{
 					{Name: "on_disk"},
 					{Name: "pubsub"},
@@ -150,6 +157,19 @@ endpoints:
 				},
 			},
 		},
+		Sources: []config.Source{
+			{
+				Name: "instance-seconds",
+				Heartbeat: &config.Heartbeat{
+					Metric:          "int-metric",
+					IntervalSeconds: 10,
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
+					Labels: map[string]string{"foo": "bar"},
+				},
+			},
+		},
 	}
 
 	parsed, err := config.Parse([]byte(text))
@@ -172,7 +192,7 @@ identities:
 metrics:
 - name: int-metric
   type: int
-  reported:
+  aggregation:
     bufferSeconds: 10
   endpoints:
   - name: on_disk
@@ -180,7 +200,7 @@ metrics:
   - name: servicecontrol
 - name: double-metric
   type: double
-  reported:
+  aggregation:
     bufferSeconds: 10
   endpoints:
   - name: on_disk
@@ -234,7 +254,7 @@ func TestConfig_Validate(t *testing.T) {
 				Name: "int-metric",
 				Type: "int",
 			},
-			Reported: &config.ReportedMetric{
+			Aggregation: &config.Aggregation{
 				BufferSeconds: 10,
 			},
 			Endpoints: []config.MetricEndpoint{
@@ -301,7 +321,7 @@ func TestConfig_Validate(t *testing.T) {
 			Endpoints:  goodEndpoints,
 		}
 
-		if want, got := "missing metrics section", c.Validate(); got == nil || want != got.Error() {
+		if want, got := "no metrics defined", c.Validate(); got == nil || want != got.Error() {
 			t.Fatalf("wanted: %+v, got: %+v", want, got)
 		}
 	})

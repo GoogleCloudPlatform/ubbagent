@@ -27,12 +27,14 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/sender"
+	"github.com/GoogleCloudPlatform/ubbagent/source"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/hashicorp/go-multierror"
 )
 
 // Build builds pipeline containing a configured Aggregator and all of the resources
-// (persistence, endpoints) behind it. It returns the pipeline.Head.
-func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pipeline.Head, error) {
+// (persistence, endpoints) behind it. It returns the pipeline.Input.
+func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pipeline.Input, error) {
 	agentId, err := agentid.CreateOrGet(p)
 	if err != nil {
 		return nil, err
@@ -46,20 +48,40 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		senders[endpoints[i].Name()] = sender.NewRetryingSender(endpoints[i], p, r)
 	}
 
-	aggregators := make(map[string]pipeline.Head)
+	// Inputs for the resultant Selector.
+	inputs := make(map[string]pipeline.Input)
 	for _, metric := range cfg.Metrics {
 		var msenders []sender.Sender
 		for _, me := range metric.Endpoints {
 			msenders = append(msenders, senders[me.Name])
 		}
 		d := sender.NewDispatcher(msenders, r)
-		if metric.Reported != nil {
-			bufferTime := time.Duration(metric.Reported.BufferSeconds) * time.Second
-			aggregators[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
+		if metric.Aggregation != nil {
+			bufferTime := time.Duration(metric.Aggregation.BufferSeconds) * time.Second
+			inputs[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
+		} else if metric.Passthrough != nil {
+			inputs[metric.Name] = &sender.InputAdapter{Sender: d}
+		}
+	}
+	selector := pipeline.NewSelector(inputs)
+
+	// Defined metric sources.
+	var sources []pipeline.Source
+	for _, src := range cfg.Sources {
+		if src.Heartbeat != nil {
+			sources = append(sources, source.NewHeartbeat(*src.Heartbeat, selector))
 		}
 	}
 
-	return pipeline.NewSelector(aggregators), nil
+	cb := func() error {
+		var err *multierror.Error
+		for _, src := range sources {
+			err = multierror.Append(err, src.Shutdown())
+		}
+		return err.ErrorOrNil()
+	}
+
+	return pipeline.NewCallbackInput(selector, cb), nil
 }
 
 func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint, error) {

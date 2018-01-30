@@ -41,6 +41,7 @@ type addMsg struct {
 // Aggregator is the head of the metrics reporting pipeline. It accepts reports from the reporting
 // client, buffers and aggregates for a configured amount of time, and sends them downstream.
 // See pipeline.Pipeline.
+// TODO(volkman): Uncouple Aggregator from Sender, and instead use an InputAdapter
 type Aggregator struct {
 	clock         clock.Clock
 	metric        metrics.Definition
@@ -199,12 +200,7 @@ func (h *Aggregator) pushBucket() {
 			glog.V(2).Infof("aggregator: sending %v reports", len(finishedReports))
 		}
 		for _, r := range finishedReports {
-			sr, err := metrics.NewStampedMetricReport(r)
-			if err != nil {
-				glog.Errorf("aggregator: error creating stamped report: %+v", err)
-				continue
-			}
-			err = h.sender.Send(sr)
+			err := h.sender.Send(metrics.NewStampedMetricReport(r))
 			if err != nil {
 				glog.Errorf("aggregator: error sending report: %+v", err)
 				continue

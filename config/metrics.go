@@ -22,23 +22,17 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 
-type Metrics []Metric
+type metricValidator interface {
+	Validate(m *Metric, c *Config) error
+}
 
 type Metric struct {
 	metrics.Definition `json:",inline"`
 	Endpoints          []MetricEndpoint `json:"endpoints"`
 
-	// oneof
-	Reported *ReportedMetric `json:"reported"`
-}
-
-type MetricEndpoint struct {
-	Name string `json:"name"`
-}
-
-type ReportedMetric struct {
-	// The number of seconds that metrics should be aggregated prior to forwarding
-	BufferSeconds int64 `json:"bufferSeconds"`
+	// oneof - buffering configuration
+	Aggregation *Aggregation `json:"aggregation"`
+	Passthrough *Passthrough `json:"passthrough"`
 }
 
 func (m *Metric) Validate(c *Config) error {
@@ -46,22 +40,22 @@ func (m *Metric) Validate(c *Config) error {
 		return err
 	}
 	types := 0
-	for _, v := range []Validatable{m.Reported} {
+	for _, v := range []metricValidator{m.Aggregation, m.Passthrough} {
 		if reflect.ValueOf(v).IsNil() {
 			continue
 		}
-		if err := v.Validate(c); err != nil {
-			return err
+		if err := v.Validate(m, c); err != nil {
+			return fmt.Errorf("metric %v: %v", m.Name, err)
 		}
 		types++
 	}
 
 	if types == 0 {
-		return fmt.Errorf("metric %v: missing type configuration", m.Name)
+		return fmt.Errorf("metric %v: missing buffering configuration", m.Name)
 	}
 
 	if types > 1 {
-		return fmt.Errorf("metric %v: multiple type configurations", m.Name)
+		return fmt.Errorf("metric %v: multiple buffering configurations", m.Name)
 	}
 
 	if len(m.Endpoints) == 0 {
@@ -85,9 +79,7 @@ func (m *Metric) Validate(c *Config) error {
 	return nil
 }
 
-func (rm *ReportedMetric) Validate(c *Config) error {
-	return nil
-}
+type Metrics []Metric
 
 // GetMetricDefinition returns the metrics.Definition with the given name, or nil if it does not
 // exist.
@@ -113,5 +105,28 @@ func (m Metrics) Validate(c *Config) error {
 		}
 		usedNames[def.Name] = true
 	}
+	return nil
+}
+
+type MetricEndpoint struct {
+	Name string `json:"name"`
+}
+
+type Aggregation struct {
+	// The number of seconds that metrics should be aggregated prior to forwarding
+	BufferSeconds int64 `json:"bufferSeconds"`
+}
+
+func (rm *Aggregation) Validate(m *Metric, c *Config) error {
+	if rm.BufferSeconds <= 0 {
+		return fmt.Errorf("bufferSeconds must be > 0")
+	}
+	return nil
+}
+
+type Passthrough struct {
+}
+
+func (rm *Passthrough) Validate(m *Metric, c *Config) error {
 	return nil
 }
