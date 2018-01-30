@@ -64,7 +64,7 @@ type MockInput struct {
 
 	reports []metrics.MetricReport // must hold mu to read/write
 	addErr  error
-  mu      sync.Mutex
+	mu      sync.Mutex
 }
 
 func (i *MockInput) AddReport(report metrics.MetricReport) error {
