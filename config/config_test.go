@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/ghodss/yaml"
 )
 
@@ -52,13 +53,22 @@ identities:
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
         "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/bogus%40bogus.iam.bogus.com"
       }
+
 metrics:
-  bufferSeconds: 10
-  definitions:
-  - name: int-metric
-    type: int
-  - name: double-metric
-    type: double
+- name: int-metric
+  type: int
+  aggregation:
+    bufferSeconds: 20
+  endpoints:
+  - name: on_disk
+- name: double-metric
+  type: double
+  passthrough: {}
+  endpoints:
+  - name: on_disk
+  - name: pubsub
+  - name: servicecontrol
+
 endpoints:
 - name: on_disk
   disk:
@@ -72,6 +82,16 @@ endpoints:
     identity: gcp
     serviceName: test-service.bogus.com
     consumerId: project_number:123456
+
+sources:
+- name: instance-seconds
+  heartbeat:
+    metric: int-metric
+    intervalSeconds: 10
+    value:
+      intValue: 10
+    labels:
+      foo: bar
 `
 
 	// Run the jsonKeyText variable through ghodss/yaml so that it's formatted the same as the input
@@ -88,16 +108,29 @@ endpoints:
 				},
 			},
 		},
-		Metrics: &config.Metrics{
-			BufferSeconds: 10,
-			Definitions: []config.MetricDefinition{
-				{
-					Name:        "int-metric",
-					Type:        "int",
+		Metrics: config.Metrics{
+			{
+				Definition: metrics.Definition{
+					Name: "int-metric",
+					Type: "int",
 				},
-				{
-					Name:        "double-metric",
-					Type:        "double",
+				Aggregation: &config.Aggregation{
+					BufferSeconds: 20,
+				},
+				Endpoints: []config.MetricEndpoint{
+					{Name: "on_disk"},
+				},
+			},
+			{
+				Definition: metrics.Definition{
+					Name: "double-metric",
+					Type: "double",
+				},
+				Passthrough: &config.Passthrough{},
+				Endpoints: []config.MetricEndpoint{
+					{Name: "on_disk"},
+					{Name: "pubsub"},
+					{Name: "servicecontrol"},
 				},
 			},
 		},
@@ -124,6 +157,19 @@ endpoints:
 				},
 			},
 		},
+		Sources: []config.Source{
+			{
+				Name: "instance-seconds",
+				Heartbeat: &config.Heartbeat{
+					Metric:          "int-metric",
+					IntervalSeconds: 10,
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
+					Labels: map[string]string{"foo": "bar"},
+				},
+			},
+		},
 	}
 
 	parsed, err := config.Parse([]byte(text))
@@ -142,13 +188,25 @@ identities:
   - name: gcp
     gcp:
       encodedServiceAccountKey: ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAiYm9ndXMiLAogICJwcml2YXRlX2tleV9pZCI6ICJjZmJiYzJkYmExMWIxZmIxZjNjYjBmOGFkZGNhOTllOWQ4NjkzMDBhIiwKICAicHJpdmF0ZV9rZXkiOiAiLS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tXG5NSUlFdkFJQkFEQU5CZ2txaGtpRzl3MEJBUUVGQUFTQ0JLWXdnZ1NpQWdFQUFvSUJBUUNqdXVSNlg1UXVIc0tzXG5kVWtacjBzTUZodlRaQUhtYUx0cEROeGRTL0twenE1TWRGaWFjWmlLNk9qN1lJbjJmaVJoVWY2Q010UlFyUFZBXG5nRHY2MW1LUDNqaG50MWQ5eFYxV2J4VXVFR3ZqbWgzSEhqZm5NOHdFUU5UbSs1dmJXZldlZVdrbWxFaVVweFFDXG5ySFVBbVZ1L1FCbWxxRFNPWDd6V3Rjdkh3TEtCdnpncW9mb0E4OHpyd28zM21BeUZ5Wkh4Z29yUUdDY1NZeEN4XG52WE0zTWhoZkJVUEduRy84SDhPTVhwclZsTzB1elM3dmdqR3ZuelByN1FsY3NSMlUybnQvRFN1NmFnVko3dWoyXG5jUkRxUHRDMy84TFRCMllGcVA0SjUxS3B2ZGVjSVFwR1NYTyttREdqUjI0NW90aXVWT0w5Q09TMEErbkd1aTd5XG50Mm0rcFpmUEFnTUJBQUVDZ2dFQUJvU28zOFlINkQ3OStBK0cvYlBaNXNySFk4LzNONjlBLzFoSXpMNVdGRS9VXG5WQ09WNk53aDM1citrY1VaNlBrTlY1U0VBZHNVQ2NWVFA2Sld0OUJoanlHeTRlRUVkK0ZyejhaejZwN3BkS2pWXG4xTXNvOTk5eHo1MUFSYm1MNFBnSjhPQkFFMWRUZlVBYWFqR3hBVlMrT0lkTTFQRzAvb0FKWHVlK25lZlh5a3loXG5CSDJycGxGcTNRWkVsL0w0bFBPeHpVYW5HTUFBdXNMZXZUQTNPSnR0S3Zrc2dzOFBhM2VtTUtRcUVKbVhTaW5TXG5QUm9tajVwVklnUVhVTGJhQ0tKbXlWbkhaTjdpakpRMWNOanhaNC9wVXV1MUNOOUorRUtwRGx5S0xVUHBrdllpXG5uMGE0WXJINkZDT1lpVHBKcWlmQnkvQXN6OXl5U0Q0bmpMdUM0SERrcFFLQmdRRFY0QUxhZWJyTEJzT0dxYXR1XG4vcUY2akRnTFhWTWdDcDlueFlwRGdjczRyWkVMMWtVcU9pSU91OVNhaVprRWlwWHlOVG81elB5V0xhN2x5Qk9xXG5zWjZjVjhKV0hMMTNpVE9tVGl2bGRYMkhQMlZvdVBFNVBLVGQxTFJzOWI0eldBeENCcCtKV2cvd211Z3ZFMUFCXG5aeXZrWEUwWm5odStOQnZ3dzQ0MGlpRmJBd0tCZ1FERCtubUxNYks5MDVhVGVYS2twR1BaWDRxZUFncThkSEZMXG50N3RNODVTM3NQLzczUkZJdUR4RkYyY0Z3R1RvT1Zwak5IVVlHWDZLajhvUzBqMFFlNEhZYjRRQnhOYVpRZU1hXG5FbzhIWG1VWUd3ZDZtWDlveGZSamdGemNTZTRVZjZkdkpxL1VOSDBGUW4yVlYvMDhTSU54dVRzcG14TXExQ3NBXG5VVEEyYjdLd1JRS0JnQ2RmaXdidmZBemVYT2FRbThmZVJwb0o4Rk5mUmV0VEtVOXdWV2ppSHloN0E0WGJWM1pUXG5wMnR3OXMzUVlRUXVBemJJeDhSV1VYWFFTUzl5S3ZTMHFFOTk5SC9uNEpWK0E2MHRIUFdzTUlUU2pmZStmR0llXG5JUGZacmJHVmVBTjV4Ui91bWpZdUIxc3pHV1Y1TjdSYWF3RXFZT05EY1RZTjM4cnVKV0xVdnhsREFvR0Fmc1VTXG5SRWowbnpnMFNkY2dvb0c0R1E5bFlrcGQyWVBWR2E2UzJQY2pkeU5tb3V4Z1Z0TGVJYTgrdEFpOC9UN0VTakhQXG5vTFExRjdwbGM0Rk5nTkR6c0NhS2xINVlkckNaRCs5N1Y3L20wdzRBNjN4SlgyUFZiMXZFTmJjWTYyZWJ6aG1QXG5XVXhPcHMxWTRQY1cxeHpzOGU1bzU4UHBSU1lUWHRRbHhNRENMS1VDZ1lBa25RbWVZNy9OS3hkNit0aDkrWUYrXG5SbEV4bDl4aVR4USsrYkd3Q1hFT3N3Z0tUT3c3TFJkKzEvQ1hVRE14eTFVM0JWRGphd29XQXRKZFZKUVJ3VXA1XG5rM290Uk8xV3JnRTlWcElVNGFoYW5MSGxpeDExd0pLOUhITU9YWTN1MS80Z3o4SHBiY0M2Lzd4QnUxU3Y2T21xXG42WmdJUVozSFlwdmhtUVY4ZW94bmVBPT1cbi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS1cbiIsCiAgImNsaWVudF9lbWFpbCI6ICJib2d1c0Bib2d1cy5pYW0uYm9ndXMuY29tIiwKICAiY2xpZW50X2lkIjogIjMyNTg5MjM1ODkyMzA0ODM5MTIwOCIsCiAgImF1dGhfdXJpIjogImh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbS9vL29hdXRoMi9hdXRoIiwKICAidG9rZW5fdXJpIjogImh0dHBzOi8vYWNjb3VudHMuZ29vZ2xlLmNvbS9vL29hdXRoMi90b2tlbiIsCiAgImF1dGhfcHJvdmlkZXJfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9vYXV0aDIvdjEvY2VydHMiLAogICJjbGllbnRfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9yb2JvdC92MS9tZXRhZGF0YS94NTA5L2JvZ3VzJTQwYm9ndXMuaWFtLmJvZ3VzLmNvbSIKfQo=
+
 metrics:
-  bufferSeconds: 10
-  definitions:
-  - name: int-metric
-    type: int
-  - name: double-metric
-    type: double
+- name: int-metric
+  type: int
+  aggregation:
+    bufferSeconds: 10
+  endpoints:
+  - name: on_disk
+  - name: pubsub
+  - name: servicecontrol
+- name: double-metric
+  type: double
+  aggregation:
+    bufferSeconds: 10
+  endpoints:
+  - name: on_disk
+  - name: pubsub
+  - name: servicecontrol
+
 endpoints:
 - name: on_disk
   disk:
@@ -190,12 +248,17 @@ func TestConfig_Validate(t *testing.T) {
 		},
 	}
 
-	goodMetrics := &config.Metrics{
-		BufferSeconds: 10,
-		Definitions: []config.MetricDefinition{
-			{
-				Name:        "int-metric",
-				Type:        "int",
+	goodMetrics := config.Metrics{
+		{
+			Definition: metrics.Definition{
+				Name: "int-metric",
+				Type: "int",
+			},
+			Aggregation: &config.Aggregation{
+				BufferSeconds: 10,
+			},
+			Endpoints: []config.MetricEndpoint{
+				{Name: "disk"},
 			},
 		},
 	}
@@ -212,12 +275,12 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("missing service account key", func(t *testing.T) {
 		c := &config.Config{
-			Metrics: goodMetrics,
+			Metrics:   goodMetrics,
 			Endpoints: goodEndpoints,
 			Identities: []config.Identity{
 				{
 					Name: "gcp",
-					GCP: &config.GCPIdentity{},
+					GCP:  &config.GCPIdentity{},
 				},
 			},
 		}
@@ -258,7 +321,7 @@ func TestConfig_Validate(t *testing.T) {
 			Endpoints:  goodEndpoints,
 		}
 
-		if want, got := "missing metrics section", c.Validate(); got == nil || want != got.Error() {
+		if want, got := "no metrics defined", c.Validate(); got == nil || want != got.Error() {
 			t.Fatalf("wanted: %+v, got: %+v", want, got)
 		}
 	})
@@ -267,25 +330,12 @@ func TestConfig_Validate(t *testing.T) {
 		// More tests in the TestMetrics_Validate method.
 		c := &config.Config{
 			Identities: goodIdentities,
-			Endpoints: goodEndpoints,
-			Metrics: &config.Metrics{
-				Definitions: []config.MetricDefinition{
-					{Name: "foo", Type: "foo"},
-				},
+			Endpoints:  goodEndpoints,
+			Metrics: config.Metrics{
+				{Definition: metrics.Definition{Name: "foo", Type: "foo"}},
 			},
 		}
-		if want, got := "metric foo: invalid type: foo", c.Validate(); got == nil || want != got.Error() {
-			t.Fatalf("wanted: %+v, got: %+v", want, got)
-		}
-	})
-
-	t.Run("missing endpoints", func(t *testing.T) {
-		c := &config.Config{
-			Identities: goodIdentities,
-			Metrics:    goodMetrics,
-		}
-
-		if want, got := "no endpoints defined", c.Validate(); got == nil || want != got.Error() {
+		if want, got := "metric foo: invalid value type: foo", c.Validate(); got == nil || want != got.Error() {
 			t.Fatalf("wanted: %+v, got: %+v", want, got)
 		}
 	})
@@ -293,8 +343,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing endpoint name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Disk: &config.DiskEndpoint{
 						ReportDir:     "/tmp",
@@ -312,8 +369,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing endpoint type", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 				},
@@ -328,8 +392,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("too many endpoint types", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 					Disk: &config.DiskEndpoint{
@@ -351,8 +422,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("multiple endpoints with the same name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 					Disk: &config.DiskEndpoint{
@@ -378,8 +456,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing identity name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 					ServiceControl: &config.ServiceControlEndpoint{
@@ -398,8 +483,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("nonexistent identity name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 					ServiceControl: &config.ServiceControlEndpoint{
@@ -419,8 +511,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing service name", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 					ServiceControl: &config.ServiceControlEndpoint{
@@ -439,8 +538,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("missing consumer ID", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 					ServiceControl: &config.ServiceControlEndpoint{
@@ -459,8 +565,15 @@ func TestConfig_Validate(t *testing.T) {
 	t.Run("invalid consumer ID", func(t *testing.T) {
 		c := &config.Config{
 			Identities: goodIdentities,
-			Metrics: goodMetrics,
+			Metrics:    goodMetrics,
 			Endpoints: []config.Endpoint{
+				{
+					Name: "disk",
+					Disk: &config.DiskEndpoint{
+						ReportDir:     "/tmp",
+						ExpireSeconds: 10,
+					},
+				},
 				{
 					Name: "foo",
 					ServiceControl: &config.ServiceControlEndpoint{

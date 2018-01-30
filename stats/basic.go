@@ -36,11 +36,11 @@ type Basic struct {
 	current      Snapshot
 }
 
-func (s *Basic) Register(send ExpectedSend) {
+func (s *Basic) Register(id string, handlers []string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.pendingCount++
-	s.pending[send.BatchId()] = newPendingSend(send.Handlers(), s.pendingCount)
+	s.pending[id] = newPendingSend(handlers, s.pendingCount)
 
 	// Trim the pending set if necessary
 	if len(s.pending) > *maxPendingSends {
@@ -59,19 +59,19 @@ func (s *Basic) Register(send ExpectedSend) {
 	}
 }
 
-func (s *Basic) SendSucceeded(batchId string, handler string) {
+func (s *Basic) SendSucceeded(id string, handler string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	p, exists := s.pending[batchId]
+	p, exists := s.pending[id]
 	if !exists {
 		// This might happen if the set of pending sends grows to large and older sends are dropped, or
 		// if part of a send succeeded after the agent was restarted.
-		glog.Warningf("stats.Basic: ignoring SendSucceeded from handler %v of unknown batch %v", handler, batchId)
+		glog.Warningf("stats.Basic: ignoring SendSucceeded from handler %v of unknown report id %v", handler, id)
 		return
 	}
 	p.handlerSuccess(handler)
 	if p.isSuccessful() {
-		delete(s.pending, batchId)
+		delete(s.pending, id)
 		// Reset the "current" failure count: the number of failures since the last success
 		s.current.CurrentFailureCount = 0
 		// Set the last success time
@@ -79,17 +79,17 @@ func (s *Basic) SendSucceeded(batchId string, handler string) {
 	}
 }
 
-func (s *Basic) SendFailed(batchId string, handler string) {
+func (s *Basic) SendFailed(id string, handler string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	// One or more failures means the full send failed. So we remove the pendingSend and increment
 	// the failure count.
-	if _, exists := s.pending[batchId]; exists {
-		delete(s.pending, batchId)
+	if _, exists := s.pending[id]; exists {
+		delete(s.pending, id)
 		s.current.CurrentFailureCount++
 		s.current.TotalFailureCount++
 	} else {
-		glog.Warningf("stats.Basic: ignoring SendFailed from handler %v of unknown batch %v", handler, batchId)
+		glog.Warningf("stats.Basic: ignoring SendFailed from handler %v of unknown report id %v", handler, id)
 	}
 }
 

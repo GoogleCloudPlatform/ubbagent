@@ -19,27 +19,40 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/hashicorp/go-multierror"
 )
 
 // Dispatcher is a Sender that fans out to other Sender instances. Generally,
 // this will be a collection of Endpoints wrapped in RetryingSender objects.
 type Dispatcher struct {
-	senders []Sender
-	tracker pipeline.UsageTracker
+	senders  []Sender
+	tracker  pipeline.UsageTracker
+	recorder stats.Recorder
 }
 
-// See Sender.Prepare.
-func (d *Dispatcher) Prepare(mb metrics.MetricBatch) (PreparedSend, error) {
-	sends := make([]PreparedSend, len(d.senders))
-	for i, s := range d.senders {
-		ps, err := s.Prepare(mb)
-		if err != nil {
-			return nil, err
-		}
-		sends[i] = ps
+// Send fans out to each Sender in parallel and returns any errors. Send blocks
+// until all sub-sends have finished.
+func (d *Dispatcher) Send(report metrics.StampedMetricReport) error {
+
+	// First, register that each report will be handled by this Dispatcher's endpoints.
+	endpoints := d.Endpoints()
+	d.recorder.Register(report.Id, endpoints)
+
+	// Next, forward the reports to each subsequent sender.
+	errors := make([]error, len(d.senders))
+	wg := sync.WaitGroup{}
+	wg.Add(len(d.senders))
+	for i, ps := range d.senders {
+		go func(i int, s Sender) {
+			// If the send generates an error, we assume that the downstream sender will register that
+			// error with the stats recorder.
+			errors[i] = s.Send(report)
+			wg.Done()
+		}(i, ps)
 	}
-	return &dispatcherSend{mb.Id, sends}, nil
+	wg.Wait()
+	return multierror.Append(nil, errors...).ErrorOrNil()
 }
 
 // Use increments the Dispatcher's usage count.
@@ -67,41 +80,22 @@ func (d *Dispatcher) Release() error {
 	})
 }
 
-type dispatcherSend struct {
-	id    string
-	sends []PreparedSend
-}
-
-// Send fans out to each PreparedSend in parallel and returns the first error, if any. Send blocks
-// until all sub-sends have finished.
-func (ds *dispatcherSend) Send() error {
-	errors := make([]error, len(ds.sends))
-	wg := sync.WaitGroup{}
-	wg.Add(len(ds.sends))
-	for i, ps := range ds.sends {
-		go func(i int, ps PreparedSend) {
-			errors[i] = ps.Send()
-			wg.Done()
-		}(i, ps)
-	}
-	wg.Wait()
-	return multierror.Append(nil, errors...).ErrorOrNil()
-}
-
-func (ds *dispatcherSend) BatchId() string {
-	return ds.id
-}
-
-func (ds *dispatcherSend) Handlers() (handlers []string) {
-	for _, s := range ds.sends {
-		handlers = append(handlers, s.Handlers()...)
+func (d *Dispatcher) Endpoints() (handlers []string) {
+	seen := make(map[string]bool)
+	for _, s := range d.senders {
+		for _, e := range s.Endpoints() {
+			if _, exists := seen[e]; !exists {
+				seen[e] = true
+				handlers = append(handlers, e)
+			}
+		}
 	}
 	return
 }
 
-func NewDispatcher(senders []Sender) *Dispatcher {
+func NewDispatcher(senders []Sender, recorder stats.Recorder) *Dispatcher {
 	for _, s := range senders {
 		s.Use()
 	}
-	return &Dispatcher{senders: senders}
+	return &Dispatcher{senders: senders, recorder: recorder}
 }

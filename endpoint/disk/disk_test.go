@@ -44,16 +44,14 @@ func TestDiskEndpoint(t *testing.T) {
 	}
 
 	// Test a single report write
-	report1, err := ep.BuildReport(metrics.MetricBatch{
+	report1, err := ep.BuildReport(metrics.StampedMetricReport{
 		Id: "report1",
-		Reports: []metrics.MetricReport{
-			{
-				Name:      "int-metric1",
-				StartTime: time.Unix(0, 0),
-				EndTime:   time.Unix(1, 0),
-				Value: metrics.MetricValue{
-					IntValue: 10,
-				},
+		MetricReport: metrics.MetricReport{
+			Name:      "int-metric1",
+			StartTime: time.Unix(0, 0),
+			EndTime:   time.Unix(1, 0),
+			Value: metrics.MetricValue{
+				IntValue: 10,
 			},
 		},
 	})
@@ -70,24 +68,22 @@ func TestDiskEndpoint(t *testing.T) {
 	mc.SetNow(parseTime("2017-06-19T12:05:00Z"))
 
 	// Test a second report write
-	report2, err := ep.BuildReport(metrics.MetricBatch{
+	report2, err := ep.BuildReport(metrics.StampedMetricReport{
 		Id: "report2",
-		Reports: []metrics.MetricReport{
-			{
-				Name:      "int-metric1",
-				StartTime: time.Unix(2, 0),
-				EndTime:   time.Unix(3, 0),
-				Value: metrics.MetricValue{
-					IntValue: 10,
-				},
+		MetricReport: metrics.MetricReport{
+			Name:      "int-metric1",
+			StartTime: time.Unix(2, 0),
+			EndTime:   time.Unix(3, 0),
+			Value: metrics.MetricValue{
+				IntValue: 10,
 			},
 		},
 	})
 	if err != nil {
 		t.Fatalf("error building report: %+v", err)
 	}
-	if report2.BatchId() != "report2" {
-		t.Fatalf("expected report batch ID to be 'report2', got: %v", report2.BatchId())
+	if report2.Id != "report2" {
+		t.Fatalf("expected report ID to be 'report2', got: %v", report2.Id)
 	}
 	if err := ep.Send(report2); err != nil {
 		t.Fatalf("error sending report: %+v", err)
@@ -106,7 +102,7 @@ func TestDiskEndpoint(t *testing.T) {
 
 	ep.Use()
 	ep.Use()
-	
+
 	ep.Release()
 	if ep.closed {
 		t.Fatal("ep.closed expected to be false")

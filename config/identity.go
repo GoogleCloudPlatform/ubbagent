@@ -51,7 +51,7 @@ func (identities Identities) Get(name string) *Identity {
 }
 
 type Identity struct {
-	Name string `json:"name"`
+	Name string       `json:"name"`
 	GCP  *GCPIdentity `json:"gcp"`
 }
 

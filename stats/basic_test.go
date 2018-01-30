@@ -21,28 +21,15 @@ import (
 	"time"
 )
 
-type mockExpectedSend struct {
-	batchId  string
-	handlers []string
-}
-
-func (s *mockExpectedSend) BatchId() string {
-	return s.batchId
-}
-
-func (s *mockExpectedSend) Handlers() []string {
-	return s.handlers
-}
-
 func TestSimple(t *testing.T) {
 	mc := clock.NewMockClock()
 	s := newBasic(mc)
 
 	mc.SetNow(time.Unix(1000, 0))
 
-	s.Register(&mockExpectedSend{"batch1", []string{"handler1", "handler2"}})
-	s.SendSucceeded("batch1", "handler1")
-	s.SendSucceeded("batch1", "handler2")
+	s.Register("report1", []string{"handler1", "handler2"})
+	s.SendSucceeded("report1", "handler1")
+	s.SendSucceeded("report1", "handler2")
 
 	snap := s.Snapshot()
 	if want, got := 0, snap.CurrentFailureCount; want != got {
@@ -57,8 +44,8 @@ func TestSimple(t *testing.T) {
 
 	mc.SetNow(time.Unix(1100, 0))
 
-	s.Register(&mockExpectedSend{"batch2", []string{"handler1", "handler2", "handler3"}})
-	s.SendSucceeded("batch2", "handler1")
+	s.Register("report2", []string{"handler1", "handler2", "handler3"})
+	s.SendSucceeded("report2", "handler1")
 
 	// There's still one handler remaining, so the stats should not have updated yet.
 	snap = s.Snapshot()
@@ -72,7 +59,7 @@ func TestSimple(t *testing.T) {
 		t.Fatalf("snap.LastReportSuccess: want=%v, got=%v", want, got)
 	}
 
-	s.SendFailed("batch2", "handler2")
+	s.SendFailed("report2", "handler2")
 
 	// Check that the failure counts have increased.
 	snap = s.Snapshot()
@@ -87,7 +74,7 @@ func TestSimple(t *testing.T) {
 	}
 
 	// Multiple failures for the same send should only increment failure counts once.
-	s.SendFailed("batch2", "handler3")
+	s.SendFailed("report2", "handler3")
 	snap = s.Snapshot()
 	if want, got := 1, snap.CurrentFailureCount; want != got {
 		t.Fatalf("snap.CurrentFailureCount: want=%v, got=%v", want, got)
@@ -96,9 +83,9 @@ func TestSimple(t *testing.T) {
 		t.Fatalf("snap.TotalFailureCount: want=%v, got=%v", want, got)
 	}
 
-	s.Register(&mockExpectedSend{"batch3", []string{"handler1", "handler2"}})
-	s.SendSucceeded("batch3", "handler1")
-	s.SendSucceeded("batch3", "handler2")
+	s.Register("report3", []string{"handler1", "handler2"})
+	s.SendSucceeded("report3", "handler1")
+	s.SendSucceeded("report3", "handler2")
 
 	// LastReportSuccess should move forward, and currentFailureCount should be reset to 0.
 	snap = s.Snapshot()
@@ -114,8 +101,8 @@ func TestSimple(t *testing.T) {
 
 	// Test that the pending set gets trimmed to MAX_PENDING.
 	for i := 0; i < *maxPendingSends+10; i++ {
-		s.Register(&mockExpectedSend{fmt.Sprintf("batch%v", i), []string{"handler1", "handler2"}})
-		s.SendSucceeded("batch3", "handler1")
+		s.Register(fmt.Sprintf("report%v", i), []string{"handler1", "handler2"})
+		s.SendSucceeded("report3", "handler1")
 	}
 
 	if len(s.pending) > *maxPendingSends {

@@ -15,22 +15,11 @@
 package metrics
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/google/uuid"
 )
-
-// Report represents an aggregated interval for a unique metric + labels combination.
-type MetricReport struct {
-	Name        string
-	StartTime   time.Time
-	EndTime     time.Time
-	Labels      map[string]string
-	Value       MetricValue
-}
 
 // MetricValue holds a single named metric value. Only one of the individual type fields should
 // be non-zero.
@@ -39,43 +28,58 @@ type MetricValue struct {
 	DoubleValue float64
 }
 
-// MetricBatch is a collection of MetricReports with an identifier.
-type MetricBatch struct {
-	Id string
-	Reports []MetricReport
-}
-
-// NewMetricBatch creates a new MetricBatch with a random, unique identifier.
-func NewMetricBatch(reports []MetricReport) (MetricBatch, error) {
-	var batch MetricBatch
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return batch, err
-	}
-	batch.Id = id.String()
-	batch.Reports = reports
-	return batch, nil
-}
-
-func (mr *MetricReport) Validate(conf *config.Metrics) error {
-	def := conf.GetMetricDefinition(mr.Name)
-	if def == nil {
-		return errors.New(fmt.Sprintf("Unknown metric: %v", mr.Name))
-	}
-	if mr.StartTime.After(mr.EndTime) {
-		return errors.New(fmt.Sprintf("Metric %v: StartTime > EndTime: %v > %v", mr.Name, mr.StartTime, mr.EndTime))
-	}
+func (mv MetricValue) Validate(def Definition) error {
 	switch def.Type {
-	case config.IntType:
-		if mr.Value.DoubleValue != 0 {
-			return errors.New(fmt.Sprintf("Metric %v: double value specified for integer metric: %v", mr.Name, mr.Value.DoubleValue))
+	case IntType:
+		if mv.DoubleValue != 0 {
+			return fmt.Errorf("double value specified for integer metric: %v", mv.DoubleValue)
 		}
 		break
-	case config.DoubleType:
-		if mr.Value.IntValue != 0 {
-			return errors.New(fmt.Sprintf("Metric %v: integer value specified for double metric: %v", mr.Name, mr.Value.IntValue))
+	case DoubleType:
+		if mv.IntValue != 0 {
+			return fmt.Errorf("integer value specified for double metric: %v", mv.IntValue)
 		}
 		break
 	}
 	return nil
+}
+
+// Report represents an aggregated interval for a unique metric + labels combination.
+type MetricReport struct {
+	Name      string
+	StartTime time.Time
+	EndTime   time.Time
+	Labels    map[string]string
+	Value     MetricValue
+}
+
+func (mr MetricReport) Validate(def Definition) error {
+	if mr.Name != def.Name {
+		return fmt.Errorf("incorrect metric name: %v", mr.Name)
+	}
+	if mr.StartTime.After(mr.EndTime) {
+		return fmt.Errorf("metric %v: StartTime > EndTime: %v > %v", mr.Name, mr.StartTime, mr.EndTime)
+	}
+	if err := mr.Value.Validate(def); err != nil {
+		return fmt.Errorf("metric %v: %v", mr.Name, err)
+	}
+	return nil
+}
+
+// StampedMetricReport is a MetricReport stamped with a unique identifier.
+type StampedMetricReport struct {
+	MetricReport `json:",inline"`
+	Id           string
+}
+
+// NewStampedMetricReport creates a new StampedMetricReport with a random, unique identifier.
+func NewStampedMetricReport(report MetricReport) StampedMetricReport {
+	var stamped StampedMetricReport
+	id, err := uuid.NewRandom()
+	if err != nil {
+		panic(fmt.Sprintf("cannot create uuid for report: %+v", err))
+	}
+	stamped.Id = id.String()
+	stamped.MetricReport = report
+	return stamped
 }

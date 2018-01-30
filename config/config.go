@@ -24,8 +24,9 @@ import (
 // Config contains configuration for the agent.
 type Config struct {
 	Identities Identities `json:"identities"`
-	Metrics    *Metrics   `json:"metrics"`
+	Metrics    Metrics    `json:"metrics"`
 	Endpoints  Endpoints  `json:"endpoints"`
+	Sources    Sources    `json:"sources"`
 }
 
 // Validation
@@ -53,8 +54,8 @@ func (c *Config) Validate() error {
 	if err := c.Identities.Validate(c); err != nil {
 		return err
 	}
-	if c.Metrics == nil {
-		return errors.New("missing metrics section")
+	if len(c.Metrics) == 0 {
+		return errors.New("no metrics defined")
 	}
 	if err := c.Metrics.Validate(c); err != nil {
 		return err
@@ -63,6 +64,9 @@ func (c *Config) Validate() error {
 		return errors.New("no endpoints defined")
 	}
 	if err := c.Endpoints.Validate(c); err != nil {
+		return err
+	}
+	if err := c.Sources.Validate(c); err != nil {
 		return err
 	}
 

@@ -35,8 +35,9 @@ const (
 	fileMode        = 0644
 	directoryMode   = 0755
 	cleanupInterval = 1 * time.Minute
-	reportPrefix    = "report_"
+	reportPrefix    = "report"
 	reportSuffix    = ".json"
+	randomLength    = 5
 )
 
 type DiskEndpoint struct {
@@ -51,23 +52,17 @@ type DiskEndpoint struct {
 	closed     bool // used for testing
 }
 
-type diskReport struct {
-	Name  string
-	Id    string
-	Batch metrics.MetricBatch
-}
-
-func (r diskReport) BatchId() string {
-	return r.Id
+type diskContext struct {
+	Name string
 }
 
 // NewDiskEndpoint creates a new DiskEndpoint and starts a goroutine that cleans up expired reports
 // on disk.
-func NewDiskEndpoint(name, path string, expiration time.Duration) *DiskEndpoint {
+func NewDiskEndpoint(name string, path string, expiration time.Duration) *DiskEndpoint {
 	return newDiskEndpoint(name, path, expiration, clock.NewRealClock())
 }
 
-func newDiskEndpoint(name, path string, expiration time.Duration, clock clock.Clock) *DiskEndpoint {
+func newDiskEndpoint(name string, path string, expiration time.Duration, clock clock.Clock) *DiskEndpoint {
 	ep := &DiskEndpoint{
 		name:       name,
 		path:       path,
@@ -84,34 +79,29 @@ func (ep *DiskEndpoint) Name() string {
 	return ep.name
 }
 
-func (ep *DiskEndpoint) Send(report endpoint.EndpointReport) error {
-	r := report.(*diskReport)
+func (ep *DiskEndpoint) BuildReport(r metrics.StampedMetricReport) (endpoint.EndpointReport, error) {
+	return endpoint.NewEndpointReport(r, diskContext{Name: reportName(r, ep.clock.Now())})
+}
 
-	jsontext, err := json.Marshal(r.Batch)
+func (ep *DiskEndpoint) Send(r endpoint.EndpointReport) error {
+	dctx := diskContext{}
+	err := r.UnmarshalContext(&dctx)
+	if err != nil {
+		return err
+	}
+	jsontext, err := json.Marshal(r.StampedMetricReport)
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(ep.path, directoryMode); err != nil {
 		return err
 	}
-	file := path.Join(ep.path, r.Name)
+	file := path.Join(ep.path, dctx.Name)
 
 	if err := ioutil.WriteFile(file, jsontext, fileMode); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (ep *DiskEndpoint) BuildReport(mb metrics.MetricBatch) (endpoint.EndpointReport, error) {
-	return &diskReport{
-		Name:  reportName(ep.clock.Now()),
-		Id:    mb.Id,
-		Batch: mb,
-	}, nil
-}
-
-func (*DiskEndpoint) EmptyReport() endpoint.EndpointReport {
-	return &diskReport{}
 }
 
 // Use increments the DiskEndpoint's usage count.
@@ -162,8 +152,14 @@ func (ep *DiskEndpoint) cleanup() {
 	}
 }
 
-func reportName(reportTime time.Time) string {
-	return reportPrefix + reportTime.UTC().Format(time.RFC3339) + reportSuffix
+func reportName(report metrics.StampedMetricReport, reportTime time.Time) string {
+	var random string
+	if len(report.Id) < randomLength {
+		random = report.Id
+	} else {
+		random = report.Id[0:5]
+	}
+	return reportPrefix + "_" + reportTime.UTC().Format(time.RFC3339) + "_" + random + reportSuffix
 }
 
 func isExpired(name string, cutoff time.Time) bool {
@@ -173,7 +169,12 @@ func isExpired(name string, cutoff time.Time) bool {
 	if !strings.HasSuffix(name, reportSuffix) {
 		return false
 	}
-	t, err := time.Parse(time.RFC3339, name[len(reportPrefix):len(name)-len(reportSuffix)])
+
+	parts := strings.Split(name, "_")
+	if len(parts) != 3 {
+		return false
+	}
+	t, err := time.Parse(time.RFC3339, parts[1])
 	if err != nil {
 		return false
 	}

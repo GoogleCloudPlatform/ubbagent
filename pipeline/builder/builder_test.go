@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 )
@@ -38,16 +39,29 @@ func TestBuild(t *testing.T) {
 	}
 
 	cfg := &config.Config{
-		Metrics: &config.Metrics{
-			BufferSeconds: 10,
-			Definitions: []config.MetricDefinition{
-				{
+		Metrics: config.Metrics{
+			{
+				Definition: metrics.Definition{
 					Name: "int-metric",
 					Type: "int",
 				},
-				{
+				Aggregation: &config.Aggregation{
+					BufferSeconds: 10,
+				},
+				Endpoints: []config.MetricEndpoint{
+					{Name: "on_disk"},
+				},
+			},
+			{
+				Definition: metrics.Definition{
 					Name: "double-metric",
 					Type: "double",
+				},
+				Aggregation: &config.Aggregation{
+					BufferSeconds: 10,
+				},
+				Endpoints: []config.MetricEndpoint{
+					{Name: "on_disk"},
 				},
 			},
 		},
@@ -57,6 +71,19 @@ func TestBuild(t *testing.T) {
 				Disk: &config.DiskEndpoint{
 					ReportDir:     filepath.Join(tmpdir, "reports"),
 					ExpireSeconds: 3600,
+				},
+			},
+		},
+		Sources: []config.Source{
+			{
+				Name: "instance-seconds",
+				Heartbeat: &config.Heartbeat{
+					Metric:          "int-metric",
+					IntervalSeconds: 10,
+					Value: metrics.MetricValue{
+						IntValue: 10,
+					},
+					Labels: map[string]string{"foo": "bar"},
 				},
 			},
 		},
