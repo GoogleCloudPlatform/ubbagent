@@ -299,7 +299,7 @@ func TestRetryingSender(t *testing.T) {
 			mc.SetNow(time.Unix(4300, 0))
 		})
 
-		if want, got := []testlib.RecordedEntry{{report1.Id, "mockep"}, {report2.Id, "mockep"}}, sr.Succeeded(); !reflect.DeepEqual(want, got) {
+		if want, got := []testlib.RecordedEntry{{Id: report1.Id, Handler: "mockep"}, {Id: report2.Id, Handler: "mockep"}}, sr.Succeeded(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("sr.succeeded: want=%+v, got=%+v", want, got)
 		}
 
@@ -319,12 +319,12 @@ func TestRetryingSender(t *testing.T) {
 		})
 
 		// No changes to sr.succeeded
-		if want, got := []testlib.RecordedEntry{{report1.Id, "mockep"}, {report2.Id, "mockep"}}, sr.Succeeded(); !reflect.DeepEqual(want, got) {
+		if want, got := []testlib.RecordedEntry{{Id: report1.Id, Handler: "mockep"}, {Id: report2.Id, Handler: "mockep"}}, sr.Succeeded(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("sr.succeeded: want=%+v, got=%+v", want, got)
 		}
 
 		// There should now be one failure.
-		if want, got := []testlib.RecordedEntry{{report3.Id, "mockep"}}, sr.Failed(); !reflect.DeepEqual(want, got) {
+		if want, got := []testlib.RecordedEntry{{Id: report3.Id, Handler: "mockep"}}, sr.Failed(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("len(sr.failed): want=%+v, got=%+v", want, got)
 		}
 	})
