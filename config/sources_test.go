@@ -50,7 +50,7 @@ func TestSources_Validate(t *testing.T) {
 		Metric:          "int-metric",
 		IntervalSeconds: 10,
 		Value: metrics.MetricValue{
-			IntValue: 10,
+			Int64Value: 10,
 		},
 	}
 
@@ -89,7 +89,7 @@ func TestSources_Validate(t *testing.T) {
 						Metric:          "int-metric",
 						IntervalSeconds: c.val,
 						Value: metrics.MetricValue{
-							IntValue: 10,
+							Int64Value: 10,
 						},
 					},
 				},
@@ -112,7 +112,7 @@ func TestSources_Validate(t *testing.T) {
 				Metric:          "int-metric",
 				IntervalSeconds: 10,
 				Value: metrics.MetricValue{
-					IntValue: 10,
+					Int64Value: 10,
 				},
 			},
 		}

@@ -24,8 +24,8 @@ import (
 // MetricValue holds a single named metric value. Only one of the individual type fields should
 // be non-zero.
 type MetricValue struct {
-	IntValue    int64
-	DoubleValue float64
+	Int64Value  int64   `json:"int64Value"`
+	DoubleValue float64 `json:"doubleValue"`
 }
 
 func (mv MetricValue) Validate(def Definition) error {
@@ -36,8 +36,8 @@ func (mv MetricValue) Validate(def Definition) error {
 		}
 		break
 	case DoubleType:
-		if mv.IntValue != 0 {
-			return fmt.Errorf("integer value specified for double metric: %v", mv.IntValue)
+		if mv.Int64Value != 0 {
+			return fmt.Errorf("integer value specified for double metric: %v", mv.Int64Value)
 		}
 		break
 	}
@@ -46,11 +46,11 @@ func (mv MetricValue) Validate(def Definition) error {
 
 // Report represents an aggregated interval for a unique metric + labels combination.
 type MetricReport struct {
-	Name      string
-	StartTime time.Time
-	EndTime   time.Time
-	Labels    map[string]string
-	Value     MetricValue
+	Name      string            `json:"name"`
+	StartTime time.Time         `json:"startTime"`
+	EndTime   time.Time         `json:"endTime"`
+	Labels    map[string]string `json:"labels"`
+	Value     MetricValue       `json:"value"`
 }
 
 func (mr MetricReport) Validate(def Definition) error {

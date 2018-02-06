@@ -32,7 +32,7 @@ func TestDispatcher(t *testing.T) {
 		Id: "report",
 		MetricReport: metrics.MetricReport{
 			Name:      "int-metric",
-			Value:     metrics.MetricValue{IntValue: 30},
+			Value:     metrics.MetricValue{Int64Value: 30},
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
 		},
@@ -116,7 +116,7 @@ func TestDispatcher(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(1, 0),
 				Value: metrics.MetricValue{
-					IntValue: 10,
+					Int64Value: 10,
 				},
 			},
 		}

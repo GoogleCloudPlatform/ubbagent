@@ -31,7 +31,7 @@ func TestHeartbeat(t *testing.T) {
 		Metric:          "instanceSeconds",
 		IntervalSeconds: 10,
 		Value: metrics.MetricValue{
-			IntValue: 10,
+			Int64Value: 10,
 		},
 		Labels: map[string]string{
 			"foo": "bar",

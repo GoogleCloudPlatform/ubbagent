@@ -73,7 +73,7 @@ sources:
     metric: instance-seconds
     intervalSeconds: 10
     value:
-      intValue: 10
+      int64Value: 10
     labels:
       auto: true
 ```
@@ -96,7 +96,7 @@ The agent provides a local HTTP instance for interaction with metered software.
 An example `curl` command to post a report:
 
 ```
-curl -X POST -d "{\"Name\": \"requests\", \"StartTime\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")\", \"EndTime\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")\", \"Value\": { \"IntValue\": 10 }, \"Labels\": { \"foo\": \"bar2\" } }" 'http://localhost:3456/report'
+curl -X POST -d "{\"name\": \"requests\", \"startTime\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")\", \"endTime\": \"$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")\", \"value\": { \"int64Value\": 10 }, \"labels\": { \"foo\": \"bar2\" } }" 'http://localhost:3456/report'
 ```
 
 The agent also provides status indicating its ability to send data to endpoints.

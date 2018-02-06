@@ -109,8 +109,8 @@ func (ep *ServiceControlEndpoint) format(r endpoint.EndpointReport) *servicecont
 		StartTime: r.StartTime.UTC().Format(time.RFC3339Nano),
 		EndTime:   r.EndTime.UTC().Format(time.RFC3339Nano),
 	}
-	if r.Value.IntValue != 0 {
-		value.Int64Value = &r.Value.IntValue
+	if r.Value.Int64Value != 0 {
+		value.Int64Value = &r.Value.Int64Value
 	} else if r.Value.DoubleValue != 0 {
 		value.DoubleValue = &r.Value.DoubleValue
 	}

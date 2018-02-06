@@ -39,7 +39,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				IntValue: 10,
+				Int64Value: 10,
 			},
 		}
 		if err := m.Validate(int_metric); err != nil {
@@ -54,7 +54,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				IntValue: 10,
+				Int64Value: 10,
 			},
 		}
 		if err := m.Validate(int_metric); err == nil || err.Error() != "incorrect metric name: foo" {
@@ -69,7 +69,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				IntValue: 10,
+				Int64Value: 10,
 			},
 		}
 		if err := m.Validate(int_metric); err == nil || !strings.Contains(err.Error(), "StartTime > EndTime") {
@@ -99,7 +99,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				IntValue: 10,
+				Int64Value: 10,
 			},
 		}
 		if err := m.Validate(double_metric); err == nil || !strings.Contains(err.Error(), "integer value specified") {
