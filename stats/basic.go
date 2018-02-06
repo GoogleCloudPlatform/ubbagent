@@ -32,7 +32,7 @@ type Basic struct {
 	clock        clock.Clock
 	mutex        sync.RWMutex
 	pending      map[string]*pendingSend
-	pendingCount int
+	pendingCount int64
 	current      Snapshot
 }
 
@@ -45,7 +45,7 @@ func (s *Basic) Register(id string, handlers []string) {
 	// Trim the pending set if necessary
 	if len(s.pending) > *maxPendingSends {
 		oldestKey := ""
-		oldestOrder := math.MaxInt64
+		var oldestOrder int64 = math.MaxInt64
 		for k, v := range s.pending {
 			if v.order < oldestOrder {
 				oldestKey = k
@@ -109,7 +109,7 @@ func newBasic(clock clock.Clock) *Basic {
 
 type pendingSend struct {
 	handlers map[string]bool
-	order    int
+	order    int64
 }
 
 func (ps *pendingSend) handlerSuccess(handler string) {
@@ -120,7 +120,7 @@ func (ps *pendingSend) isSuccessful() bool {
 	return len(ps.handlers) == 0
 }
 
-func newPendingSend(handlers []string, order int) *pendingSend {
+func newPendingSend(handlers []string, order int64) *pendingSend {
 	hm := make(map[string]bool)
 	for _, h := range handlers {
 		hm[h] = true
