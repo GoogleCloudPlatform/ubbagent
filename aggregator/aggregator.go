@@ -236,7 +236,7 @@ func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 	}
 	// Only one of these values should be non-zero. We rely on prior validation to ensure the proper
 	// value (i.e., the one specified in the metrics.Definition) is provided.
-	ar.Value.IntValue += mr.Value.IntValue
+	ar.Value.Int64Value += mr.Value.Int64Value
 	ar.Value.DoubleValue += mr.Value.DoubleValue
 
 	// The aggregated end time advances, but the start time remains unchanged.

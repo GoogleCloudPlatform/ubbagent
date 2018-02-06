@@ -34,7 +34,7 @@ func TestSelector(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			IntValue: 1,
+			Int64Value: 1,
 		},
 	}
 
@@ -43,7 +43,7 @@ func TestSelector(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			IntValue: 1,
+			Int64Value: 1,
 		},
 	}
 
@@ -52,7 +52,7 @@ func TestSelector(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			IntValue: 1,
+			Int64Value: 1,
 		},
 	}
 
@@ -143,7 +143,7 @@ func TestCallbackInput(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			IntValue: 1,
+			Int64Value: 1,
 		},
 	}
 

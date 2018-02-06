@@ -73,7 +73,7 @@ func TestServiceControlEndpoint(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(1, 0),
 				Value: metrics.MetricValue{
-					IntValue: 10,
+					Int64Value: 10,
 				},
 			},
 		})
