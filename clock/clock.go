@@ -71,6 +71,23 @@ func NewMockClock() MockClock {
 	}
 }
 
+// NewStoppedTimer creates a Timer that will never fire.
+func NewStoppedTimer() Timer {
+	return &stoppedTimer{c: make(chan time.Time)}
+}
+
+type stoppedTimer struct {
+	c chan time.Time
+}
+
+func (st *stoppedTimer) GetC() <- chan time.Time {
+	return st.c
+}
+
+func (t *stoppedTimer) Stop() bool {
+	return false
+}
+
 type realClock struct{}
 
 func (rc *realClock) Now() time.Time {

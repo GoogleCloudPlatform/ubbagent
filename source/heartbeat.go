@@ -49,8 +49,9 @@ func (h *heartbeat) run(start time.Time) {
 
 	running := true
 	for running {
-		remaining := end.Sub(h.clock.Now())
-		timer := h.clock.NewTimer(remaining)
+		now := h.clock.Now()
+		nextFire := now.Add(end.Sub(now))
+		timer := h.clock.NewTimerAt(nextFire)
 		select {
 		case <-timer.GetC():
 			report := metrics.MetricReport{

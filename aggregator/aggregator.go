@@ -133,8 +133,9 @@ func (h *Aggregator) run() {
 	running := true
 	for running {
 		// Set a timer to fire when the current bucket should be pushed.
-		remaining := h.bufferTime - h.clock.Now().Sub(h.currentBucket.CreateTime)
-		timer := h.clock.NewTimer(remaining)
+		now := h.clock.Now()
+		nextFire := now.Add(h.bufferTime - now.Sub(h.currentBucket.CreateTime))
+		timer := h.clock.NewTimerAt(nextFire)
 		select {
 		case msg, ok := <-h.add:
 			if ok {
