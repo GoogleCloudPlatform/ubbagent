@@ -35,6 +35,50 @@ type Clock interface {
 
 // MockClock is an extension of Clock that adds the ability to set the current time. Now returns
 // the value passed to SetNow until a new value is set.
+//
+// Timers created by a MockClock will fire once the clock's time is set to or after the calculated
+// fire time. This helps enable deterministic tests involving timers. However, because a MockClock's
+// time doesn't continuously increase, a couple of considerations should be followed to avoid racy
+// conditions in tests.
+//
+// 1. Avoid calls to Clock.Now() outside of the test thread. For example, when creating timers
+//    asynchronously, avoid calls to clock.Now() and instead get the base time from the test thread.
+//    e.g.,
+//
+//      func NewComponent(c clock.Clock) *Component {
+//        c = &Component{clock: c}
+//        go c.run(c.Now()) // Retrieve the initial time from this thread.
+//      }
+//
+//      func (c *Component) run(now time.Time) {
+//        fireAt := now.Add(someDelay)
+//        for {
+//          tmr := c.clock.NewTimerAt(fireAt)
+//          select {
+//          case <-c.someChan:
+//            c.handleEvent()
+//
+//          case n := <-tmr.GetC():
+//            c.somePeriodicOperation()
+//            // Compute next fire time based on value received from timer.
+//            fireAt = n.Add(someDelay)
+//        }
+//        tmr.Cancel()
+//      }
+//
+// 2. When creating a new timer, use Clock.NewTimerAt(time.Time) to specify a point in time at which
+//    the timer should fire, and calculate that time based on a known base time (#1). Using
+//    Clock.NewTimer(time.Duration) can lead to race conditions in tests:
+//
+//      d := someDelay - c.clock.Now().Sub(c.lastFireTime)
+//      // <-- if the MockClock's time is advanced here, the new timer may not fire when expected.
+//      tmr := c.clock.NewTimer(d)
+//
+//    Instead:
+//
+//      now := c.clock.Now()
+//      nextFire := now.Add(someDelay - now.Sub(c.lastFireTime))
+//      tmr := c.clock.NewTimerAt(nextFire)
 // TODO(volkman): move MockClock to its own file.
 type MockClock interface {
 	Clock
