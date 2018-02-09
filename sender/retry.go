@@ -70,7 +70,7 @@ type queueEntry struct {
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
 func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder) *RetryingSender {
-	return newRetryingSender(endpoint, persistence, recorder, clock.NewRealClock(), *minRetryDelay, *maxRetryDelay)
+	return newRetryingSender(endpoint, persistence, recorder, clock.NewClock(), *minRetryDelay, *maxRetryDelay)
 }
 
 func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {

@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
@@ -62,7 +61,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("report build failure", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		buildErr := errors.New("build failure")
@@ -75,7 +74,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("empty queue sends immediately", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		mc.SetNow(time.Unix(2000, 0))
@@ -92,7 +91,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("failed send is retried with exponential delay", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		ep.SetSendErr(errors.New("Send failure"))
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
@@ -116,7 +115,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("queue is cleared after success", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		ep.SetSendErr(errors.New("Send failure"))
@@ -153,7 +152,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("non-transient error results in drop of request from queue", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		ep.SetSendErr(errors.New("non-fatal"))
@@ -204,7 +203,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("Failing entry expires", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		sr := testlib.NewMockStatsRecorder()
 		rs := newRetryingSender(ep, persist, sr, mc, testMinDelay, testMaxDelay)
@@ -253,7 +252,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("endpoint loads state after restart", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		ep.SetSendErr(errors.New("Send failure"))
@@ -282,7 +281,7 @@ func TestRetryingSender(t *testing.T) {
 
 	t.Run("send stats are registered", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		sr := testlib.NewMockStatsRecorder()
 		rs := newRetryingSender(ep, persist, sr, mc, testMinDelay, testMaxDelay)
@@ -332,7 +331,7 @@ func TestRetryingSender(t *testing.T) {
 	t.Run("multiple usages", func(t *testing.T) {
 		ep := testlib.NewMockEndpoint("mockep")
 		sr := testlib.NewMockStatsRecorder()
-		rs := newRetryingSender(ep, persistence.NewMemoryPersistence(), sr, clock.NewMockClock(), testMinDelay, testMaxDelay)
+		rs := newRetryingSender(ep, persistence.NewMemoryPersistence(), sr, testlib.NewMockClock(), testMinDelay, testMaxDelay)
 
 		// Test multiple usages of the RetryingSender.
 		rs.Use()
@@ -352,7 +351,7 @@ func TestRetryingSender(t *testing.T) {
 }
 
 // waitForNewTimer waits for up to ~5 seconds for a timer to be set on mc with time t.
-func waitForNewTimer(mc clock.MockClock, expected time.Time, t *testing.T) {
+func waitForNewTimer(mc testlib.MockClock, expected time.Time, t *testing.T) {
 	for i := 0; i < 5000; i++ {
 		if mc.GetNextFireTime() == expected {
 			return

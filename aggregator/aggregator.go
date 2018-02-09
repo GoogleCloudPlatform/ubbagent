@@ -60,7 +60,7 @@ type Aggregator struct {
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
 func NewAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
-	return newAggregator(metric, bufferTime, sender, persistence, clock.NewRealClock())
+	return newAggregator(metric, bufferTime, sender, persistence, clock.NewClock())
 }
 
 func newAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {

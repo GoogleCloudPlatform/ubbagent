@@ -1,4 +1,4 @@
-// Copyright 2017 Google Inc.
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clock_test
+package testlib_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 )
 
 func TestMockClock(t *testing.T) {
-	mc := clock.NewMockClock()
+	mc := testlib.NewMockClock()
 	if ok := mc.Now().IsZero(); !ok {
 		t.Fatal("Expected zero time")
 	}
@@ -34,7 +34,7 @@ func TestMockClock(t *testing.T) {
 }
 
 func TestMockTimer(t *testing.T) {
-	mc := clock.NewMockClock()
+	mc := testlib.NewMockClock()
 	mc.SetNow(time.Unix(10, 0))
 	mt := mc.NewTimer(10 * time.Second)
 

@@ -84,5 +84,5 @@ func newHeartbeat(hb config.Heartbeat, input pipeline.Input, clock clock.Clock) 
 }
 
 func NewHeartbeat(hb config.Heartbeat, input pipeline.Input) pipeline.Source {
-	return newHeartbeat(hb, input, clock.NewRealClock())
+	return newHeartbeat(hb, input, clock.NewClock())
 }

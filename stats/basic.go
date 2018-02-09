@@ -100,7 +100,7 @@ func (s *Basic) Snapshot() Snapshot {
 }
 
 func NewBasic() *Basic {
-	return newBasic(clock.NewRealClock())
+	return newBasic(clock.NewClock())
 }
 
 func newBasic(clock clock.Clock) *Basic {

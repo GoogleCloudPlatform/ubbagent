@@ -59,7 +59,7 @@ type diskContext struct {
 // NewDiskEndpoint creates a new DiskEndpoint and starts a goroutine that cleans up expired reports
 // on disk.
 func NewDiskEndpoint(name string, path string, expiration time.Duration) *DiskEndpoint {
-	return newDiskEndpoint(name, path, expiration, clock.NewRealClock())
+	return newDiskEndpoint(name, path, expiration, clock.NewClock())
 }
 
 func newDiskEndpoint(name string, path string, expiration time.Duration, clock clock.Clock) *DiskEndpoint {

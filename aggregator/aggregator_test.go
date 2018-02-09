@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
@@ -74,7 +73,7 @@ func TestNewAggregator(t *testing.T) {
 		}
 
 		ms := testlib.NewMockSender("sender")
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		a := newAggregator(metric, bufTime, ms, p, mockClock)
 
@@ -92,7 +91,7 @@ func TestNewAggregator(t *testing.T) {
 
 		// Use a new MockClock so that manipulating it doesn't trigger the first aggregator, which is
 		// still running.
-		mockClock = clock.NewMockClock()
+		mockClock = testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 
 		// Construct a new aggregator using the same persistence.
@@ -109,7 +108,7 @@ func TestNewAggregator(t *testing.T) {
 			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 
-		mockClock = clock.NewMockClock()
+		mockClock = testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 
 		// Create one more aggregator and ensure it doesn't start with previous state.
@@ -137,7 +136,7 @@ func TestAggregator_Use(t *testing.T) {
 	bufTime := 10 * time.Second
 
 	// Test multiple usages of the Aggregator.
-	a := newAggregator(metric, bufTime, s, persistence.NewMemoryPersistence(), clock.NewMockClock())
+	a := newAggregator(metric, bufTime, s, persistence.NewMemoryPersistence(), testlib.NewMockClock())
 	a.Use()
 	a.Use()
 
@@ -161,7 +160,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Add a report to a zero-state aggregator
 	t.Run("Zero state", func(t *testing.T) {
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
@@ -199,7 +198,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Add multiple reports, testing aggregation
 	t.Run("Aggregation", func(t *testing.T) {
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
@@ -247,7 +246,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Add two reports with the same name but different labels: no aggregation
 	t.Run("Different labels", func(t *testing.T) {
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
@@ -315,7 +314,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Add a report that fails validation: error
 	t.Run("Report validation error", func(t *testing.T) {
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
@@ -337,7 +336,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Add a report with a start time less than the last end time: error
 	t.Run("Time conflict", func(t *testing.T) {
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
@@ -366,7 +365,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Ensure that the push occurs automatically after a timeout
 	t.Run("Push after timeout", func(t *testing.T) {
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)
@@ -440,7 +439,7 @@ func TestAggregator_AddReport(t *testing.T) {
 
 	// Ensure that a push happens when the aggregator is Released
 	t.Run("Push after Release", func(t *testing.T) {
-		mockClock := clock.NewMockClock()
+		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
 		ms := testlib.NewMockSender("sender")
 		a := newAggregator(metric, bufTime, ms, persistence.NewMemoryPersistence(), mockClock)

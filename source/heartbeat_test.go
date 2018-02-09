@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
@@ -39,7 +38,7 @@ func TestHeartbeat(t *testing.T) {
 	}
 
 	t.Run("sender used and released", func(t *testing.T) {
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		i := testlib.NewMockInput()
 		hb := newHeartbeat(heartbeat, i, mc)
 
@@ -58,7 +57,7 @@ func TestHeartbeat(t *testing.T) {
 	})
 
 	t.Run("proper value and labels sent", func(t *testing.T) {
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		i := testlib.NewMockInput()
 		hb := newHeartbeat(heartbeat, i, mc)
 
@@ -83,7 +82,7 @@ func TestHeartbeat(t *testing.T) {
 	})
 
 	t.Run("no coverage gap", func(t *testing.T) {
-		mc := clock.NewMockClock()
+		mc := testlib.NewMockClock()
 		i := testlib.NewMockInput()
 		hb := newHeartbeat(heartbeat, i, mc)
 
