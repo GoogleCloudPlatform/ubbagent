@@ -28,6 +28,9 @@ type Clock interface {
 
 	// NewTimer creates a new Timer associated with this Clock.
 	NewTimer(d time.Duration) Timer
+
+	// NewTimerAt creates a new Timer that fires at or after the given time.
+	NewTimerAt(at time.Time) Timer
 }
 
 // MockClock is an extension of Clock that adds the ability to set the current time. Now returns
@@ -76,6 +79,11 @@ func (rc *realClock) Now() time.Time {
 
 func (rc *realClock) NewTimer(d time.Duration) Timer {
 	return &realTimer{t: time.NewTimer(d)}
+}
+
+func (rc *realClock) NewTimerAt(at time.Time) Timer {
+	duration := at.Sub(time.Now())
+	return &realTimer{t: time.NewTimer(duration)}
 }
 
 type realTimer struct {
@@ -127,11 +135,23 @@ func (mc *mockClock) GetNextFireTime() time.Time {
 func (mc *mockClock) NewTimer(d time.Duration) Timer {
 	mc.mutex.Lock()
 	defer mc.mutex.Unlock()
+	at := mc.now.Add(d)
+	return mc.newTimer(at)
+}
+
+func (mc *mockClock) NewTimerAt(at time.Time) Timer {
+	mc.mutex.Lock()
+	defer mc.mutex.Unlock()
+	return mc.newTimer(at)
+}
+
+// Assumes mc.mutex is held.
+func (mc *mockClock) newTimer(at time.Time) Timer {
 	c := make(chan time.Time, 1)
 	mt := &mockTimer{
 		c:      c,
 		owner:  mc,
-		fireAt: mc.now.Add(d),
+		fireAt: at,
 	}
 	mc.timers[mt] = true
 

@@ -82,4 +82,36 @@ func TestMockTimer(t *testing.T) {
 		t.Fatal("Stopped timer should not have fired")
 	default:
 	}
+
+	// Ensure timers with a duration <= 0 fire immediately.
+	mt3 := mc.NewTimer(0)
+	select {
+	case <-mt3.GetC():
+	default:
+		t.Fatal("Timer should have fired")
+	}
+
+	mt4 := mc.NewTimer(-1)
+	select {
+	case <-mt4.GetC():
+	default:
+		t.Fatal("Timer should have fired")
+	}
+
+	// test NewTimerAt
+	mt5 := mc.NewTimerAt(time.Unix(200, 0))
+	mc.SetNow(time.Unix(201, 0))
+	select {
+	case <-mt5.GetC():
+	default:
+		t.Fatal("Timer should have fired")
+	}
+
+	// test NewTimerAt with time in the past
+	mt6 := mc.NewTimerAt(time.Unix(0, 0))
+	select {
+	case <-mt6.GetC():
+	default:
+		t.Fatal("Timer should have fired")
+	}
 }
