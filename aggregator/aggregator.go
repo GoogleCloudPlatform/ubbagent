@@ -149,13 +149,13 @@ func (h *Aggregator) run() {
 			} else {
 				running = false
 			}
-		case <-timer.GetC():
+		case now := <-timer.GetC():
 			// Time to push the current bucket.
-			h.pushBucket()
+			h.pushBucket(now)
 		}
 		timer.Stop()
 	}
-	h.pushBucket()
+	h.pushBucket(h.clock.Now())
 	h.wait.Done()
 }
 
@@ -182,8 +182,7 @@ func (h *Aggregator) persistState() {
 
 // pushBucket sends currently-aggregated metrics to the configured MetricSender and resets the
 // bucket.
-func (h *Aggregator) pushBucket() {
-	now := h.clock.Now()
+func (h *Aggregator) pushBucket(now time.Time) {
 	if h.currentBucket == nil {
 		h.currentBucket = newBucket(now)
 		return

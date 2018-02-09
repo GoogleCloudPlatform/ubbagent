@@ -171,14 +171,14 @@ func (rs *RetryingSender) run(start time.Time) {
 
 				// Successfully queued the message
 				msg.result <- nil
-				rs.maybeSend(rs.clock.Now())
+				rs.maybeSend(msg.entry.SendTime)
 			} else {
 				// Channel was closed.
 				rs.wait.Done()
 				return
 			}
-		case <-timer.GetC():
-			rs.maybeSend(rs.clock.Now())
+		case now := <-timer.GetC():
+			rs.maybeSend(now)
 		}
 		timer.Stop()
 	}
@@ -186,7 +186,7 @@ func (rs *RetryingSender) run(start time.Time) {
 
 // maybeSend retries a pending send if the required time delay has elapsed.
 func (rs *RetryingSender) maybeSend(now time.Time) {
-	if now.Before(rs.lastAttempt.Add(time.Duration(rs.delay))) {
+	if now.Before(rs.lastAttempt.Add(rs.delay)) {
 		// Not time yet.
 		return
 	}

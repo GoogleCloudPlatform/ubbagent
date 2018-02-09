@@ -80,7 +80,7 @@ type stoppedTimer struct {
 	c chan time.Time
 }
 
-func (st *stoppedTimer) GetC() <- chan time.Time {
+func (st *stoppedTimer) GetC() <-chan time.Time {
 	return st.c
 }
 
