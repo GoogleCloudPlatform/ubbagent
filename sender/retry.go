@@ -17,6 +17,7 @@ package sender
 import (
 	"errors"
 	"flag"
+	"math/rand"
 	"path"
 	"sync"
 	"time"
@@ -154,10 +155,10 @@ func (rs *RetryingSender) run(start time.Time) {
 			// report is sent.
 			timer = clock.NewStoppedTimer()
 		} else {
-			// Compute the time until the next retry attempt.
-			// This could be negative, which should result in the timer immediately firing.
+			// Compute the next retry time, which is the current time + current delay + [0,1000) ms jitter
 			now := rs.clock.Now()
-			nextFire := now.Add(rs.delay - now.Sub(rs.lastAttempt))
+			jitter := time.Duration(rand.Int63n(1000)) * time.Millisecond
+			nextFire := now.Add(rs.delay - now.Sub(rs.lastAttempt)).Add(jitter)
 			timer = rs.clock.NewTimerAt(nextFire)
 		}
 		select {

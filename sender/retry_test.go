@@ -89,11 +89,11 @@ func TestRetryingSender(t *testing.T) {
 		}
 	})
 
-	t.Run("failed send is retried with exponential delay", func(t *testing.T) {
+	t.Run("failed send is retried with exponential backoff", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
-		ep.SetSendErr(errors.New("Send failure"))
+		ep.SetSendErr(errors.New("send failure"))
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
 		now := time.Unix(3000, 0)
 		mc.SetNow(now)
@@ -101,14 +101,18 @@ func TestRetryingSender(t *testing.T) {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
 		// Exponential delay minimum is 2 seconds (defined above as testMinDelay)
-		var expectedDelays = []int{2, 4, 8, 16, 32}
+		var expectedDelays = []time.Duration{2, 4, 8, 16, 32}
 		for _, delay := range expectedDelays {
-			expectedNext := now.Add(time.Duration(delay) * time.Second)
-			waitForNewTimer(mc, expectedNext, t)
-			now = expectedNext
+			expectedNext := now.Add(delay * time.Second)
+			now = waitForNewTimer(mc, expectedNext, expectedNext.Add(1*time.Second), t)
 			mc.SetNow(now)
 		}
-		if want, got := int32(5), ep.Calls(); want != got {
+
+		// Wait for the last one.
+		expectedNext := now.Add(testMaxDelay)
+		waitForNewTimer(mc, expectedNext, expectedNext.Add(1*time.Second), t)
+
+		if want, got := int32(6), ep.Calls(); want != got {
 			t.Fatalf("Expected %v send calls, got: %v", want, got)
 		}
 	})
@@ -118,7 +122,7 @@ func TestRetryingSender(t *testing.T) {
 		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
-		ep.SetSendErr(errors.New("Send failure"))
+		ep.SetSendErr(errors.New("send failure"))
 		mc.SetNow(time.Unix(4000, 0))
 
 		if err := rs.Send(report1); err != nil {
@@ -207,7 +211,7 @@ func TestRetryingSender(t *testing.T) {
 		ep := testlib.NewMockEndpoint("mockep")
 		sr := testlib.NewMockStatsRecorder()
 		rs := newRetryingSender(ep, persist, sr, mc, testMinDelay, testMaxDelay)
-		ep.SetSendErr(errors.New("Send failure"))
+		ep.SetSendErr(errors.New("send failure"))
 		mc.SetNow(time.Unix(4000, 0))
 
 		if err := rs.Send(report1); err != nil {
@@ -255,7 +259,7 @@ func TestRetryingSender(t *testing.T) {
 		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
 		rs := newRetryingSender(ep, persist, testlib.NewMockStatsRecorder(), mc, testMinDelay, testMaxDelay)
-		ep.SetSendErr(errors.New("Send failure"))
+		ep.SetSendErr(errors.New("send failure"))
 		mc.SetNow(time.Unix(5000, 0))
 
 		ep.DoAndWait(t, 1, func() {
@@ -350,13 +354,16 @@ func TestRetryingSender(t *testing.T) {
 
 }
 
-// waitForNewTimer waits for up to ~5 seconds for a timer to be set on mc with time t.
-func waitForNewTimer(mc testlib.MockClock, expected time.Time, t *testing.T) {
+// waitForNewTimer waits for up to ~5 seconds for a timer to be set on mc with a time between [lower,upper).
+func waitForNewTimer(mc testlib.MockClock, lower, upper time.Time, t *testing.T) (result time.Time) {
 	for i := 0; i < 5000; i++ {
-		if mc.GetNextFireTime() == expected {
+		next := mc.GetNextFireTime()
+		if !next.Before(lower) && next.Before(upper) {
+			result = next
 			return
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
-	t.Fatalf("No timer set for expected time %v after delay", expected)
+	t.Fatalf("No timer set for expected time range [%v,%v) after delay", lower, upper)
+	return
 }
