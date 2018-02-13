@@ -19,14 +19,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/golang/glog"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
-	servicecontrol "google.golang.org/api/servicecontrol/v1"
+	"google.golang.org/api/servicecontrol/v1"
 )
 
 const (
@@ -83,7 +82,7 @@ func (ep *ServiceControlEndpoint) Name() string {
 	return ep.name
 }
 
-func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
+func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
 	req := &servicecontrol.ReportRequest{
 		Operations: []*servicecontrol.Operation{ep.format(report)},
 	}
@@ -100,11 +99,11 @@ func (ep *ServiceControlEndpoint) Send(report endpoint.EndpointReport) error {
 	return nil
 }
 
-func (ep *ServiceControlEndpoint) BuildReport(r metrics.StampedMetricReport) (endpoint.EndpointReport, error) {
-	return endpoint.NewEndpointReport(r, nil)
+func (ep *ServiceControlEndpoint) BuildReport(r metrics.StampedMetricReport) (pipeline.EndpointReport, error) {
+	return pipeline.NewEndpointReport(r, nil)
 }
 
-func (ep *ServiceControlEndpoint) format(r endpoint.EndpointReport) *servicecontrol.Operation {
+func (ep *ServiceControlEndpoint) format(r pipeline.EndpointReport) *servicecontrol.Operation {
 	value := servicecontrol.MetricValue{
 		StartTime: r.StartTime.UTC().Format(time.RFC3339Nano),
 		EndTime:   r.EndTime.UTC().Format(time.RFC3339Nano),

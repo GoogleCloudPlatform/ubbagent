@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sender
+package senders
 
 import (
 	"sync"
@@ -26,7 +26,7 @@ import (
 // Dispatcher is a Sender that fans out to other Sender instances. Generally,
 // this will be a collection of Endpoints wrapped in RetryingSender objects.
 type Dispatcher struct {
-	senders  []Sender
+	senders  []pipeline.Sender
 	tracker  pipeline.UsageTracker
 	recorder stats.Recorder
 }
@@ -44,7 +44,7 @@ func (d *Dispatcher) Send(report metrics.StampedMetricReport) error {
 	wg := sync.WaitGroup{}
 	wg.Add(len(d.senders))
 	for i, ps := range d.senders {
-		go func(i int, s Sender) {
+		go func(i int, s pipeline.Sender) {
 			// If the send generates an error, we assume that the downstream sender will register that
 			// error with the stats recorder.
 			errors[i] = s.Send(report)
@@ -70,7 +70,7 @@ func (d *Dispatcher) Release() error {
 		wg := sync.WaitGroup{}
 		wg.Add(len(d.senders))
 		for i, s := range d.senders {
-			go func(i int, s Sender) {
+			go func(i int, s pipeline.Sender) {
 				errors[i] = s.Release()
 				wg.Done()
 			}(i, s)
@@ -93,7 +93,7 @@ func (d *Dispatcher) Endpoints() (handlers []string) {
 	return
 }
 
-func NewDispatcher(senders []Sender, recorder stats.Recorder) *Dispatcher {
+func NewDispatcher(senders []pipeline.Sender, recorder stats.Recorder) *Dispatcher {
 	for _, s := range senders {
 		s.Use()
 	}

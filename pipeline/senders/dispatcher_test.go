@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sender_test
+package senders
 
 import (
 	"errors"
@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 func TestDispatcher(t *testing.T) {
@@ -41,7 +41,7 @@ func TestDispatcher(t *testing.T) {
 	t.Run("all sub-senders are invoked", func(t *testing.T) {
 		ms1 := testlib.NewMockSender("ms1")
 		ms2 := testlib.NewMockSender("ms2")
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
+		ds := NewDispatcher([]pipeline.Sender{ms1, ms2}, stats.NewNoopRecorder())
 		if err := ds.Send(report); err != nil {
 			t.Fatalf("Unexpected send error: %+v", err)
 		}
@@ -57,7 +57,7 @@ func TestDispatcher(t *testing.T) {
 		ms1 := testlib.NewMockSender("ms1")
 		ms2 := testlib.NewMockSender("ms2")
 		ms2.SetSendError(errors.New("testabcd"))
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
+		ds := NewDispatcher([]pipeline.Sender{ms1, ms2}, stats.NewNoopRecorder())
 		err := ds.Send(report)
 		if ms1.Calls() == 0 {
 			t.Fatal("ms1.Calls() == 0")
@@ -76,7 +76,7 @@ func TestDispatcher(t *testing.T) {
 	t.Run("dispatcher returns aggregated endpoints", func(t *testing.T) {
 		ms1 := testlib.NewMockSender("ms1")
 		ms2 := testlib.NewMockSender("ms2")
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, stats.NewNoopRecorder())
+		ds := NewDispatcher([]pipeline.Sender{ms1, ms2}, stats.NewNoopRecorder())
 
 		if want, got := []string{"ms1", "ms2"}, ds.Endpoints(); !reflect.DeepEqual(want, got) {
 			t.Fatalf("ds.Endpoints(): expected %+v, got %+v", want, got)
@@ -85,7 +85,7 @@ func TestDispatcher(t *testing.T) {
 
 	t.Run("multiple usages", func(t *testing.T) {
 		s := testlib.NewMockSender("sender")
-		ds := sender.NewDispatcher([]sender.Sender{s}, stats.NewNoopRecorder())
+		ds := NewDispatcher([]pipeline.Sender{s}, stats.NewNoopRecorder())
 
 		// Test multiple usages of the Dispatcher.
 		ds.Use()
@@ -107,7 +107,7 @@ func TestDispatcher(t *testing.T) {
 		ms1 := testlib.NewMockSender("sender1")
 		ms2 := testlib.NewMockSender("sender2")
 		msr := testlib.NewMockStatsRecorder()
-		ds := sender.NewDispatcher([]sender.Sender{ms1, ms2}, msr)
+		ds := NewDispatcher([]pipeline.Sender{ms1, ms2}, msr)
 
 		r1 := metrics.StampedMetricReport{
 			Id: "r1",

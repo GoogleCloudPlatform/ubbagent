@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aggregator
+package inputs
 
 import (
 	"errors"
@@ -40,7 +40,6 @@ type addMsg struct {
 // Aggregator is the head of the metrics reporting pipeline. It accepts reports from the reporting
 // client, buffers and aggregates for a configured amount of time, and sends them downstream.
 // See pipeline.Pipeline.
-// TODO(volkman): Uncouple Aggregator from Sender, and instead use an InputAdapter
 type Aggregator struct {
 	clock         clock.Clock
 	metric        metrics.Definition

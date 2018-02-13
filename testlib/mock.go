@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 // Type waitForCalls is a base type that provides a doAndWait function.
@@ -169,7 +169,7 @@ type MockEndpoint struct {
 	Used     bool
 	Released bool
 
-	reports  []endpoint.EndpointReport // must hold mu to read/write
+	reports  []pipeline.EndpointReport // must hold mu to read/write
 	name     string
 	sendErr  error
 	buildErr error
@@ -180,7 +180,7 @@ func (ep *MockEndpoint) Name() string {
 	return ep.name
 }
 
-func (ep *MockEndpoint) Send(report endpoint.EndpointReport) error {
+func (ep *MockEndpoint) Send(report pipeline.EndpointReport) error {
 	ep.mu.Lock()
 	err := ep.sendErr
 	if err == nil {
@@ -191,11 +191,11 @@ func (ep *MockEndpoint) Send(report endpoint.EndpointReport) error {
 	return err
 }
 
-func (ep *MockEndpoint) BuildReport(report metrics.StampedMetricReport) (endpoint.EndpointReport, error) {
+func (ep *MockEndpoint) BuildReport(report metrics.StampedMetricReport) (pipeline.EndpointReport, error) {
 	if ep.buildErr != nil {
-		return endpoint.EndpointReport{}, ep.buildErr
+		return pipeline.EndpointReport{}, ep.buildErr
 	}
-	return endpoint.NewEndpointReport(report, nil)
+	return pipeline.NewEndpointReport(report, nil)
 }
 
 func (ep *MockEndpoint) Use() {
@@ -211,10 +211,10 @@ func (ep *MockEndpoint) IsTransient(err error) bool {
 	return err != nil && err.Error() != "FATAL"
 }
 
-func (ep *MockEndpoint) Reports() (reports []endpoint.EndpointReport) {
+func (ep *MockEndpoint) Reports() (reports []pipeline.EndpointReport) {
 	ep.mu.Lock()
 	reports = ep.reports
-	ep.reports = []endpoint.EndpointReport{}
+	ep.reports = []pipeline.EndpointReport{}
 	ep.mu.Unlock()
 	return
 }

@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/golang/glog"
@@ -79,11 +78,11 @@ func (ep *DiskEndpoint) Name() string {
 	return ep.name
 }
 
-func (ep *DiskEndpoint) BuildReport(r metrics.StampedMetricReport) (endpoint.EndpointReport, error) {
-	return endpoint.NewEndpointReport(r, diskContext{Name: reportName(r, ep.clock.Now())})
+func (ep *DiskEndpoint) BuildReport(r metrics.StampedMetricReport) (pipeline.EndpointReport, error) {
+	return pipeline.NewEndpointReport(r, diskContext{Name: reportName(r, ep.clock.Now())})
 }
 
-func (ep *DiskEndpoint) Send(r endpoint.EndpointReport) error {
+func (ep *DiskEndpoint) Send(r pipeline.EndpointReport) error {
 	dctx := diskContext{}
 	err := r.UnmarshalContext(&dctx)
 	if err != nil {
