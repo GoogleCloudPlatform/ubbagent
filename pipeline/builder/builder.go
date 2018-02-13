@@ -20,8 +20,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/agentid"
 	"github.com/GoogleCloudPlatform/ubbagent/config"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint/disk"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint/servicecontrol"
+	"github.com/GoogleCloudPlatform/ubbagent/endpoints"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/inputs"
@@ -98,14 +97,14 @@ func createEndpoints(config *config.Config, agentId string) ([]pipeline.Endpoint
 
 func createEndpoint(config *config.Config, cfgep *config.Endpoint, agentId string) (pipeline.Endpoint, error) {
 	if cfgep.Disk != nil {
-		return disk.NewDiskEndpoint(
+		return endpoints.NewDiskEndpoint(
 			cfgep.Name,
 			cfgep.Disk.ReportDir,
 			time.Duration(cfgep.Disk.ExpireSeconds)*time.Second,
 		), nil
 	}
 	if cfgep.ServiceControl != nil {
-		return servicecontrol.NewServiceControlEndpoint(
+		return endpoints.NewServiceControlEndpoint(
 			cfgep.Name,
 			cfgep.ServiceControl.ServiceName,
 			agentId,
