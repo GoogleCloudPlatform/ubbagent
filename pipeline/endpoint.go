@@ -49,7 +49,7 @@ func NewEndpointReport(report metrics.StampedMetricReport, context interface{}) 
 // Endpoint represents a metric reporting endpoint that the agent reports to. For example, Cloud
 // Service Control or PubSub.
 type Endpoint interface {
-	// Endpoint is a pipeline.Component.
+	// Endpoint is a Component.
 	Component
 
 	// Name returns the name of this endpoint. The name must be unique across all endpoints in the

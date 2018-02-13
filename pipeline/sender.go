@@ -20,7 +20,7 @@ import (
 
 // A Sender handles sending StampedMetricReports to remote endpoints.
 type Sender interface {
-	// Sender is a pipeline.Component.
+	// Sender is a Component.
 	Component
 
 	// Send sends the report downstream. The behavior of the Send operation depends on the type of
@@ -38,7 +38,7 @@ type Sender interface {
 	Endpoints() []string
 }
 
-// Type InputAdapter is a pipeline.Input that converts incoming reports to StampedMetricReport
+// Type InputAdapter is an Input that converts incoming reports to StampedMetricReport
 // objects and sends them directly to a delegate Sender.
 type InputAdapter struct {
 	Sender Sender
