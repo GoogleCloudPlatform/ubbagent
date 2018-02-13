@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pipeline_test
+package inputs
 
 import (
 	"reflect"
@@ -22,7 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 )
 
 func TestSelector(t *testing.T) {
@@ -61,7 +61,7 @@ func TestSelector(t *testing.T) {
 		"metric2": mock2,
 	}
 
-	s := pipeline.NewSelector(inputs)
+	s := NewSelector(inputs)
 
 	t.Run("proper selection", func(t *testing.T) {
 		if err := s.AddReport(report1); err != nil {
@@ -104,7 +104,7 @@ func TestSelector(t *testing.T) {
 		input1 := testlib.NewMockInput()
 		input2 := testlib.NewMockInput()
 
-		s := pipeline.NewSelector(map[string]pipeline.Input{
+		s := NewSelector(map[string]pipeline.Input{
 			"input1": input1,
 			"input2": input2,
 		})
@@ -151,7 +151,7 @@ func TestCallbackInput(t *testing.T) {
 		return multierror.Append(add1.Release(), add2.Release()).ErrorOrNil()
 	}
 
-	composite := pipeline.NewCallbackInput(input, cb)
+	composite := NewCallbackInput(input, cb)
 
 	if input.Used != true {
 		t.Fatalf("expected that input.used == true")
