@@ -26,7 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/inputs"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/senders"
-	"github.com/GoogleCloudPlatform/ubbagent/source"
+	"github.com/GoogleCloudPlatform/ubbagent/sources"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/hashicorp/go-multierror"
 )
@@ -65,16 +65,16 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 	selector := inputs.NewSelector(selectorInputs)
 
 	// Defined metric sources.
-	var sources []pipeline.Source
+	var sourcesList []pipeline.Source
 	for _, src := range cfg.Sources {
 		if src.Heartbeat != nil {
-			sources = append(sources, source.NewHeartbeat(*src.Heartbeat, selector))
+			sourcesList = append(sourcesList, sources.NewHeartbeat(*src.Heartbeat, selector))
 		}
 	}
 
 	cb := func() error {
 		var err *multierror.Error
-		for _, src := range sources {
+		for _, src := range sourcesList {
 			err = multierror.Append(err, src.Shutdown())
 		}
 		return err.ErrorOrNil()
