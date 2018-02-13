@@ -20,12 +20,12 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/agentid"
 	"github.com/GoogleCloudPlatform/ubbagent/config"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoints"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline/endpoints"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/inputs"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline/senders"
-	"github.com/GoogleCloudPlatform/ubbagent/sources"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline/sources"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/hashicorp/go-multierror"
 )
