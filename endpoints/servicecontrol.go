@@ -43,15 +43,6 @@ type ServiceControlEndpoint struct {
 	tracker     pipeline.UsageTracker
 }
 
-type serviceControlReport struct {
-	ReportId string
-	Request  servicecontrol.ReportRequest
-}
-
-func (r serviceControlReport) Id() string {
-	return r.ReportId
-}
-
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
 func NewServiceControlEndpoint(name, serviceName, agentId string, consumerId string, jsonKey []byte) (*ServiceControlEndpoint, error) {
 	config, err := google.JWTConfigFromJSON(jsonKey, servicecontrol.ServicecontrolScope)
@@ -87,8 +78,8 @@ func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
 		Operations: []*servicecontrol.Operation{ep.format(report)},
 	}
 	glog.V(2).Infoln("ServiceControlEndpoint:Send(): serviceName: ", ep.serviceName, " body: ", func() string {
-		r_json, _ := req.MarshalJSON()
-		return string(r_json)
+		reqJson, _ := req.MarshalJSON()
+		return string(reqJson)
 	}())
 	_, err := ep.service.Services.Report(ep.serviceName, req).Do()
 	if err != nil && !googleapi.IsNotModified(err) {
