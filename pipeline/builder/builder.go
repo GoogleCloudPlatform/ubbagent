@@ -55,12 +55,12 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		for _, me := range metric.Endpoints {
 			msenders = append(msenders, senders[me.Name])
 		}
-		d := sender.NewDispatcher(msenders, r)
+		di := &sender.InputAdapter{Sender: sender.NewDispatcher(msenders, r)}
 		if metric.Aggregation != nil {
 			bufferTime := time.Duration(metric.Aggregation.BufferSeconds) * time.Second
-			inputs[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
+			inputs[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, di, p)
 		} else if metric.Passthrough != nil {
-			inputs[metric.Name] = &sender.InputAdapter{Sender: d}
+			inputs[metric.Name] = di
 		}
 	}
 	selector := pipeline.NewSelector(inputs)
