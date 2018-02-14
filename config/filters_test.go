@@ -94,7 +94,7 @@ func TestFilters_Validate(t *testing.T) {
 func TestAddLabels_IncludedLabels(t *testing.T) {
 	t.Run("empty labels are omitted", func(t *testing.T) {
 		a := config.AddLabels{
-			IncludeEmpty: false,
+			OmitEmpty: true,
 			Labels: map[string]string{
 				"foo":   "bar",
 				"bar":   "baz",
@@ -112,7 +112,7 @@ func TestAddLabels_IncludedLabels(t *testing.T) {
 
 	t.Run("empty labels are included", func(t *testing.T) {
 		a := config.AddLabels{
-			IncludeEmpty: true,
+			OmitEmpty: false,
 			Labels: map[string]string{
 				"foo":   "bar",
 				"bar":   "baz",

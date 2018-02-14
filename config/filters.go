@@ -60,8 +60,8 @@ func (m Filters) Validate(c *Config) error {
 }
 
 type AddLabels struct {
-	IncludeEmpty bool              `json:"includeEmpty"`
-	Labels       map[string]string `json:"labels"`
+	OmitEmpty bool              `json:"omitEmpty"`
+	Labels    map[string]string `json:"labels"`
 }
 
 func (f *AddLabels) Validate(c *Config) error {
@@ -72,11 +72,11 @@ func (f *AddLabels) Validate(c *Config) error {
 }
 
 // IncludedLabels returns the labels that should be added to input. Empty label values are
-// omitted unless IncludeEmpty is true.
+// omitted if OmitEmpty is true.
 func (f *AddLabels) IncludedLabels() map[string]string {
 	included := make(map[string]string)
 	for k, v := range f.Labels {
-		if v == "" && !f.IncludeEmpty {
+		if v == "" && f.OmitEmpty {
 			continue
 		}
 		included[k] = v
