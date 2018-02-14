@@ -92,6 +92,13 @@ sources:
       int64Value: 10
     labels:
       foo: bar
+
+filters:
+- addLabels:
+    omitEmpty: true
+    labels:
+      foo: bar
+      baz: asdf
 `
 
 	// Run the jsonKeyText variable through ghodss/yaml so that it's formatted the same as the input
@@ -167,6 +174,17 @@ sources:
 						Int64Value: 10,
 					},
 					Labels: map[string]string{"foo": "bar"},
+				},
+			},
+		},
+		Filters: []config.Filter{
+			{
+				AddLabels: &config.AddLabels{
+					OmitEmpty: true,
+					Labels: map[string]string{
+						"foo": "bar",
+						"baz": "asdf",
+					},
 				},
 			},
 		},
