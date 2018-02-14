@@ -30,7 +30,7 @@ import (
 	"sync"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-multierror"
 )
 
 // Input represents a Component that accepts reports from an external source.

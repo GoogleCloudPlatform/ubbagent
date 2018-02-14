@@ -19,15 +19,13 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/agentid"
-	"github.com/GoogleCloudPlatform/ubbagent/aggregator"
 	"github.com/GoogleCloudPlatform/ubbagent/config"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint/disk"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint/servicecontrol"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
-	"github.com/GoogleCloudPlatform/ubbagent/sender"
-	"github.com/GoogleCloudPlatform/ubbagent/source"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline/endpoints"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline/inputs"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline/senders"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline/sources"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/hashicorp/go-multierror"
 )
@@ -39,53 +37,53 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 	if err != nil {
 		return nil, err
 	}
-	endpoints, err := createEndpoints(cfg, agentId)
+	endpointList, err := createEndpoints(cfg, agentId)
 	if err != nil {
 		return nil, err
 	}
-	senders := make(map[string]sender.Sender)
-	for i := range endpoints {
-		senders[endpoints[i].Name()] = sender.NewRetryingSender(endpoints[i], p, r)
+	endpointSenders := make(map[string]pipeline.Sender)
+	for i := range endpointList {
+		endpointSenders[endpointList[i].Name()] = senders.NewRetryingSender(endpointList[i], p, r)
 	}
 
 	// Inputs for the resultant Selector.
-	inputs := make(map[string]pipeline.Input)
+	selectorInputs := make(map[string]pipeline.Input)
 	for _, metric := range cfg.Metrics {
-		var msenders []sender.Sender
+		var msenders []pipeline.Sender
 		for _, me := range metric.Endpoints {
-			msenders = append(msenders, senders[me.Name])
+			msenders = append(msenders, endpointSenders[me.Name])
 		}
-		d := sender.NewDispatcher(msenders, r)
+		di := &pipeline.InputAdapter{Sender: senders.NewDispatcher(msenders, r)}
 		if metric.Aggregation != nil {
 			bufferTime := time.Duration(metric.Aggregation.BufferSeconds) * time.Second
-			inputs[metric.Name] = aggregator.NewAggregator(metric.Definition, bufferTime, d, p)
+			selectorInputs[metric.Name] = inputs.NewAggregator(metric.Definition, bufferTime, di, p)
 		} else if metric.Passthrough != nil {
-			inputs[metric.Name] = &sender.InputAdapter{Sender: d}
+			selectorInputs[metric.Name] = di
 		}
 	}
-	selector := pipeline.NewSelector(inputs)
+	selector := inputs.NewSelector(selectorInputs)
 
 	// Defined metric sources.
-	var sources []pipeline.Source
+	var sourcesList []pipeline.Source
 	for _, src := range cfg.Sources {
 		if src.Heartbeat != nil {
-			sources = append(sources, source.NewHeartbeat(*src.Heartbeat, selector))
+			sourcesList = append(sourcesList, sources.NewHeartbeat(*src.Heartbeat, selector))
 		}
 	}
 
 	cb := func() error {
 		var err *multierror.Error
-		for _, src := range sources {
+		for _, src := range sourcesList {
 			err = multierror.Append(err, src.Shutdown())
 		}
 		return err.ErrorOrNil()
 	}
 
-	return pipeline.NewCallbackInput(selector, cb), nil
+	return inputs.NewCallbackInput(selector, cb), nil
 }
 
-func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint, error) {
-	var eps []endpoint.Endpoint
+func createEndpoints(config *config.Config, agentId string) ([]pipeline.Endpoint, error) {
+	var eps []pipeline.Endpoint
 	for _, cfgep := range config.Endpoints {
 		ep, err := createEndpoint(config, &cfgep, agentId)
 		if err != nil {
@@ -97,16 +95,16 @@ func createEndpoints(config *config.Config, agentId string) ([]endpoint.Endpoint
 	return eps, nil
 }
 
-func createEndpoint(config *config.Config, cfgep *config.Endpoint, agentId string) (endpoint.Endpoint, error) {
+func createEndpoint(config *config.Config, cfgep *config.Endpoint, agentId string) (pipeline.Endpoint, error) {
 	if cfgep.Disk != nil {
-		return disk.NewDiskEndpoint(
+		return endpoints.NewDiskEndpoint(
 			cfgep.Name,
 			cfgep.Disk.ReportDir,
 			time.Duration(cfgep.Disk.ExpireSeconds)*time.Second,
 		), nil
 	}
 	if cfgep.ServiceControl != nil {
-		return servicecontrol.NewServiceControlEndpoint(
+		return endpoints.NewServiceControlEndpoint(
 			cfgep.Name,
 			cfgep.ServiceControl.ServiceName,
 			agentId,

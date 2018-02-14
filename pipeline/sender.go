@@ -12,17 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sender
+package pipeline
 
 import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 // A Sender handles sending StampedMetricReports to remote endpoints.
 type Sender interface {
-	// Sender is a pipeline.Component.
-	pipeline.Component
+	// Sender is a Component.
+	Component
 
 	// Send sends the report downstream. The behavior of the Send operation depends on the type of
 	// sender. Some implementations - the Dispatcher, for instance - simply forward the Send to
@@ -39,7 +38,7 @@ type Sender interface {
 	Endpoints() []string
 }
 
-// Type InputAdapter is a pipeline.Input that converts incoming reports to StampedMetricReport
+// Type InputAdapter is an Input that converts incoming reports to StampedMetricReport
 // objects and sends them directly to a delegate Sender.
 type InputAdapter struct {
 	Sender Sender

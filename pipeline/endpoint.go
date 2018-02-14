@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package endpoint
+package pipeline
 
 import (
 	"encoding/json"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 // EndpointReport is a metrics.StampedMetricReport containing optional endpoint-specific context
@@ -50,8 +49,8 @@ func NewEndpointReport(report metrics.StampedMetricReport, context interface{}) 
 // Endpoint represents a metric reporting endpoint that the agent reports to. For example, Cloud
 // Service Control or PubSub.
 type Endpoint interface {
-	// Endpoint is a pipeline.Component.
-	pipeline.Component
+	// Endpoint is a Component.
+	Component
 
 	// Name returns the name of this endpoint. The name must be unique across all endpoints in the
 	// system, and should be constant across restarts of the agent. There can be multiple instances

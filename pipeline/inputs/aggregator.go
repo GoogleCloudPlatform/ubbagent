@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package aggregator
+package inputs
 
 import (
 	"errors"
@@ -25,7 +25,6 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
-	"github.com/GoogleCloudPlatform/ubbagent/sender"
 	"github.com/golang/glog"
 )
 
@@ -41,12 +40,11 @@ type addMsg struct {
 // Aggregator is the head of the metrics reporting pipeline. It accepts reports from the reporting
 // client, buffers and aggregates for a configured amount of time, and sends them downstream.
 // See pipeline.Pipeline.
-// TODO(volkman): Uncouple Aggregator from Sender, and instead use an InputAdapter
 type Aggregator struct {
 	clock         clock.Clock
 	metric        metrics.Definition
 	bufferTime    time.Duration
-	sender        sender.Sender
+	input         pipeline.Input
 	persistence   persistence.Persistence
 	currentBucket *bucket
 	pushTimer     *time.Timer
@@ -59,15 +57,15 @@ type Aggregator struct {
 }
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
-func NewAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
-	return newAggregator(metric, bufferTime, sender, persistence, clock.NewClock())
+func NewAggregator(metric metrics.Definition, bufferTime time.Duration, input pipeline.Input, persistence persistence.Persistence) *Aggregator {
+	return newAggregator(metric, bufferTime, input, persistence, clock.NewClock())
 }
 
-func newAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
+func newAggregator(metric metrics.Definition, bufferTime time.Duration, input pipeline.Input, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
 	agg := &Aggregator{
 		metric:      metric,
 		bufferTime:  bufferTime,
-		sender:      sender,
+		input:       input,
 		persistence: persistence,
 		clock:       clock,
 		push:        make(chan chan bool),
@@ -76,7 +74,7 @@ func newAggregator(metric metrics.Definition, bufferTime time.Duration, sender s
 	if !agg.loadState() {
 		agg.currentBucket = newBucket(clock.Now())
 	}
-	sender.Use()
+	input.Use()
 	agg.wait.Add(1)
 	go agg.run()
 	return agg
@@ -125,7 +123,7 @@ func (h *Aggregator) Release() error {
 		h.wait.Wait()
 
 		// Cascade
-		return h.sender.Release()
+		return h.input.Release()
 	})
 }
 
@@ -200,7 +198,7 @@ func (h *Aggregator) pushBucket(now time.Time) {
 			glog.V(2).Infof("aggregator: sending %v reports", len(finishedReports))
 		}
 		for _, r := range finishedReports {
-			err := h.sender.Send(metrics.NewStampedMetricReport(r))
+			err := h.input.AddReport(r)
 			if err != nil {
 				glog.Errorf("aggregator: error sending report: %+v", err)
 				continue

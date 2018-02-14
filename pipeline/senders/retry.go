@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sender
+package senders
 
 import (
 	"errors"
@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
-	"github.com/GoogleCloudPlatform/ubbagent/endpoint"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
@@ -44,7 +43,7 @@ var maxQueueTime = flag.Duration("max_queue_time", 3*time.Hour, "maximum amount 
 // retry attempts. Minimum and maximum delays are configurable via the "retrymin" and "retrymax"
 // flags.
 type RetryingSender struct {
-	endpoint    endpoint.Endpoint
+	endpoint    pipeline.Endpoint
 	queue       persistence.Queue
 	recorder    stats.Recorder
 	clock       clock.Clock
@@ -65,16 +64,16 @@ type addMsg struct {
 }
 
 type queueEntry struct {
-	Report   endpoint.EndpointReport
+	Report   pipeline.EndpointReport
 	SendTime time.Time
 }
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
-func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder) *RetryingSender {
+func NewRetryingSender(endpoint pipeline.Endpoint, persistence persistence.Persistence, recorder stats.Recorder) *RetryingSender {
 	return newRetryingSender(endpoint, persistence, recorder, clock.NewClock(), *minRetryDelay, *maxRetryDelay)
 }
 
-func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
+func newRetryingSender(endpoint pipeline.Endpoint, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
 	rs := &RetryingSender{
 		endpoint: endpoint,
 		queue:    persistence.Queue(persistenceName(endpoint.Name())),
