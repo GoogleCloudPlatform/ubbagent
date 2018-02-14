@@ -185,3 +185,93 @@ func TestCallbackInput(t *testing.T) {
 		t.Fatalf("expected that add2.released == true")
 	}
 }
+
+func TestLabelingInput(t *testing.T) {
+
+	t.Run("labels are added to report without overwriting", func(t *testing.T) {
+		labels := map[string]string{
+			"foo1": "bar1",
+			"foo2": "bar2",
+			"foo3": "bar3",
+		}
+
+		report := metrics.MetricReport{
+			Name:      "metric1",
+			StartTime: time.Unix(10, 0),
+			EndTime:   time.Unix(11, 0),
+			Value: metrics.MetricValue{
+				Int64Value: 1,
+			},
+			Labels: map[string]string{
+				"foo3": "test3",
+				"foo5": "test5",
+			},
+		}
+
+		mockInput := testlib.NewMockInput()
+		labelingInput := NewLabelingInput(mockInput, labels)
+		if err := labelingInput.AddReport(report); err != nil {
+			t.Fatalf("unexpected error adding report: %v", err)
+		}
+		if !reflect.DeepEqual(mockInput.Reports()[0].Labels, map[string]string{
+			"foo1": "bar1",
+			"foo2": "bar2",
+			"foo3": "test3", // Should not be overwritten
+			"foo5": "test5", // Should not be overwritten
+		}) {
+			t.Fatalf("unexpected labels")
+		}
+	})
+
+	t.Run("labels added when none exist", func(t *testing.T) {
+		labels := map[string]string{
+			"foo1": "bar1",
+			"foo2": "bar2",
+		}
+
+		report := metrics.MetricReport{
+			Name:      "metric1",
+			StartTime: time.Unix(10, 0),
+			EndTime:   time.Unix(11, 0),
+			Value: metrics.MetricValue{
+				Int64Value: 1,
+			},
+		}
+
+		mockInput := testlib.NewMockInput()
+		labelingInput := NewLabelingInput(mockInput, labels)
+		if err := labelingInput.AddReport(report); err != nil {
+			t.Fatalf("unexpected error adding report: %v", err)
+		}
+		if !reflect.DeepEqual(mockInput.Reports()[0].Labels, map[string]string{
+			"foo1": "bar1",
+			"foo2": "bar2",
+		}) {
+			t.Fatalf("unexpected labels")
+		}
+	})
+
+	t.Run("delegate is used and released", func(t *testing.T) {
+		input := testlib.NewMockInput()
+		labelingInput := NewLabelingInput(input, nil)
+		if input.Used == true {
+			t.Fatalf("expected that input.used == false")
+		}
+		if input.Released != false {
+			t.Fatalf("expected that input.released == false")
+		}
+
+		labelingInput.Use()
+		if input.Used != true {
+			t.Fatalf("expected that input.used == true")
+		}
+		if input.Released != false {
+			t.Fatalf("expected that input.released == false")
+		}
+
+		labelingInput.Release()
+		if input.Released != true {
+			t.Fatalf("expected that input.released == true")
+		}
+	})
+}

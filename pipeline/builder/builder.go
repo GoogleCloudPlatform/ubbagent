@@ -61,13 +61,23 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 			selectorInputs[metric.Name] = di
 		}
 	}
-	selector := inputs.NewSelector(selectorInputs)
+
+	head := inputs.NewSelector(selectorInputs)
+
+	// Insert defined filters before selector.
+	// Iterate in reverse order since the first defined filter should be the head of the pipeline.
+	for i := len(cfg.Filters) - 1; i >= 0; i-- {
+		f := cfg.Filters[i]
+		if f.AddLabels != nil {
+			head = inputs.NewLabelingInput(head, f.AddLabels.IncludedLabels())
+		}
+	}
 
 	// Defined metric sources.
 	var sourcesList []pipeline.Source
 	for _, src := range cfg.Sources {
 		if src.Heartbeat != nil {
-			sourcesList = append(sourcesList, sources.NewHeartbeat(*src.Heartbeat, selector))
+			sourcesList = append(sourcesList, sources.NewHeartbeat(*src.Heartbeat, head))
 		}
 	}
 
@@ -79,7 +89,7 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 		return err.ErrorOrNil()
 	}
 
-	return inputs.NewCallbackInput(selector, cb), nil
+	return inputs.NewCallbackInput(head, cb), nil
 }
 
 func createEndpoints(config *config.Config, agentId string) ([]pipeline.Endpoint, error) {

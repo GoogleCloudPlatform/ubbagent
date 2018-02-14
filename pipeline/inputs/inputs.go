@@ -19,6 +19,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/golang/glog"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -95,4 +96,31 @@ func (p *callbackInput) Release() error {
 func NewCallbackInput(delegate pipeline.Input, shutdown func() error) pipeline.Input {
 	delegate.Use()
 	return &callbackInput{delegate: delegate, shutdown: shutdown}
+}
+
+type labelingInput struct {
+	pipeline.Component
+	delegate pipeline.Input
+	labels   map[string]string
+}
+
+func (i *labelingInput) AddReport(report metrics.MetricReport) error {
+	for k, v := range i.labels {
+		if _, exists := report.Labels[k]; exists {
+			glog.Warningf("labelingInput: received report that already had label '%v'; skipping", k)
+			continue
+		}
+		if report.Labels == nil {
+			report.Labels = make(map[string]string)
+		}
+		report.Labels[k] = v
+	}
+	return i.delegate.AddReport(report)
+}
+
+// NewLabelingInput creates an Input that adds the given additional labels to incoming
+// MetricReports before passing reports to the given delegate. If a report already contains a label
+// with the same name, the original label is retained and a warning is logged.
+func NewLabelingInput(delegate pipeline.Input, labels map[string]string) pipeline.Input {
+	return &labelingInput{Component: delegate, delegate: delegate, labels: labels}
 }
