@@ -27,6 +27,7 @@ type Config struct {
 	Metrics    Metrics    `json:"metrics"`
 	Endpoints  Endpoints  `json:"endpoints"`
 	Sources    Sources    `json:"sources"`
+	Filters    Filters    `json:"filters"`
 }
 
 // Validation
@@ -67,6 +68,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.Sources.Validate(c); err != nil {
+		return err
+	}
+	if err := c.Filters.Validate(c); err != nil {
 		return err
 	}
 

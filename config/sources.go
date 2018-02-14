@@ -23,10 +23,10 @@ import (
 )
 
 type Source struct {
-	Name string
+	Name string `json:"name"`
 
 	// oneof
-	Heartbeat *Heartbeat
+	Heartbeat *Heartbeat `json:"heartbeat"`
 }
 
 func (s *Source) Validate(c *Config) error {
