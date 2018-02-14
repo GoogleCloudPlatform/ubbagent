@@ -16,13 +16,14 @@ package stats
 
 import (
 	"fmt"
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"testing"
 	"time"
+
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 )
 
 func TestSimple(t *testing.T) {
-	mc := clock.NewMockClock()
+	mc := testlib.NewMockClock()
 	s := newBasic(mc)
 
 	mc.SetNow(time.Unix(1000, 0))

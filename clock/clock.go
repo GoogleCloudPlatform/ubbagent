@@ -15,7 +15,6 @@
 package clock
 
 import (
-	"sync"
 	"time"
 )
 
@@ -28,18 +27,9 @@ type Clock interface {
 
 	// NewTimer creates a new Timer associated with this Clock.
 	NewTimer(d time.Duration) Timer
-}
 
-// MockClock is an extension of Clock that adds the ability to set the current time. Now returns
-// the value passed to SetNow until a new value is set.
-// TODO(volkman): move MockClock to its own file.
-type MockClock interface {
-	Clock
-	SetNow(time.Time)
-
-	// GetNextFireTime returns the time that the next Timer will fire, or the zero value if no timers
-	// are set.
-	GetNextFireTime() time.Time
+	// NewTimerAt creates a new Timer that fires at or after the given time.
+	NewTimerAt(at time.Time) Timer
 }
 
 // Timer mimics a time.Timer, providing a channel that delivers a signal after a certain amount of
@@ -56,16 +46,26 @@ type Timer interface {
 	Stop() bool
 }
 
-// NewRealClock creates a new Clock instance that returns the current time.
-func NewRealClock() Clock {
+// NewClock creates a new Clock instance that returns the current time.
+func NewClock() Clock {
 	return &realClock{}
 }
 
-// NewMockClock creates a new MockClock instance that initially returns time zero.
-func NewMockClock() MockClock {
-	return &mockClock{
-		timers: make(map[*mockTimer]bool),
-	}
+// NewStoppedTimer creates a Timer that will never fire.
+func NewStoppedTimer() Timer {
+	return &stoppedTimer{c: make(chan time.Time)}
+}
+
+type stoppedTimer struct {
+	c chan time.Time
+}
+
+func (t *stoppedTimer) GetC() <-chan time.Time {
+	return t.c
+}
+
+func (t *stoppedTimer) Stop() bool {
+	return false
 }
 
 type realClock struct{}
@@ -78,6 +78,11 @@ func (rc *realClock) NewTimer(d time.Duration) Timer {
 	return &realTimer{t: time.NewTimer(d)}
 }
 
+func (rc *realClock) NewTimerAt(at time.Time) Timer {
+	duration := at.Sub(time.Now())
+	return &realTimer{t: time.NewTimer(duration)}
+}
+
 type realTimer struct {
 	t *time.Timer
 }
@@ -88,93 +93,4 @@ func (t *realTimer) GetC() <-chan time.Time {
 
 func (t *realTimer) Stop() bool {
 	return t.t.Stop()
-}
-
-type mockClock struct {
-	mutex  sync.Mutex
-	now    time.Time
-	timers map[*mockTimer]bool
-}
-
-func (mc *mockClock) Now() time.Time {
-	mc.mutex.Lock()
-	defer mc.mutex.Unlock()
-	return mc.now
-}
-
-func (mc *mockClock) SetNow(now time.Time) {
-	mc.mutex.Lock()
-	defer mc.mutex.Unlock()
-	mc.now = now
-	for mt := range mc.timers {
-		// this call might result in the timer being removed from the set.
-		mt.maybeFire(now)
-	}
-}
-
-func (mc *mockClock) GetNextFireTime() time.Time {
-	mc.mutex.Lock()
-	defer mc.mutex.Unlock()
-	var earliest time.Time
-	for mt := range mc.timers {
-		if !mt.done && (earliest.IsZero() || mt.fireAt.Before(earliest)) {
-			earliest = mt.fireAt
-		}
-	}
-	return earliest
-}
-
-func (mc *mockClock) NewTimer(d time.Duration) Timer {
-	mc.mutex.Lock()
-	defer mc.mutex.Unlock()
-	c := make(chan time.Time, 1)
-	mt := &mockTimer{
-		c:      c,
-		owner:  mc,
-		fireAt: mc.now.Add(d),
-	}
-	mc.timers[mt] = true
-
-	// Call maybeFire to handle cases where the given duration is 0 or negative.
-	mt.maybeFire(mc.now)
-	return mt
-}
-
-type mockTimer struct {
-	c      chan time.Time
-	num    int
-	owner  *mockClock
-	fireAt time.Time
-	done   bool
-}
-
-func (mt *mockTimer) GetC() <-chan time.Time {
-	return mt.c
-}
-
-func (mt *mockTimer) Stop() bool {
-	mt.owner.mutex.Lock()
-	defer mt.owner.mutex.Unlock()
-	if mt.done {
-		return false
-	}
-	mt.done = true
-	mt.remove()
-	return true
-}
-
-// maybeFire fires a timer event into the channel if appropriate mock time has elapsed and the timer
-// hasn't already fired or been stopped. Assumes that mt.owner.mutex is held.
-func (mt *mockTimer) maybeFire(t time.Time) {
-	if mt.done || mt.fireAt.After(t) {
-		return
-	}
-	mt.c <- t
-	mt.done = true
-	mt.remove()
-}
-
-// remove removes this mockTimer from the owner mockClock. Assumes that mt.owner.mutex is held.
-func (mt *mockTimer) remove() {
-	delete(mt.owner.timers, mt)
 }

@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 )
 
 func TestDiskEndpoint(t *testing.T) {
@@ -32,7 +32,7 @@ func TestDiskEndpoint(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 
-	mc := clock.NewMockClock()
+	mc := testlib.NewMockClock()
 	mc.SetNow(parseTime("2017-06-19T12:00:00Z"))
 	ep := newDiskEndpoint("disk", tmpdir, 10*time.Minute, mc)
 

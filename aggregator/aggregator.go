@@ -60,7 +60,7 @@ type Aggregator struct {
 
 // NewAggregator creates a new Aggregator instance and starts its goroutine.
 func NewAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence) *Aggregator {
-	return newAggregator(metric, bufferTime, sender, persistence, clock.NewRealClock())
+	return newAggregator(metric, bufferTime, sender, persistence, clock.NewClock())
 }
 
 func newAggregator(metric metrics.Definition, bufferTime time.Duration, sender sender.Sender, persistence persistence.Persistence, clock clock.Clock) *Aggregator {
@@ -133,8 +133,9 @@ func (h *Aggregator) run() {
 	running := true
 	for running {
 		// Set a timer to fire when the current bucket should be pushed.
-		remaining := h.bufferTime - h.clock.Now().Sub(h.currentBucket.CreateTime)
-		timer := h.clock.NewTimer(remaining)
+		now := h.clock.Now()
+		nextFire := now.Add(h.bufferTime - now.Sub(h.currentBucket.CreateTime))
+		timer := h.clock.NewTimerAt(nextFire)
 		select {
 		case msg, ok := <-h.add:
 			if ok {
@@ -148,13 +149,13 @@ func (h *Aggregator) run() {
 			} else {
 				running = false
 			}
-		case <-timer.GetC():
+		case now := <-timer.GetC():
 			// Time to push the current bucket.
-			h.pushBucket()
+			h.pushBucket(now)
 		}
 		timer.Stop()
 	}
-	h.pushBucket()
+	h.pushBucket(h.clock.Now())
 	h.wait.Done()
 }
 
@@ -181,8 +182,7 @@ func (h *Aggregator) persistState() {
 
 // pushBucket sends currently-aggregated metrics to the configured MetricSender and resets the
 // bucket.
-func (h *Aggregator) pushBucket() {
-	now := h.clock.Now()
+func (h *Aggregator) pushBucket(now time.Time) {
 	if h.currentBucket == nil {
 		h.currentBucket = newBucket(now)
 		return

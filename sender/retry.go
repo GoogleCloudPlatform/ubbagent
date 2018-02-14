@@ -17,7 +17,7 @@ package sender
 import (
 	"errors"
 	"flag"
-	"math"
+	"math/rand"
 	"path"
 	"sync"
 	"time"
@@ -71,7 +71,7 @@ type queueEntry struct {
 
 // NewRetryingSender creates a new RetryingSender for endpoint, storing state in persistence.
 func NewRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder) *RetryingSender {
-	return newRetryingSender(endpoint, persistence, recorder, clock.NewRealClock(), *minRetryDelay, *maxRetryDelay)
+	return newRetryingSender(endpoint, persistence, recorder, clock.NewClock(), *minRetryDelay, *maxRetryDelay)
 }
 
 func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persistence, recorder stats.Recorder, clock clock.Clock, minDelay, maxDelay time.Duration) *RetryingSender {
@@ -86,7 +86,7 @@ func newRetryingSender(endpoint endpoint.Endpoint, persistence persistence.Persi
 	}
 	endpoint.Use()
 	rs.wait.Add(1)
-	go rs.run()
+	go rs.run(clock.Now())
 	return rs
 }
 
@@ -145,21 +145,22 @@ func (rs *RetryingSender) Release() error {
 	})
 }
 
-func (rs *RetryingSender) run() {
+func (rs *RetryingSender) run(start time.Time) {
 	// Start with an initial call to maybeSend() to start sending any persisted state.
-	rs.maybeSend()
+	rs.maybeSend(start)
 	for {
-		var d time.Duration
+		var timer clock.Timer
 		if rs.delay == 0 {
-			// A delay of 0 means we're not retrying. Effectively disable the retry timer.
-			// We'll wakeup when a new report is sent.
-			d = time.Duration(math.MaxInt64)
+			// A delay of 0 means we're not retrying. Disable the retry timer; We'll wakeup when a new
+			// report is sent.
+			timer = clock.NewStoppedTimer()
 		} else {
-			// Compute the time until the next retry attempt.
-			// This could be negative, which should result in the timer immediately firing.
-			d = rs.delay - rs.clock.Now().Sub(rs.lastAttempt)
+			// Compute the next retry time, which is the current time + current delay + [0,1000) ms jitter
+			now := rs.clock.Now()
+			jitter := time.Duration(rand.Int63n(1000)) * time.Millisecond
+			nextFire := now.Add(rs.delay - now.Sub(rs.lastAttempt)).Add(jitter)
+			timer = rs.clock.NewTimerAt(nextFire)
 		}
-		timer := rs.clock.NewTimer(d)
 		select {
 		case msg, ok := <-rs.add:
 			if ok {
@@ -171,23 +172,22 @@ func (rs *RetryingSender) run() {
 
 				// Successfully queued the message
 				msg.result <- nil
-				rs.maybeSend()
+				rs.maybeSend(msg.entry.SendTime)
 			} else {
 				// Channel was closed.
 				rs.wait.Done()
 				return
 			}
-		case <-timer.GetC():
-			rs.maybeSend()
+		case now := <-timer.GetC():
+			rs.maybeSend(now)
 		}
 		timer.Stop()
 	}
 }
 
 // maybeSend retries a pending send if the required time delay has elapsed.
-func (rs *RetryingSender) maybeSend() {
-	now := rs.clock.Now()
-	if now.Before(rs.lastAttempt.Add(time.Duration(rs.delay))) {
+func (rs *RetryingSender) maybeSend(now time.Time) {
+	if now.Before(rs.lastAttempt.Add(rs.delay)) {
 		// Not time yet.
 		return
 	}

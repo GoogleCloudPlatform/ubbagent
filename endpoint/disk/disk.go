@@ -59,7 +59,7 @@ type diskContext struct {
 // NewDiskEndpoint creates a new DiskEndpoint and starts a goroutine that cleans up expired reports
 // on disk.
 func NewDiskEndpoint(name string, path string, expiration time.Duration) *DiskEndpoint {
-	return newDiskEndpoint(name, path, expiration, clock.NewRealClock())
+	return newDiskEndpoint(name, path, expiration, clock.NewClock())
 }
 
 func newDiskEndpoint(name string, path string, expiration time.Duration, clock clock.Clock) *DiskEndpoint {
@@ -71,7 +71,7 @@ func newDiskEndpoint(name string, path string, expiration time.Duration, clock c
 		quit:       make(chan bool, 1),
 	}
 	ep.wait.Add(1)
-	go ep.run()
+	go ep.run(clock.Now())
 	return ep
 }
 
@@ -125,9 +125,10 @@ func (ep *DiskEndpoint) Release() error {
 	})
 }
 
-func (ep *DiskEndpoint) run() {
+func (ep *DiskEndpoint) run(start time.Time) {
+	nextFire := start.Add(cleanupInterval)
 	for {
-		t := ep.clock.NewTimer(cleanupInterval)
+		t := ep.clock.NewTimerAt(nextFire)
 		select {
 		case <-t.GetC():
 			ep.cleanup()
@@ -136,6 +137,7 @@ func (ep *DiskEndpoint) run() {
 			return
 		}
 		t.Stop()
+		nextFire = nextFire.Add(cleanupInterval)
 	}
 }
 
