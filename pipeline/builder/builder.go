@@ -37,13 +37,13 @@ func Build(cfg *config.Config, p persistence.Persistence, r stats.Recorder) (pip
 	if err != nil {
 		return nil, err
 	}
-	endpoints, err := createEndpoints(cfg, agentId)
+	endpointList, err := createEndpoints(cfg, agentId)
 	if err != nil {
 		return nil, err
 	}
 	endpointSenders := make(map[string]pipeline.Sender)
-	for i := range endpoints {
-		endpointSenders[endpoints[i].Name()] = senders.NewRetryingSender(endpoints[i], p, r)
+	for i := range endpointList {
+		endpointSenders[endpointList[i].Name()] = senders.NewRetryingSender(endpointList[i], p, r)
 	}
 
 	// Inputs for the resultant Selector.
