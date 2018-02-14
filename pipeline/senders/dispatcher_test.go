@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
-	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 )
 
 func TestDispatcher(t *testing.T) {
