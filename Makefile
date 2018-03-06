@@ -23,23 +23,28 @@ help:
 	@echo "A successful build will generate a bin/ubbagent executable."
 	@echo
 	@echo "Targets:"
-	@echo "  build          - Build the ubbagent binary."
-	@echo "  build-python2  - Build the python2 agent module."
-	@echo "  clean	        - Clean build artifacts."
-	@echo "  cover	        - Display code coverage."
-	@echo "  deps           - Fetch or update dependencies."
-	@echo "  help	          - Display this help message."
-	@echo "  setup	        - Install required build tools."
-	@echo "  test	          - Run unit tests."
+	@echo "  build             - Build the ubbagent binary."
+	@echo "  build-sdk-python2 - Build the python2 agent module."
+	@echo "  clean             - Clean build artifacts."
+	@echo "  cover             - Display code coverage."
+	@echo "  deps              - Fetch or update dependencies."
+	@echo "  help              - Display this help message."
+	@echo "  setup             - Install required build tools."
+	@echo "  test              - Run unit tests."
+	@echo "  test-sdk-python2  - Run the python2 module tests."
 
 .PHONY: build
 build: .GOPATH/.ok
 	$Q go install $(if $V,-v) $(VERSION_FLAGS) $(IMPORT_PATH)
 
-.PHONY: build-python2
-build-python2: .GOPATH/.ok
+.PHONY: build-sdk-python2
+build-sdk-python2: .GOPATH/.ok
 	$Q go build $(if $V,-v) $(VERSION_FLAGS) -buildmode=c-shared -o bin/python2/ubbagent.so $(IMPORT_PATH)/sdk/python2
 	@rm bin/python2/ubbagent.h
+
+.PHONY: test-sdk-python2
+test-sdk-python2: build-sdk-python2
+	$Q PYTHONPATH=bin/python2 python sdk/python2/test.py
 
 .PHONY: deps
 deps: .GOPATH/.ok
