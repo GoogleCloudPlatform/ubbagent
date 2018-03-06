@@ -71,23 +71,40 @@ func (agent *Agent) Shutdown() error {
 	return nil
 }
 
-// AddReport adds a new usage report. The reportData parameter should be a metrics.MetricReport
-// object serialized as JSON.
-func (agent *Agent) AddReport(reportData []byte) error {
-	var report metrics.MetricReport
-	if err := json.Unmarshal(reportData, &report); err != nil {
-		return err
-	}
-	if err := agent.input.AddReport(report); err != nil {
-		return err
-	}
-
-	return nil
+// AddReport adds a new usage report.
+func (agent *Agent) AddReport(report metrics.MetricReport) error {
+	return agent.input.AddReport(report)
 }
 
-// GetStatus returns a stats.Snapshot object serialized as JSON.
-func (agent *Agent) GetStatus() ([]byte, error) {
-	return json.Marshal(agent.provider.Snapshot())
+// AddReportJson adds a new usage report after fist unmarshalling it from JSON.
+func (agent *Agent) AddReportJson(reportData []byte) error {
+	report, err := ParseReport(reportData)
+	if err != nil {
+		return err
+	}
+	return agent.AddReport(report)
+}
+
+// GetStatus returns a stats.Snapshot object containing current agent status.
+func (agent *Agent) GetStatus() stats.Snapshot {
+	return agent.provider.Snapshot()
+}
+
+// GetStatusJson returns a stats.Snapshot object serialized as JSON.
+func (agent *Agent) GetStatusJson() ([]byte, error) {
+	status := agent.GetStatus()
+	return SerializeStatus(status)
+}
+
+// ParseReport parses the given JSON data and returns a metrics.MetricReport, or an error.
+func ParseReport(reportData []byte) (report metrics.MetricReport, err error) {
+	err = json.Unmarshal(reportData, &report)
+	return
+}
+
+// SerializeStatus serializes the given stats.Snapshot in JSON, or returns an error.
+func SerializeStatus(status stats.Snapshot) (data []byte, err error) {
+	return json.Marshal(status)
 }
 
 func parseConfig(configData []byte) (*config.Config, error) {

@@ -130,7 +130,7 @@ func AgentAddReport(self *C.Agent, report *C.PyObject) *C.PyObject {
 		return nil
 	}
 
-	if err := agent.AddReport(goReportData); err != nil {
+	if err := agent.AddReportJson(goReportData); err != nil {
 		setException(err.Error())
 		return nil
 	}
@@ -149,7 +149,7 @@ func AgentGetStatus(self *C.Agent, _ *C.PyObject) *C.PyObject {
 		return nil
 	}
 
-	marshaled, err := agent.GetStatus()
+	marshaled, err := agent.GetStatusJson()
 	if err != nil {
 		setException(err.Error())
 		return nil
