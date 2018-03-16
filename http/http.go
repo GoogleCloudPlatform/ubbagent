@@ -16,28 +16,25 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
-	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
-	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 )
 
 type HttpInterface struct {
-	pipeline pipeline.Input
-	provider stats.Provider
-	port     int
-	mux      http.ServeMux
-	srv      *http.Server
+	agent *sdk.Agent
+	port  int
+	mux   http.ServeMux
+	srv   *http.Server
 }
 
 // NewHttpInterface creates a new agent interface that listens on the given port. The interface
 // must be started with a call to ListenAndServe().
-func NewHttpInterface(pipeline pipeline.Input, provider stats.Provider, port int) *HttpInterface {
-	h := &HttpInterface{pipeline: pipeline, provider: provider, port: port}
+func NewHttpInterface(agent *sdk.Agent, port int) *HttpInterface {
+	h := &HttpInterface{agent: agent, port: port}
 	h.mux.HandleFunc("/report", h.handleAdd)
 	h.mux.HandleFunc("/status", h.handleStatus)
 	return h
@@ -46,23 +43,26 @@ func NewHttpInterface(pipeline pipeline.Input, provider stats.Provider, port int
 func (h *HttpInterface) handleAdd(w http.ResponseWriter, r *http.Request) {
 	// TODO(volkman): better error handling (internal vs client errors)
 	// TODO(volkman): request logging
-	decoder := json.NewDecoder(r.Body)
-	var report metrics.MetricReport
-	if err := decoder.Decode(&report); err != nil {
+
+	reportData, err := ioutil.ReadAll(r.Body)
+	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 		return
 	}
-	if err := h.pipeline.AddReport(report); err != nil {
+
+	err = h.agent.AddReportJson(reportData)
+	if err != nil {
 		w.WriteHeader(500)
 		w.Write([]byte(err.Error()))
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *HttpInterface) handleStatus(w http.ResponseWriter, r *http.Request) {
-	text, err := json.Marshal(h.provider.Snapshot())
+	text, err := h.agent.GetStatusJson()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))

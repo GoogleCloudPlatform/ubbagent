@@ -17,15 +17,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	httplib "net/http"
 	"os"
 	"os/signal"
 
-	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/http"
-	"github.com/GoogleCloudPlatform/ubbagent/persistence"
-	"github.com/GoogleCloudPlatform/ubbagent/pipeline/builder"
-	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 	"github.com/golang/glog"
 )
 
@@ -59,27 +57,19 @@ func main() {
 		os.Exit(2)
 	}
 
-	cfg := loadConfig(*configPath)
-	var p persistence.Persistence
-	if *noState {
-		p = persistence.NewMemoryPersistence()
-	} else {
-		var err error
-		p, err = persistence.NewDiskPersistence(*stateDir)
-		if err != nil {
-			exitf("startup: %+v", err)
-		}
+	configData, err := ioutil.ReadFile(*configPath)
+	if err != nil {
+		exitf("startup: failed to read configuration file: %+v", err)
 	}
 
-	recorder := stats.NewBasic()
-	input, err := builder.Build(cfg, p, recorder)
+	agent, err := sdk.NewAgent(configData, *stateDir)
 	if err != nil {
-		exitf("startup: %+v", err)
+		exitf("startup: failed to create agent: %+v", err)
 	}
 
 	var rest *http.HttpInterface
 	if *localPort > 0 {
-		rest = http.NewHttpInterface(input, recorder, *localPort)
+		rest = http.NewHttpInterface(agent, *localPort)
 		if err := rest.Start(func(err error) {
 			// Process async http errors (which may be an immediate port in use error).
 			if err != httplib.ErrServerClosed {
@@ -101,7 +91,7 @@ func main() {
 	if rest != nil {
 		rest.Shutdown()
 	}
-	if err := input.Release(); err != nil {
+	if err := agent.Shutdown(); err != nil {
 		glog.Warningf("shutdown: %+v", err)
 	}
 	glog.Flush()
@@ -119,15 +109,4 @@ func exitf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	fmt.Fprintln(os.Stderr, msg)
 	glog.Exit(msg)
-}
-
-func loadConfig(path string) *config.Config {
-	cfg, err := config.Load(path)
-	if err != nil {
-		exitf("invalid configuration file: %+v", err)
-	}
-	if err := cfg.Validate(); err != nil {
-		exitf("invalid configuration file: %+v", err)
-	}
-	return cfg
 }
