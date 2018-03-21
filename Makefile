@@ -6,7 +6,7 @@ IMPORT_PATH := github.com/GoogleCloudPlatform/ubbagent
 # V := 1 # When V is set, print commands and build progress.
 
 # Space separated patterns of packages to skip in list, test, format.
-IGNORED_PACKAGES := /vendor/
+IGNORED_PACKAGES := /vendor/ /sdk/python2
 
 .PHONY: all
 all: help
@@ -123,9 +123,8 @@ setup: clean .GOPATH/.ok
 	@test -f Gopkg.toml || \
 		(cd $(CURDIR)/.GOPATH/src/$(IMPORT_PATH) && ./bin/dep init)
 
-VERSION          := $(shell git describe --tags --always --dirty="-dev")
 DATE             := $(shell date -u '+%Y-%m-%d-%H%M UTC')
-VERSION_FLAGS    := -ldflags='-X "main.Version=$(VERSION)" -X "main.BuildTime=$(DATE)"'
+VERSION_FLAGS    := -ldflags='-X "main.BuildTime=$(DATE)"'
 
 # cd into the GOPATH to workaround ./... not following symlinks
 _allpackages = $(shell ( cd $(CURDIR)/.GOPATH/src/$(IMPORT_PATH) && \
