@@ -13,35 +13,41 @@ metrics:
 - name: requests
   type: int
 
-  # The endpoints section of a metric defines which endpoints the metric data is sent to.
+  # The endpoints section of a metric defines which endpoints the metric data
+  # is sent to.
   endpoints:
   - name: disk
 
-  # The aggregation section indicates that reports that the agent receives for this metric should
-  # be aggregated for a specified period of time prior to being sent to the reporting endpoint.
+  # The aggregation section indicates that reports that the agent receives for
+  # this metric should be aggregated for a specified period of time prior to
+  # being sent to the reporting endpoint.
   aggregation:
     bufferSeconds: 10
 
 - name: instance-seconds
   type: int
-  # The empty passthrough second indicates that no aggregation should occur for this metric.
-  # Reports received are immediately sent to the reporting endpoint.
+  # The empty passthrough second indicates that no aggregation should occur for
+  # this metric. Reports received are immediately sent to the reporting
+  # endpoint. Passthrough is used for this metric since its only source is a
+  # `heartbeat` which sends at a configured interval of 10 seconds.
   passthrough: {}
   endpoints:
   - name: disk
 
-# The endpoints section defines where metering data is ultimately sent. Currently
-# supported endpoints include:
+# The endpoints section defines where metering data is ultimately sent.
+# Currently supported endpoints include:
 # * disk - some directory on the local filesystem
-# * servicecontrol - Google Service Control: https://cloud.google.com/service-control/overview
+# * servicecontrol - Google Service Control:
+#   https://cloud.google.com/service-control/overview
 endpoints:
 - name: disk
   disk:
     reportDir: /var/ubbagent/reports
     expireSeconds: 3600
 
-# The sources section lists metric data sources run by the agent itself. The currently-supported
-# source is 'heartbeat', which sends a defined value to a metric at a defined interval.
+# The sources section lists metric data sources run by the agent itself. The
+# currently-supported source is 'heartbeat', which sends a defined value to a
+# metric at a defined interval.
 sources:
 - name: instance-seconds
   heartbeat:
