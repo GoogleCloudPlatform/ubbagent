@@ -84,10 +84,10 @@ To run the agent, provide the following:
 * A local TCP port (for the agent's HTTP daemon)
 * The path to the agent's YAML config file
 * The path to a directory used to store state
-
+* Optional logging parameters supported by [glog](https://github.com/golang/glog) (See `-logtostderr` and `-v` below)
 ```
 ubbagent --config path/to/config.yaml --state-dir path/to/state \
-         --local-port 3456 --logtostderr --v=2
+         --local-port 3456 -logtostderr -v 2
 ```
 
 # Usage
