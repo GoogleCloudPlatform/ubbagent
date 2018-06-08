@@ -84,11 +84,11 @@ func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
 		reqJson, _ := req.MarshalJSON()
 		return string(reqJson)
 	}())
-	checkReq := &servicecontrol.CheckRequest{
-		Operation: operation,
-	}
 
 	if time.Now().After(ep.nextCheck) {
+		checkReq := &servicecontrol.CheckRequest{
+			Operation: operation,
+		}
 		_, err := ep.service.Services.Check(ep.serviceName, checkReq).Do();
 		if err != nil && !googleapi.IsNotModified(err) {
 			return err
