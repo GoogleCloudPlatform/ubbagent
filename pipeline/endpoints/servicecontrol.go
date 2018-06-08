@@ -29,8 +29,9 @@ import (
 )
 
 const (
-	agentIdLabel = "goog-ubb-agent-id"
-	timeout      = 60 * time.Second
+	agentIdLabel      = "goog-ubb-agent-id"
+	timeout           = 60 * time.Second
+	checkCacheTimeout = 60 * time.Second
 )
 
 type ServiceControlEndpoint struct {
@@ -41,6 +42,7 @@ type ServiceControlEndpoint struct {
 	keyData     string
 	service     *servicecontrol.Service
 	tracker     pipeline.UsageTracker
+	nextCheck   time.Time
 }
 
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
@@ -74,13 +76,26 @@ func (ep *ServiceControlEndpoint) Name() string {
 }
 
 func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
+	operation := ep.format(report)
 	req := &servicecontrol.ReportRequest{
-		Operations: []*servicecontrol.Operation{ep.format(report)},
+		Operations: []*servicecontrol.Operation{operation},
 	}
 	glog.V(2).Infoln("ServiceControlEndpoint:Send(): serviceName: ", ep.serviceName, " body: ", func() string {
 		reqJson, _ := req.MarshalJSON()
 		return string(reqJson)
 	}())
+	checkReq := &servicecontrol.CheckRequest{
+		Operation: operation,
+	}
+
+	if time.Now().After(ep.nextCheck) {
+		_, err := ep.service.Services.Check(ep.serviceName, checkReq).Do();
+		if err != nil && !googleapi.IsNotModified(err) {
+			return err
+		}
+		ep.nextCheck = time.Now().Add(checkCacheTimeout)
+	}
+
 	_, err := ep.service.Services.Report(ep.serviceName, req).Do()
 	if err != nil && !googleapi.IsNotModified(err) {
 		return err
