@@ -21,6 +21,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/golang/glog"
 	"golang.org/x/oauth2/google"
@@ -43,6 +44,7 @@ type ServiceControlEndpoint struct {
 	service     *servicecontrol.Service
 	tracker     pipeline.UsageTracker
 	nextCheck   time.Time
+	clock       clock.Clock
 }
 
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
@@ -57,16 +59,17 @@ func NewServiceControlEndpoint(name, serviceName, agentId string, consumerId str
 	if err != nil {
 		return nil, err
 	}
-	return newServiceControlEndpoint(name, serviceName, agentId, consumerId, service), nil
+	return newServiceControlEndpoint(name, serviceName, agentId, consumerId, service, clock.NewClock()), nil
 }
 
-func newServiceControlEndpoint(name, serviceName, agentId, consumerId string, service *servicecontrol.Service) *ServiceControlEndpoint {
+func newServiceControlEndpoint(name, serviceName, agentId, consumerId string, service *servicecontrol.Service, clock clock.Clock) *ServiceControlEndpoint {
 	ep := &ServiceControlEndpoint{
 		name:        name,
 		serviceName: serviceName,
 		agentId:     agentId,
 		consumerId:  consumerId,
 		service:     service,
+		clock:       clock,
 	}
 	return ep
 }
@@ -85,15 +88,15 @@ func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
 		return string(reqJson)
 	}())
 
-	if time.Now().After(ep.nextCheck) {
+	if ep.clock.Now().After(ep.nextCheck) {
 		checkReq := &servicecontrol.CheckRequest{
 			Operation: operation,
 		}
-		_, err := ep.service.Services.Check(ep.serviceName, checkReq).Do();
+		_, err := ep.service.Services.Check(ep.serviceName, checkReq).Do()
 		if err != nil && !googleapi.IsNotModified(err) {
 			return err
 		}
-		ep.nextCheck = time.Now().Add(checkCacheTimeout)
+		ep.nextCheck = ep.clock.Now().Add(checkCacheTimeout)
 	}
 
 	_, err := ep.service.Services.Report(ep.serviceName, req).Do()

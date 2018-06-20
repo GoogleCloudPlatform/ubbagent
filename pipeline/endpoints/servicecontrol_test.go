@@ -25,17 +25,33 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/servicecontrol/v1"
+	"strings"
 )
 
 type recordingHandler struct {
-	req  *http.Request
-	body []byte
+	req         *http.Request
+	body        []byte
+	checkCount  int
+	reportCount int
+	t           testing.T
 }
 
 func (h *recordingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.req = r
+	if strings.Contains(r.RequestURI, ":check") {
+		h.checkCount++
+	}
+
+	if strings.Contains(r.RequestURI, ":report") {
+		h.reportCount++
+		if h.checkCount == 0 {
+			h.t.Fatalf("Check should be called before Report")
+		}
+	}
+
 	var err error
 	h.body, err = ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -62,7 +78,68 @@ func TestServiceControlEndpoint(t *testing.T) {
 	// Point the service's path at our mock HTTP instance.
 	svc.BasePath = ts.URL
 
-	ep := newServiceControlEndpoint("servicecontrol", "test-service.appspot.com", "unique-agent-id", "project_number:1234567", svc)
+	now := time.Now()
+	mockClock := testlib.NewMockClock()
+	mockClock.SetNow(now)
+	ep := newServiceControlEndpoint("servicecontrol", "test-service.appspot.com", "unique-agent-id", "project_number:1234567", svc, mockClock)
+
+	t.Run("Assert check is called first", func(t *testing.T) {
+		// Test a single report write
+		report1, err := ep.BuildReport(metrics.StampedMetricReport{
+			Id: "report1",
+			MetricReport: metrics.MetricReport{
+				Name:      "int-metric1",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+				Value: metrics.MetricValue{
+					Int64Value: 10,
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error building report: %+v", err)
+		}
+		if report1.Id != "report1" {
+			t.Fatalf("expected report ID to be 'report1', got: %v", report1.Id)
+		}
+		if err := ep.Send(report1); err != nil {
+			t.Fatalf("error sending report: %+v", err)
+		}
+
+		if handler.reportCount != 1 {
+			t.Fatalf("Report should have been called only once")
+		}
+
+		if handler.checkCount != 1 {
+			t.Fatalf("Check should have been called only once")
+		}
+
+		mockClock.SetNow(now.Add(time.Second * 30))
+		if err := ep.Send(report1); err != nil {
+			t.Fatalf("error sending report: %+v", err)
+		}
+
+		if handler.reportCount != 2 {
+			t.Fatalf("Report should have been called a second time")
+		}
+
+		if handler.checkCount != 1 {
+			t.Fatalf("Check should have been called only once")
+		}
+
+		mockClock.SetNow(now.Add(time.Second * 61))
+		if err := ep.Send(report1); err != nil {
+			t.Fatalf("error sending report: %+v", err)
+		}
+
+		if handler.reportCount != 3 {
+			t.Fatalf("Report should have been called a third time")
+		}
+
+		if handler.checkCount != 2 {
+			t.Fatalf("Check should have been called a second time")
+		}
+	})
 
 	t.Run("Report idempotence", func(t *testing.T) {
 		// Test a single report write
