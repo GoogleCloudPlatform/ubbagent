@@ -21,6 +21,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 
+	"github.com/GoogleCloudPlatform/ubbagent/clock"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/golang/glog"
 	"golang.org/x/oauth2/google"
@@ -29,8 +30,9 @@ import (
 )
 
 const (
-	agentIdLabel = "goog-ubb-agent-id"
-	timeout      = 60 * time.Second
+	agentIdLabel      = "goog-ubb-agent-id"
+	timeout           = 60 * time.Second
+	checkCacheTimeout = 60 * time.Second
 )
 
 type ServiceControlEndpoint struct {
@@ -41,6 +43,8 @@ type ServiceControlEndpoint struct {
 	keyData     string
 	service     *servicecontrol.Service
 	tracker     pipeline.UsageTracker
+	nextCheck   time.Time
+	clock       clock.Clock
 }
 
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
@@ -55,16 +59,17 @@ func NewServiceControlEndpoint(name, serviceName, agentId string, consumerId str
 	if err != nil {
 		return nil, err
 	}
-	return newServiceControlEndpoint(name, serviceName, agentId, consumerId, service), nil
+	return newServiceControlEndpoint(name, serviceName, agentId, consumerId, service, clock.NewClock()), nil
 }
 
-func newServiceControlEndpoint(name, serviceName, agentId, consumerId string, service *servicecontrol.Service) *ServiceControlEndpoint {
+func newServiceControlEndpoint(name, serviceName, agentId, consumerId string, service *servicecontrol.Service, clock clock.Clock) *ServiceControlEndpoint {
 	ep := &ServiceControlEndpoint{
 		name:        name,
 		serviceName: serviceName,
 		agentId:     agentId,
 		consumerId:  consumerId,
 		service:     service,
+		clock:       clock,
 	}
 	return ep
 }
@@ -74,13 +79,27 @@ func (ep *ServiceControlEndpoint) Name() string {
 }
 
 func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
+	operation := ep.format(report)
 	req := &servicecontrol.ReportRequest{
-		Operations: []*servicecontrol.Operation{ep.format(report)},
+		Operations: []*servicecontrol.Operation{operation},
 	}
 	glog.V(2).Infoln("ServiceControlEndpoint:Send(): serviceName: ", ep.serviceName, " body: ", func() string {
 		reqJson, _ := req.MarshalJSON()
 		return string(reqJson)
 	}())
+
+	// Check only every 60 seconds, following recommendation from https://godoc.org/google.golang.org/api/servicecontrol/v1#ServicesService.Check
+	if ep.clock.Now().After(ep.nextCheck) {
+		checkReq := &servicecontrol.CheckRequest{
+			Operation: operation,
+		}
+		_, err := ep.service.Services.Check(ep.serviceName, checkReq).Do()
+		if err != nil && !googleapi.IsNotModified(err) {
+			return err
+		}
+		ep.nextCheck = ep.clock.Now().Add(checkCacheTimeout)
+	}
+
 	_, err := ep.service.Services.Report(ep.serviceName, req).Do()
 	if err != nil && !googleapi.IsNotModified(err) {
 		return err
