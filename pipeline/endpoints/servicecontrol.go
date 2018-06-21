@@ -88,6 +88,7 @@ func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
 		return string(reqJson)
 	}())
 
+	// Check only every 60 seconds, following recommendation from https://godoc.org/google.golang.org/api/servicecontrol/v1#ServicesService.Check
 	if ep.clock.Now().After(ep.nextCheck) {
 		checkReq := &servicecontrol.CheckRequest{
 			Operation: operation,
