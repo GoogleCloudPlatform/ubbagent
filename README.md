@@ -39,7 +39,7 @@ metrics:
   # The aggregation section indicates that reports that the agent receives for this metric should
   # be aggregated for a specified period of time prior to being sent to the reporting endpoint.
   aggregation:
-    bufferSeconds: 10
+    bufferSeconds: 60
 
 - name: instance-seconds
   type: int
@@ -71,9 +71,9 @@ sources:
 - name: instance-seconds
   heartbeat:
     metric: instance-seconds
-    intervalSeconds: 10
+    intervalSeconds: 60
     value:
-      int64Value: 10
+      int64Value: 60
     labels:
       auto: true
 ```
