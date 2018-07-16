@@ -84,17 +84,17 @@ func (i *Identity) Validate(c *Config) error {
 
 // GCPIdentity holds configuration for identifying to Google Cloud Platform services.
 type GCPIdentity struct {
-	ServiceAccountKey        LiteralServiceAccountKey `json:"serviceAccountKey"`
-	EncodedServiceAccountKey EncodedServiceAccountKey `json:"encodedServiceAccountKey"`
+	ServiceAccountKey        *LiteralServiceAccountKey `json:"serviceAccountKey"`
+	EncodedServiceAccountKey *EncodedServiceAccountKey `json:"encodedServiceAccountKey"`
 }
 
 func (c *GCPIdentity) GetServiceAccountKey() []byte {
-	if len(c.ServiceAccountKey) > 0 {
-		return c.ServiceAccountKey
+	if c.ServiceAccountKey != nil {
+		return *c.ServiceAccountKey
 	}
 
-	if len(c.EncodedServiceAccountKey) > 0 {
-		return c.EncodedServiceAccountKey
+	if c.EncodedServiceAccountKey != nil {
+		return *c.EncodedServiceAccountKey
 	}
 
 	return nil
@@ -102,10 +102,10 @@ func (c *GCPIdentity) GetServiceAccountKey() []byte {
 
 func (i *GCPIdentity) Validate(c *Config) error {
 	count := 0
-	if len(i.ServiceAccountKey) > 0 {
+	if i.ServiceAccountKey != nil {
 		count += 1
 	}
-	if len(i.EncodedServiceAccountKey) > 0 {
+	if i.EncodedServiceAccountKey != nil {
 		count += 1
 	}
 

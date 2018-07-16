@@ -111,7 +111,7 @@ filters:
 			{
 				Name: "gcp",
 				GCP: &config.GCPIdentity{
-					ServiceAccountKey: key,
+					ServiceAccountKey: &key,
 				},
 			},
 		},
@@ -248,8 +248,8 @@ endpoints:
 		t.Fatalf("Error parsing config text: %+v", err)
 	}
 
-	if want, got := expectedKey, parsed.Identities[0].GCP.EncodedServiceAccountKey; !yamlEqual(want, got) {
-		t.Fatalf("Parsing encoded key: expected=%+v; got=%+v", string(want), string(got))
+	if want, got := expectedKey, parsed.Identities[0].GCP.EncodedServiceAccountKey; got == nil || !yamlEqual(want, *got) {
+		t.Fatalf("Parsing encoded key: expected=%+v; got=%+v", want, got)
 	}
 }
 
@@ -261,7 +261,7 @@ func TestConfig_Validate(t *testing.T) {
 		{
 			Name: "gcp",
 			GCP: &config.GCPIdentity{
-				ServiceAccountKey: literalGcpKey,
+				ServiceAccountKey: &literalGcpKey,
 			},
 		},
 	}
@@ -321,8 +321,8 @@ func TestConfig_Validate(t *testing.T) {
 				{
 					Name: "gcp",
 					GCP: &config.GCPIdentity{
-						ServiceAccountKey:        literalGcpKey,
-						EncodedServiceAccountKey: encodedGcpKey,
+						ServiceAccountKey:        &literalGcpKey,
+						EncodedServiceAccountKey: &encodedGcpKey,
 					},
 				},
 			},
