@@ -10,3 +10,7 @@ steps:
   - --tag
   - gcr.io/$PROJECT_ID/metering/ubbagent:sha_$SHORT_SHA
   - .
+
+images:
+- gcr.io/$PROJECT_ID/metering/ubbagent:sha_$COMMIT_SHA
+- gcr.io/$PROJECT_ID/metering/ubbagent:sha_$SHORT_SHA
