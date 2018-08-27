@@ -1,0 +1,16 @@
+steps:
+- id: Build
+  name: gcr.io/cloud-builders/docker
+  waitFor:
+  - '-'
+  args:
+  - build
+  - --tag
+  - gcr.io/$PROJECT_ID/metering/ubbagent:sha_$COMMIT_SHA
+  - --tag
+  - gcr.io/$PROJECT_ID/metering/ubbagent:sha_$SHORT_SHA
+  - .
+
+images:
+- gcr.io/$PROJECT_ID/metering/ubbagent:sha_$COMMIT_SHA
+- gcr.io/$PROJECT_ID/metering/ubbagent:sha_$SHORT_SHA
