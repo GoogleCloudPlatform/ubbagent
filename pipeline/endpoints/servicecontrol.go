@@ -90,8 +90,11 @@ func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
 
 	// Check only every 60 seconds, following recommendation from https://godoc.org/google.golang.org/api/servicecontrol/v1#ServicesService.Check
 	if ep.clock.Now().After(ep.nextCheck) {
+		// Check requests can not have user labels.
+		opNoLabels := *operation
+		opNoLabels.UserLabels = nil
 		checkReq := &servicecontrol.CheckRequest{
-			Operation: operation,
+			Operation: &opNoLabels,
 		}
 		_, err := ep.service.Services.Check(ep.serviceName, checkReq).Do()
 		if err != nil && !googleapi.IsNotModified(err) {
