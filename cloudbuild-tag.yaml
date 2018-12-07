@@ -5,8 +5,8 @@ steps:
   args:
   - -exc
   - | 
-    docker pull gcr.io/$PROJECT_ID/metering/ubbagent:sha_$COMMIT_SHA
-    docker tag gcr.io/$PROJECT_ID/metering/ubbagent:sha_$COMMIT_SHA gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME
+    docker pull gcr.io/ubbagent/metering/ubbagent:sha_$COMMIT_SHA
+    docker tag gcr.io/ubbagent/metering/ubbagent:sha_$COMMIT_SHA gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME
 
 images:
 - gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME
