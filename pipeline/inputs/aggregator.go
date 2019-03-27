@@ -232,10 +232,20 @@ func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 	if mr.StartTime.Before(ar.EndTime) {
 		return false, fmt.Errorf("time conflict: %v < %v", mr.StartTime, ar.EndTime)
 	}
-	// Only one of these values should be non-zero. We rely on prior validation to ensure the proper
+	// Only one of these values should be non-nil. We rely on prior validation to ensure the proper
 	// value (i.e., the one specified in the metrics.Definition) is provided.
-	ar.Value.Int64Value += mr.Value.Int64Value
-	ar.Value.DoubleValue += mr.Value.DoubleValue
+	if mr.Value.Int64Value != nil {
+		if ar.Value.Int64Value == nil {
+			ar.Value.Int64Value = new(int64)
+		}
+		*ar.Value.Int64Value += *mr.Value.Int64Value
+	}
+	if mr.Value.DoubleValue != nil {
+		if ar.Value.DoubleValue == nil {
+			ar.Value.DoubleValue = new(float64)
+		}
+		*ar.Value.DoubleValue += *mr.Value.DoubleValue
+	}
 
 	// The aggregated end time advances, but the start time remains unchanged.
 	ar.EndTime = mr.EndTime

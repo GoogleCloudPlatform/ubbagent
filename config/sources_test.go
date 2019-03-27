@@ -15,6 +15,7 @@
 package config_test
 
 import (
+	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
@@ -50,7 +51,7 @@ func TestSources_Validate(t *testing.T) {
 		Metric:          "int-metric",
 		IntervalSeconds: 10,
 		Value: metrics.MetricValue{
-			Int64Value: 10,
+			Int64Value: testlib.Int64Ptr(10),
 		},
 	}
 
@@ -89,7 +90,7 @@ func TestSources_Validate(t *testing.T) {
 						Metric:          "int-metric",
 						IntervalSeconds: c.val,
 						Value: metrics.MetricValue{
-							Int64Value: 10,
+							Int64Value: testlib.Int64Ptr(10),
 						},
 					},
 				},
@@ -112,7 +113,7 @@ func TestSources_Validate(t *testing.T) {
 				Metric:          "int-metric",
 				IntervalSeconds: 10,
 				Value: metrics.MetricValue{
-					Int64Value: 10,
+					Int64Value: testlib.Int64Ptr(10),
 				},
 			},
 		}
@@ -127,7 +128,7 @@ func TestSources_Validate(t *testing.T) {
 				Metric:          "int-metric",
 				IntervalSeconds: 10,
 				Value: metrics.MetricValue{
-					DoubleValue: 10,
+					DoubleValue: testlib.Float64Ptr(10),
 				},
 			},
 		}
