@@ -39,6 +39,23 @@ type recordingHandler struct {
 	t           testing.T
 }
 
+type mockNetError struct {
+	temporary bool
+	timeout   bool
+}
+
+func (e mockNetError) Error() string {
+	return ""
+}
+
+func (e mockNetError) Temporary() bool {
+	return e.temporary
+}
+
+func (e mockNetError) Timeout() bool {
+	return e.timeout
+}
+
 func (h *recordingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.req = r
 	if strings.Contains(r.RequestURI, ":check") {
@@ -251,8 +268,8 @@ func TestServiceControlEndpoint(t *testing.T) {
 
 	t.Run("IsTransient tests", func(t *testing.T) {
 		cases := []struct {
-			err   error
-			fatal bool
+			err       error
+			transient bool
 		}{
 			{nil, false},
 			{errors.New("foo"), true},
@@ -262,9 +279,13 @@ func TestServiceControlEndpoint(t *testing.T) {
 			{&googleapi.Error{Code: 503}, true},
 			{&googleapi.Error{Code: 599}, true},
 			{&googleapi.Error{Code: 600}, false},
+			{mockNetError{temporary: false, timeout: false}, false},
+			{mockNetError{temporary: true, timeout: false}, true},
+			{mockNetError{temporary: false, timeout: true}, true},
+			{mockNetError{temporary: true, timeout: true}, true},
 		}
 		for _, c := range cases {
-			if want, got := c.fatal, ep.IsTransient(c.err); want != got {
+			if want, got := c.transient, ep.IsTransient(c.err); want != got {
 				t.Fatalf("IsTransient for error %v: want=%v, got=%v", c.err, want, got)
 			}
 		}
