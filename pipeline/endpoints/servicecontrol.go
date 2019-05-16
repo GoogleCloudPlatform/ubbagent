@@ -17,6 +17,7 @@ package endpoints
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
@@ -165,12 +166,16 @@ func (ep *ServiceControlEndpoint) IsTransient(err error) bool {
 	if err == nil {
 		return false
 	}
-	ae, ok := err.(*googleapi.Error)
-	if !ok {
+	switch v := err.(type) {
+	case *googleapi.Error:
+		// Return true if this is an http error with a 5xx code.
+		return v.Code >= 500 && v.Code < 600
+	case net.Error:
+		// Return true if this error is considered temporary or a timeout.
+		return v.Temporary() || v.Timeout()
+	default:
 		// Some non-http error (perhaps a connection refused or timeout?)
 		// We'll retry.
 		return true
 	}
-	// Return true if this is an http error with a 5xx code.
-	return ae.Code >= 500 && ae.Code < 600
 }

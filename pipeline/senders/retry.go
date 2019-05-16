@@ -207,13 +207,13 @@ func (rs *RetryingSender) maybeSend(now time.Time) {
 				// Set next attempt
 				rs.lastAttempt = now
 				rs.delay = bounded(rs.delay*2, rs.minDelay, rs.maxDelay)
-				glog.Warningf("RetryingSender.maybeSend: %+v (will retry)", senderr)
+				glog.Warningf("RetryingSender.maybeSend [%[1]T - transient; will retry]: %[1]s", senderr)
 				break
 			} else if expired {
-				glog.Errorf("RetryingSender.maybeSend: %+v (retry expired)", senderr)
+				glog.Errorf("RetryingSender.maybeSend [%[1]T - retry expired]: %[1]s", senderr)
 				rs.recorder.SendFailed(entry.Report.Id, rs.endpoint.Name())
 			} else {
-				glog.Errorf("RetryingSender.maybeSend: %+v", senderr)
+				glog.Errorf("RetryingSender.maybeSend [%[1]T - will NOT retry]: %[1]s", senderr)
 				rs.recorder.SendFailed(entry.Report.Id, rs.endpoint.Name())
 			}
 		} else {
