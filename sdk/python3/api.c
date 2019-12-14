@@ -28,7 +28,7 @@ static PyTypeObject Agent_type = {
     sizeof(Agent),                // tp_basicsize
     0,                            // tp_itemsize
     (destructor)AgentDealloc,     // tp_dealloc
-    0,                            // tp_print
+    0,                            // tp_vectorcall_offset
     0,                            // tp_getattr
     0,                            // tp_setattr
     0,                            // tp_reserved
@@ -60,19 +60,38 @@ static PyTypeObject Agent_type = {
     0,                            // tp_dictoffset
     (initproc)AgentInit,          // tp_init
     0,                            // tp_alloc
-    PyType_GenericNew,            // tp_new
+    PyType_GenericNew,            // tp_new,
+    0,                            // tp_free
+    0,                            // tp_is_gc
+    0,                            // tp_bases
+    0,                            // tp_mro
+    0,                            // tp_cache
+    0,                            // tp_subclasses
+    0,                            // tp_weaklist
+    0,                            // tp_del
+    0,                            // tp_version_tag
+    0,                            // tp_finalize
 };
 
-PyMODINIT_FUNC
-initubbagent(void) {
-  PyObject* m = Py_InitModule("ubbagent", 0);
+static struct PyModuleDef cModPyDem =
+{
+    PyModuleDef_HEAD_INIT,
+    "ubbagent", /* name of module */
+    "",         /* module documentation, may be NULL */
+    -1,         /* size of per-interpreter state of the module, or -1 if the module keeps state in global variables. */
+    Agent_methods
+};
+
+PyMODINIT_FUNC PyInit_ubbagent(void) {
+  Py_Initialize();
+  PyObject* m = PyModule_Create(&cModPyDem);
   if (m == NULL) {
-    return;
+    return m;
   }
 
   if (PyType_Ready(&Agent_type) < 0) {
     Py_DECREF(m);
-    return;
+    return 0;
   }
 
   Py_INCREF(&Agent_type);
@@ -81,4 +100,6 @@ initubbagent(void) {
   AgentError = PyErr_NewException("ubbagent.AgentError", NULL, NULL);
   Py_INCREF(AgentError);
   PyModule_AddObject(m, "AgentError", AgentError);
+
+  return m;
 }

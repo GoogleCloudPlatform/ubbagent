@@ -15,7 +15,7 @@
 package main
 
 /*
-#cgo pkg-config: python2
+#cgo pkg-config: python3
 #define Py_LIMITED_API
 #include <Python.h>
 #include "api.h"
@@ -35,9 +35,9 @@ static PyObject* none() {
 import "C"
 
 import (
-	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 	"sync"
 
+	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 )
 
 // We store all current agents in a map keyed by an incrementing integer. Since the Python side of
@@ -116,8 +116,8 @@ func AgentDealloc(self *C.Agent) {
 
 //export AgentAddReport
 func AgentAddReport(self *C.Agent, report *C.PyObject) *C.PyObject {
-	var reportStr *C.PyObject = C.PyObject_Str(report)
-	var reportData *C.char = C.PyString_AsString(reportStr)
+	var reportStr *C.PyObject = C.PyUnicode_AsEncodedString(report, C.CString("UTF-8"), C.CString("strict"))
+	var reportData *C.char = C.PyBytes_AsString(reportStr)
 	C.Py_DecRef(reportStr)
 
 	agentsmu.RLock()
@@ -157,7 +157,7 @@ func AgentGetStatus(self *C.Agent, _ *C.PyObject) *C.PyObject {
 	}
 
 	status := C.CString(string(marshaled))
-	return C.PyString_FromString(status)
+	return C.PyUnicode_FromString(status)
 }
 
 func setException(err string) {
