@@ -25,6 +25,7 @@ help:
 	@echo "Targets:"
 	@echo "  build             - Build the ubbagent binary."
 	@echo "  build-sdk-python2 - Build the python2 agent module."
+	@echo "  build-sdk-python3 - Build the python3 agent module."
 	@echo "  clean             - Clean build artifacts."
 	@echo "  cover             - Display code coverage."
 	@echo "  deps              - Fetch or update dependencies."
@@ -32,6 +33,7 @@ help:
 	@echo "  setup             - Install required build tools."
 	@echo "  test              - Run unit tests."
 	@echo "  test-sdk-python2  - Run the python2 module tests."
+	@echo "  test-sdk-python3  - Run the python3 module tests."
 
 .PHONY: build
 build: .GOPATH/.ok
@@ -42,9 +44,18 @@ build-sdk-python2: .GOPATH/.ok
 	$Q go build $(if $V,-v) $(VERSION_FLAGS) -buildmode=c-shared -o bin/python2/ubbagent.so $(IMPORT_PATH)/sdk/python2
 	@rm bin/python2/ubbagent.h
 
+.PHONY: build-sdk-python3
+build-sdk-python3: .GOPATH/.ok
+	$Q go build $(if $V,-v) $(VERSION_FLAGS) -buildmode=c-shared -o bin/python3/ubbagent.so $(IMPORT_PATH)/sdk/python3
+	@rm bin/python3/ubbagent.h
+
 .PHONY: test-sdk-python2
 test-sdk-python2: build-sdk-python2
-	$Q PYTHONPATH=bin/python2 python sdk/python2/test.py
+	$Q PYTHONPATH=bin/python2 python2 sdk/python2/test.py
+
+.PHONY: test-sdk-python3
+test-sdk-python3: build-sdk-python3
+	$Q PYTHONPATH=bin/python3 python3 sdk/python3/test.py
 
 .PHONY: deps
 deps: .GOPATH/.ok
