@@ -40,7 +40,6 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 )
 
-
 // We store all current agents in a map keyed by an incrementing integer. Since the Python side of
 // our module can't hold onto a Go reference, it instead holds onto the agent number which is
 // subsequently used to retrieve the actual agent object when performing operations.
