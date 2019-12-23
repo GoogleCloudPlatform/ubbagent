@@ -37,7 +37,6 @@ import "C"
 import (
 	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 	"sync"
-
 )
 
 // We store all current agents in a map keyed by an incrementing integer. Since the Python side of
