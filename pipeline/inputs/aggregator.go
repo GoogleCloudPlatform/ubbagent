@@ -223,21 +223,24 @@ type aggregatedReport metrics.MetricReport
 
 // accept possibly aggregates the given MetricReport into this aggregatedReport. Returns true
 // if the report was aggregated, or false if the labels or name don't match. Returns an error if the
-// given report could be aggregated (i.e., labels match), but its time range conflicts with the
-// existing aggregated range.
+// given report could be aggregated (i.e., labels match), but has earlier end time than the
+// aggregated end time.
 func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 	if mr.Name != ar.Name || !reflect.DeepEqual(mr.Labels, ar.Labels) {
 		return false, nil
 	}
-	if mr.StartTime.Before(ar.EndTime) {
-		return false, fmt.Errorf("time conflict: %v < %v", mr.StartTime, ar.EndTime)
+	if mr.EndTime.Before(ar.EndTime) {
+		return false, fmt.Errorf("time conflict: %v < %v", mr.EndTime, ar.EndTime)
 	}
 	// Only one of these values should be non-zero. We rely on prior validation to ensure the proper
 	// value (i.e., the one specified in the metrics.Definition) is provided.
 	ar.Value.Int64Value += mr.Value.Int64Value
 	ar.Value.DoubleValue += mr.Value.DoubleValue
-
-	// The aggregated end time advances, but the start time remains unchanged.
+	// Expand the aggregated start time if the given MetricReport has ealier start time.
+	if mr.StartTime.Before(ar.StartTime) {
+		ar.StartTime = mr.StartTime
+	}
+	// The aggregated end time advances.
 	ar.EndTime = mr.EndTime
 	return true, nil
 }
