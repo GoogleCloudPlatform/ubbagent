@@ -15,7 +15,6 @@
 package inputs
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -105,7 +104,7 @@ func TestNewAggregator(t *testing.T) {
 		expected := []metrics.MetricReport{report1, report2}
 		reports = mi.Reports()
 		if !equalUnordered(reports, expected) {
-			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
+			t.Fatalf("Aggregated reports: expected: %#v, got: %#v", expected, reports)
 		}
 
 		mockClock = testlib.NewMockClock()
@@ -474,9 +473,9 @@ func equalUnordered(a, b []metrics.MetricReport) bool {
 			if used[j] {
 				continue
 			}
-			if reflect.DeepEqual(iobj, jobj) {
+			if iobj.Equal(jobj) {
 				used[j] = true
-				count += 1
+				count++
 				break
 			}
 		}

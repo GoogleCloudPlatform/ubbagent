@@ -16,6 +16,7 @@ package metrics
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,6 +29,7 @@ type MetricValue struct {
 	DoubleValue float64 `json:"doubleValue"`
 }
 
+// Validate returns an error if the metric value does not match its definition.
 func (mv MetricValue) Validate(def Definition) error {
 	switch def.Type {
 	case IntType:
@@ -44,7 +46,7 @@ func (mv MetricValue) Validate(def Definition) error {
 	return nil
 }
 
-// Report represents an aggregated interval for a unique metric + labels combination.
+// MetricReport represents an aggregated interval for a unique metric + labels combination.
 type MetricReport struct {
 	Name      string            `json:"name"`
 	StartTime time.Time         `json:"startTime"`
@@ -53,6 +55,19 @@ type MetricReport struct {
 	Value     MetricValue       `json:"value"`
 }
 
+// Equal returns if the two MetricReports are the same.
+func (mr MetricReport) Equal(other MetricReport) bool {
+	// Time object equality must be checked using `Time.Equal`,
+	// not `==` or `reflect.DeepEqual`.
+	// See https://github.com/golang/go/issues/17875
+	return mr.Name == other.Name &&
+		mr.StartTime.Equal(other.StartTime) &&
+		mr.EndTime.Equal(other.EndTime) &&
+		reflect.DeepEqual(mr.Labels, other.Labels) &&
+		reflect.DeepEqual(mr.Value, other.Value)
+}
+
+// Validate returns an error if the report does not match its definition.
 func (mr MetricReport) Validate(def Definition) error {
 	if mr.Name != def.Name {
 		return fmt.Errorf("incorrect metric name: %v", mr.Name)
@@ -82,4 +97,10 @@ func NewStampedMetricReport(report MetricReport) StampedMetricReport {
 	stamped.Id = id.String()
 	stamped.MetricReport = report
 	return stamped
+}
+
+// Equal returns if the two StampedMetricReports are the same.
+func (smr StampedMetricReport) Equal(other StampedMetricReport) bool {
+	return smr.Id == other.Id &&
+		smr.MetricReport.Equal(other.MetricReport)
 }
