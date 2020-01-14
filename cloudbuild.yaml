@@ -1,8 +1,36 @@
+options:
+  machineType: 'N1_HIGHCPU_8'
+
 steps:
-- id: Build
+
+- id: &BuildRuntime Build runtime 
+  name: gcr.io/cloud-builders/docker
+  args:
+  - build
+  - --tag
+  - runtime:local
+  - -f
+  - cloudbuild.Dockerfile
+  - '.'
+
+- id: &Test Test
+  waitFor:
+  - *BuildRuntime
+  name: runtime:local
+  entrypoint: bash
+  args:
+  - -exc
+  - |
+    make setup
+    make deps
+    make build
+    make test
+    make -j2 test-sdk-python2 test-sdk-python3
+
+- id: &BuildImage Build Image
   name: gcr.io/cloud-builders/docker
   waitFor:
-  - '-'
+  - *Test
   args:
   - build
   - --tag
