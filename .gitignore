@@ -9,3 +9,6 @@ ubbagent.iml
 vendor/
 /.GOPATH
 /bin
+
+# VSCode metadata
+.vscode

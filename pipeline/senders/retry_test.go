@@ -84,8 +84,8 @@ func TestRetryingSender(t *testing.T) {
 			}
 		})
 		rep := ep.Reports()[0]
-		if !reflect.DeepEqual(rep.StampedMetricReport, report1) {
-			t.Fatalf("Sent report contains incorrect report: expected: %+v got: %+v", report1, rep.StampedMetricReport)
+		if !rep.StampedMetricReport.Equal(report1) {
+			t.Fatalf("Sent report contains incorrect report: expected: %#v got: %#v", report1, rep.StampedMetricReport)
 		}
 	})
 
