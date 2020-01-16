@@ -333,7 +333,7 @@ func TestAggregator_AddReport(t *testing.T) {
 		}
 	})
 
-	// Add a report with a start time less than the last end time: error
+	// Add reports to expand start time and end time, testing aggregation
 	t.Run("Time conflict", func(t *testing.T) {
 		mockClock := testlib.NewMockClock()
 		mockClock.SetNow(time.Unix(0, 0))
@@ -342,8 +342,8 @@ func TestAggregator_AddReport(t *testing.T) {
 
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
-			StartTime: time.Unix(0, 0),
-			EndTime:   time.Unix(1, 0),
+			StartTime: time.Unix(1, 0),
+			EndTime:   time.Unix(3, 0),
 			Value: metrics.MetricValue{
 				Int64Value: 10,
 			},
@@ -353,12 +353,41 @@ func TestAggregator_AddReport(t *testing.T) {
 		if err := a.AddReport(metrics.MetricReport{
 			Name:      "int-metric",
 			StartTime: time.Unix(0, 0),
-			EndTime:   time.Unix(2, 0),
+			EndTime:   time.Unix(3, 0),
 			Value: metrics.MetricValue{
 				Int64Value: 5,
 			},
-		}); err == nil || !strings.Contains(err.Error(), "time conflict") {
-			t.Fatalf("Expected error containing \"time conflict\", got: %+v", err)
+		}); err != nil {
+			t.Fatalf("Unexpected error when adding report: %+v", err)
+		}
+		if err := a.AddReport(metrics.MetricReport{
+			Name:      "int-metric",
+			StartTime: time.Unix(2, 0),
+			EndTime:   time.Unix(4, 0),
+			Value: metrics.MetricValue{
+				Int64Value: 7,
+			},
+		}); err != nil {
+			t.Fatalf("Unexpected error when adding report: %+v", err)
+		}
+		mi.DoAndWait(t, 1, func() {
+			mockClock.SetNow(time.Unix(100, 0))
+		})
+
+		expected := []metrics.MetricReport{
+			{
+				Name:      "int-metric",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(4, 0),
+				Value: metrics.MetricValue{
+					Int64Value: 22,
+				},
+			},
+		}
+
+		reports := mi.Reports()
+		if !equalUnordered(reports, expected) {
+			t.Fatalf("Aggregated reports: expected: %+v, got: %+v", expected, reports)
 		}
 	})
 
