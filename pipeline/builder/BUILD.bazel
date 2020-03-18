@@ -1,0 +1,32 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["builder.go"],
+    importpath = "github.com/GoogleCloudPlatform/ubbagent/pipeline/builder",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//agentid:go_default_library",
+        "//config:go_default_library",
+        "//persistence:go_default_library",
+        "//pipeline:go_default_library",
+        "//pipeline/endpoints:go_default_library",
+        "//pipeline/inputs:go_default_library",
+        "//pipeline/senders:go_default_library",
+        "//pipeline/sources:go_default_library",
+        "//stats:go_default_library",
+        "@com_github_hashicorp_go_multierror//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["builder_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//config:go_default_library",
+        "//metrics:go_default_library",
+        "//persistence:go_default_library",
+        "//stats:go_default_library",
+    ],
+)

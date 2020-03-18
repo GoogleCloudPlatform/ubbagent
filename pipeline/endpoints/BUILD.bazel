@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "disk.go",
+        "servicecontrol.go",
+    ],
+    importpath = "github.com/GoogleCloudPlatform/ubbagent/pipeline/endpoints",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//clock:go_default_library",
+        "//metrics:go_default_library",
+        "//pipeline:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@org_golang_google_api//googleapi:go_default_library",
+        "@org_golang_google_api//servicecontrol/v1:go_default_library",
+        "@org_golang_x_oauth2//google:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "disk_test.go",
+        "servicecontrol_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//metrics:go_default_library",
+        "//testlib:go_default_library",
+        "@org_golang_google_api//googleapi:go_default_library",
+        "@org_golang_google_api//servicecontrol/v1:go_default_library",
+    ],
+)

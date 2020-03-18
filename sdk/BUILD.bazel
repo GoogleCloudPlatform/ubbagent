@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["sdk.go"],
+    importpath = "github.com/GoogleCloudPlatform/ubbagent/sdk",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//config:go_default_library",
+        "//metrics:go_default_library",
+        "//persistence:go_default_library",
+        "//pipeline:go_default_library",
+        "//pipeline/builder:go_default_library",
+        "//stats:go_default_library",
+    ],
+)

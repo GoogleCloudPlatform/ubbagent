@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "endpoint.go",
+        "filters.go",
+        "identity.go",
+        "metrics.go",
+        "sources.go",
+    ],
+    importpath = "github.com/GoogleCloudPlatform/ubbagent/config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//metrics:go_default_library",
+        "@com_github_ghodss_yaml//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "config_test.go",
+        "filters_test.go",
+        "metrics_test.go",
+        "sources_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//metrics:go_default_library",
+        "@com_github_ghodss_yaml//:go_default_library",
+    ],
+)
