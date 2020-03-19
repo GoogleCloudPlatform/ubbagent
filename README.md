@@ -14,6 +14,22 @@ make setup deps build
 bin/ubbagent --help
 ```
 
+### Build and run with bazel
+
+The BUILD.bazel files can be regenerated with: 
+
+```
+bazel run //:gazelle
+```
+
+To build, test and run with bazel:
+
+```
+bazel build ...
+bazel test ...
+bazel run ubbagent
+```
+
 # Configuration
 
 ```yaml

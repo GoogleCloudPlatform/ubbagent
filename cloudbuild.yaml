@@ -3,7 +3,18 @@ options:
 
 steps:
 
+- id: &BazelBuild Bazel build and test
+  waitFor: ['-']
+  name: gcr.io/cloud-builders/bazel
+  entrypoint: bash
+  args:
+  - -exc
+  - |
+    bazel build ...
+    bazel test ...
+
 - id: &BuildRuntime Build runtime 
+  waitFor: ['-']
   name: gcr.io/cloud-builders/docker
   args:
   - build
