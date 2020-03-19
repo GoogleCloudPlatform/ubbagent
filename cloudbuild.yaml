@@ -3,6 +3,15 @@ options:
 
 steps:
 
+- id: &BazelBuild Bazel build and test
+  name: gcr.io/cloud-builders/bazel
+  entrypoint: bash
+  args:
+  - -exc
+  - |
+    bazel build ...
+    bazel test ...
+
 - id: &BuildRuntime Build runtime 
   name: gcr.io/cloud-builders/docker
   args:
@@ -21,8 +30,6 @@ steps:
   args:
   - -exc
   - |
-    bazel build ...
-    bazel test ...
     make setup
     make deps
     make build
