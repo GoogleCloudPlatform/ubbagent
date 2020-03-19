@@ -21,6 +21,8 @@ steps:
   args:
   - -exc
   - |
+    bazel build ...
+    bazel test ...
     make setup
     make deps
     make build
