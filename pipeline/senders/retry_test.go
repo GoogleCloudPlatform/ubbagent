@@ -205,7 +205,7 @@ func TestRetryingSender(t *testing.T) {
 		}
 	})
 
-	t.Run("Failing entry expires", func(t *testing.T) {
+	t.Run("failing entry expires", func(t *testing.T) {
 		persist := persistence.NewMemoryPersistence()
 		mc := testlib.NewMockClock()
 		ep := testlib.NewMockEndpoint("mockep")
