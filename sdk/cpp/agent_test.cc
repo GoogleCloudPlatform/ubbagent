@@ -170,6 +170,8 @@ TEST_F(AgentTest, CreateAgentSuccess) {
     std::unique_ptr<Agent> agent = Agent::Create(config_, "", &create_status);
     EXPECT_TRUE(create_status.ok());
     EXPECT_NE(agent, nullptr);
+    // Shut down the agent.
+    agent->Shutdown();
 }
 
 TEST_F(AgentTest, AddReportFail) {
@@ -196,6 +198,9 @@ TEST_F(AgentTest, AddReportFail) {
 
     // Nothing reported.
     EXPECT_EQ(CountReportsOnDisk(directory_), 0);
+
+    // Shut down the agent.
+    agent->Shutdown();
 }
 
 TEST_F(AgentTest, AddReportSuccess) {
@@ -249,6 +254,10 @@ TEST_F(AgentTest, AddReportSuccess) {
     EXPECT_EQ(CountReportsOnDisk(directory_), 75);
     // Second agent sent 2 reports of 25 each.
     EXPECT_EQ(CountReportsOnDisk(directory_2_), 50);
+
+    // Shut down the agents.
+    agent->Shutdown();
+    agent_2->Shutdown();
 }
 
 }  // namespace

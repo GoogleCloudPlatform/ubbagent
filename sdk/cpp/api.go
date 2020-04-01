@@ -75,23 +75,17 @@ func AgentInit(config *C.char, state_dir *C.char) C.struct_InitResult {
 }
 
 //export AgentShutdown
-func AgentShutdown(agent_id C.int) C.struct_Result {
+func AgentShutdown(agent_id C.int) {
 	agentsmu.Lock()
 	defer agentsmu.Unlock()
 
 	agent, exists := agents[agent_id]
 	if !exists {
-		return C.struct_Result{ error_message: C.CString("Agent already shutdown") }
+		return
 	}
 	delete(agents, agent_id)
 
-	err := agent.Shutdown()
-	if err != nil {
-		return C.struct_Result{ error_message: C.CString(err.Error()) }
-	}
-
-	// Agent was shut down successfully.
-	return C.struct_Result{}
+	agent.Shutdown()
 }
 
 

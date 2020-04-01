@@ -32,8 +32,9 @@ class Agent {
     // Factory method to create Agent. Result of the operation will be written to out_status.
     static std::unique_ptr<Agent> Create(const std::string& config, const std::string& state_dir, absl::Status* out_status);
     
-    // Desctuctor shuts down the agent.
-    ~Agent();
+    // Frees the agent from memory. Must be called before deleting this object to avoid a memory leak.
+    // After Shutdown is called, other methods will have errors.
+    void Shutdown();
 
     // Adds a report to be sent.
     absl::Status AddReport(const std::string& report);
