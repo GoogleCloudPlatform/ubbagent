@@ -34,7 +34,7 @@ struct CurrentStatus {
 	int total_failure_count;
 	// Unix time UTC
 	long last_report_success;
-    // error_message indicates whether there was an error getting the status of the ubbagent. 
+	// error_message indicates whether there was an error getting the status of the ubbagent. 
 	char* error_message;
 };
 */

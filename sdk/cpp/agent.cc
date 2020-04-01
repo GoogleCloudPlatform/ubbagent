@@ -38,7 +38,9 @@ Agent::Agent(const std::string& config, const std::string& state_dir, absl::Stat
 }
 
 
-std::unique_ptr<Agent> Agent::Create(const std::string& config, const std::string& state_dir, absl::Status* out_status) {
+std::unique_ptr<Agent> Agent::Create(const std::string& config,
+                                     const std::string& state_dir,
+                                     absl::Status* out_status) {
     // The constructor is private. Use "new".
     std::unique_ptr<Agent> agent = absl::WrapUnique(new Agent(config, state_dir, out_status));
     if (!out_status->ok()) {
