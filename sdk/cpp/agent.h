@@ -26,15 +26,17 @@ struct AgentStatus {
     absl::Status status;
 };
 
-
+// This class acts as a wrapper for the Go sdk. Creating this agent will create a Go agent.
+// This class' destructor will deallocate the Go agent.
 class Agent {
   public:
     // Factory method to create Agent. Result of the operation will be written to out_status.
-    static std::unique_ptr<Agent> Create(const std::string& config, const std::string& state_dir, absl::Status* out_status);
+    static std::unique_ptr<Agent> Create(const std::string& config,
+                                         const std::string& state_dir,
+                                         absl::Status* out_status);
     
-    // Frees the agent from memory. Must be called before deleting this object to avoid a memory leak.
-    // After Shutdown is called, other methods will have errors.
-    void Shutdown();
+    // Desctuctor shuts down the agent.
+    ~Agent();
 
     // Adds a report to be sent.
     absl::Status AddReport(const std::string& report);

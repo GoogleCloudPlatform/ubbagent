@@ -51,7 +51,7 @@ std::unique_ptr<Agent> Agent::Create(const std::string& config,
 }
 
 
-void Agent::Shutdown() {
+Agent::~Agent() {
     if (id_ == -1) {
         // Agent was never initialized.
         return;

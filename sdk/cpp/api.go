@@ -123,8 +123,8 @@ func AgentGetStatus(agent_id C.int) C.struct_CurrentStatus {
 	stats := agent.GetStatus()
 
 	return C.struct_CurrentStatus{ current_failure_count: C.int(stats.CurrentFailureCount),
-								   total_failure_count: C.int(stats.TotalFailureCount),
-								   last_report_success: C.long(stats.LastReportSuccess.Unix()) }
+									total_failure_count: C.int(stats.TotalFailureCount),
+									last_report_success: C.long(stats.LastReportSuccess.Unix()) }
 }
 
 // Required empty func
