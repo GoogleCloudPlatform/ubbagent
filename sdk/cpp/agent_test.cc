@@ -65,18 +65,6 @@ bool HasEnding(const std::string& full_string, const std::string& ending) {
     return false;
 }
 
-// Generates a random string to be used for the directory name.
-std::string GenerateRandomString(const int length) {
-    auto randchar = []() -> char {
-        const char charset[] = "abcdefghijklmnopqrstuvwxyz";
-        const size_t max_index = (sizeof(charset) - 1);
-        return charset[ rand() % max_index ];
-    };
-    std::string str(length, 0);
-    std::generate_n(str.begin(), length, randchar);
-    return str;
-}
-
 // Adds up the number of request values written to disk by the agent.
 int CountReportsOnDisk(const std::string& directory) {
     DIR *dir = opendir(directory.c_str());
@@ -122,9 +110,13 @@ class AgentTest : public ::testing::Test {
  protected:
   void SetUp() override {
     srand(time(NULL));
-    directory_ = absl::StrCat("/tmp/ubbagent/report_", GenerateRandomString(15), "/");
+    char temp_dir[L_tmpnam + 1];
+    tmpnam(temp_dir);
+    directory_ = absl::StrCat(temp_dir, "/");
     config_ = absl::Substitute(kConfig, directory_);
-    directory_2_ = absl::StrCat("/tmp/ubbagent/report_", GenerateRandomString(15), "/");
+    char temp_dir_2[L_tmpnam + 1];
+    tmpnam(temp_dir_2);
+    directory_2_ = absl::StrCat(temp_dir_2, "/");
     config_2_ = absl::Substitute(kConfig, directory_2_);
   }
 
