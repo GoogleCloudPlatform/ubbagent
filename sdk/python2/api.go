@@ -33,10 +33,11 @@ static PyObject* none() {
 }
 */
 import "C"
-
 import (
-	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 	"sync"
+	"unsafe"
+
+	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 )
 
 // We store all current agents in a map keyed by an incrementing integer. Since the Python side of
@@ -156,11 +157,14 @@ func AgentGetStatus(self *C.Agent, _ *C.PyObject) *C.PyObject {
 	}
 
 	status := C.CString(string(marshaled))
+	defer C.free(unsafe.Pointer(status))
 	return C.PyString_FromString(status)
 }
 
 func setException(err string) {
-	C.PyErr_SetString(C.AgentError, C.CString(err))
+	errCStr := C.CString(err)
+	defer C.free(unsafe.Pointer(errCStr))
+	C.PyErr_SetString(C.AgentError, errCStr)
 }
 
 // Required empty func

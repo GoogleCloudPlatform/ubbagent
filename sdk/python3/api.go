@@ -33,9 +33,9 @@ static PyObject* none() {
 }
 */
 import "C"
-
 import (
 	"sync"
+	"unsafe"
 
 	"github.com/GoogleCloudPlatform/ubbagent/sdk"
 )
@@ -157,11 +157,14 @@ func AgentGetStatus(self *C.Agent, _ *C.PyObject) *C.PyObject {
 	}
 
 	status := C.CString(string(marshaled))
+	defer C.free(unsafe.Pointer(status))
 	return C.PyUnicode_FromString(status)
 }
 
 func setException(err string) {
-	C.PyErr_SetString(C.AgentError, C.CString(err))
+	errCStr := C.CString(err)
+	defer C.free(unsafe.Pointer(errCStr))
+	C.PyErr_SetString(C.AgentError, errCStr)
 }
 
 // Required empty func
