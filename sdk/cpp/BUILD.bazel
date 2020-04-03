@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+
+go_binary(
+    name = "api",
+    srcs = ["api.go"],
+    cgo = 1,
+    linkmode = "c-archive",
+    deps = [
+        "//sdk:go_default_library",
+    ],
+)
+
+cc_library(
+    name = "agent",
+    hdrs = ["agent.h"],
+    srcs = ["agent.cc"],
+    deps = [
+        ":api.cc",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_test(
+    name = "agent_test",
+    srcs = ["agent_test.cc"],
+    deps = [
+        ":agent",
+        ":api.cc",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@com_jsoncpp//:json",
+    ]
+)
