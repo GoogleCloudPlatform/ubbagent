@@ -6,7 +6,7 @@ IMPORT_PATH := github.com/GoogleCloudPlatform/ubbagent
 # V := 1 # When V is set, print commands and build progress.
 
 # Space separated patterns of packages to skip in list, test, format.
-IGNORED_PACKAGES := /vendor/ /sdk/python2 /sdk/python3
+IGNORED_PACKAGES := /vendor/ /sdk/python2 /sdk/python3 /sdk/cpp
 
 .PHONY: all
 all: help

@@ -148,3 +148,46 @@ git_repository(
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
+
+git_repository(
+    name = "com_google_googletest",
+    remote = "https://github.com/google/googletest",
+    tag = "release-1.10.0",
+)
+
+git_repository(
+    name = "com_google_absl",
+    remote = "https://github.com/abseil/abseil-cpp",
+    commit = "df3ea785d8c30a9503321a3d35ee7d35808f190d",
+    shallow_since = "1583355457 -0500",
+)
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+
+new_git_repository(
+    name = "com_jsoncpp",
+    remote = "https://github.com/open-source-parsers/jsoncpp",
+    commit = "ba3fd412929ec4822788b401298e8d9e4950cbab",
+    shallow_since = "1529685178 -0500",
+    build_file_content = """
+cc_library(
+    name = "json",
+    hdrs = glob([
+        "include/json/*.h",
+        "src/lib_json/json_tool.h",
+    ]),
+    textual_hdrs = [
+        "src/lib_json/json_valueiterator.inl",
+    ],
+    srcs = [
+        "src/lib_json/json_reader.cpp",
+        "src/lib_json/json_value.cpp",
+        "src/lib_json/json_writer.cpp",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    alwayslink = 1,
+)
+"""
+)
+
