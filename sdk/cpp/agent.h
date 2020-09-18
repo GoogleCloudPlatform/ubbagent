@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef SDK_CPP_AGENT_H
+#define SDK_CPP_AGENT_H
+
 #include <memory>
 
 #include "absl/status/status.h"
@@ -54,3 +57,5 @@ class Agent {
 };
 
 } // namespace ubbagent
+
+#endif  // SDK_CPP_AGENT_H
