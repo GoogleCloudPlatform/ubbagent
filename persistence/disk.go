@@ -61,6 +61,9 @@ func (v *diskValue) load(obj interface{}) error {
 	if err != nil {
 		return err
 	}
+	if len(jsontext) == 0 {
+		return ErrNotFound
+	}
 	err = json.Unmarshal(jsontext, obj)
 	if err != nil {
 		return err
