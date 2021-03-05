@@ -24,11 +24,12 @@ import (
 	"testing"
 	"time"
 
+	"strings"
+
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/servicecontrol/v1"
-	"strings"
 )
 
 type recordingHandler struct {

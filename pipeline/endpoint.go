@@ -16,6 +16,7 @@ package pipeline
 
 import (
 	"encoding/json"
+
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 )
 

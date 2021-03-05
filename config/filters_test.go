@@ -17,9 +17,10 @@ package config_test
 import (
 	"testing"
 
+	"reflect"
+
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-	"reflect"
 )
 
 func TestFilters_Validate(t *testing.T) {
