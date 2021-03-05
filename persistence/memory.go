@@ -28,17 +28,25 @@ type memoryPersistence struct {
 
 // NewMemoryPersistence constructs a new Persistence that stores objects in memory.
 func NewMemoryPersistence() Persistence {
+	return newMemoryPersistence()
+}
+
+func newMemoryPersistence() *memoryPersistence {
 	var mp memoryPersistence
 	mp.items = make(map[string][]byte)
 	return &mp
 }
 
 func (p *memoryPersistence) Value(name string) Value {
-	return &lockingValue{&memoryValue{p: p, name: name}}
+	return &lockingValue{p.value(name)}
 }
 
 func (p *memoryPersistence) Queue(name string) Queue {
-	return &valueQueue{&memoryValue{p: p, name: name}}
+	return &valueQueue{p.value(name)}
+}
+
+func (p *memoryPersistence) value(name string) *memoryValue {
+	return &memoryValue{p: p, name: name}
 }
 
 type memoryValue struct {
