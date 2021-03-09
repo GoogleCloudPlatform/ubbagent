@@ -53,6 +53,10 @@ func TestDiskPersistence(t *testing.T) {
 
 func testPersistence(p Persistence, t *testing.T) {
 	var input1 []Outer
+	var output1 []Outer
+	var output2 Outer
+	var output3 Outer
+
 	input1 = append(input1, Outer{
 		Value1: 0,
 		Value2: 10,
@@ -82,6 +86,11 @@ func testPersistence(p Persistence, t *testing.T) {
 		},
 	}
 
+	// Test non existent value.
+	if err := p.Value("test/input1").Load(&output1); err != ErrNotFound {
+		t.Fatalf("Expected ErrNotFound when loading removed input1, got: %+v", err)
+	}
+
 	if err := p.Value("test/input1").Store(input1); err != nil {
 		t.Fatalf("Unexpected error storing input1: %+v", err)
 	}
@@ -90,10 +99,6 @@ func testPersistence(p Persistence, t *testing.T) {
 	if err := p.Value("test/input2").Store(&input2); err != nil {
 		t.Fatalf("Unexpected error storing input2: %+v", err)
 	}
-
-	var output1 []Outer
-	var output2 Outer
-	var output3 Outer
 
 	if err := p.Value("test/input1").Load(&output1); err != nil {
 		t.Fatalf("Unexpected error loading input1: %+v", err)
