@@ -122,11 +122,9 @@ func (ep *ServiceControlEndpoint) format(r pipeline.EndpointReport) *servicecont
 		StartTime: r.StartTime.UTC().Format(time.RFC3339Nano),
 		EndTime:   r.EndTime.UTC().Format(time.RFC3339Nano),
 	}
-	if r.Value.Int64Value != 0 {
-		value.Int64Value = &r.Value.Int64Value
-	} else if r.Value.DoubleValue != 0 {
-		value.DoubleValue = &r.Value.DoubleValue
-	}
+
+	value.Int64Value = r.Value.Int64Value
+	value.DoubleValue = r.Value.DoubleValue
 
 	op := &servicecontrol.Operation{
 		OperationId: r.Id,

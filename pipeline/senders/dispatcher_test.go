@@ -25,6 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 func TestDispatcher(t *testing.T) {
@@ -32,7 +33,7 @@ func TestDispatcher(t *testing.T) {
 		Id: "report",
 		MetricReport: metrics.MetricReport{
 			Name:      "int-metric",
-			Value:     metrics.MetricValue{Int64Value: 30},
+			Value:     metrics.MetricValue{Int64Value: util.NewInt64(30)},
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
 		},
@@ -116,7 +117,7 @@ func TestDispatcher(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(1, 0),
 				Value: metrics.MetricValue{
-					Int64Value: 10,
+					Int64Value: util.NewInt64(10),
 				},
 			},
 		}
@@ -128,7 +129,7 @@ func TestDispatcher(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(1, 0),
 				Value: metrics.MetricValue{
-					DoubleValue: 10,
+					DoubleValue: util.NewFloat64(10),
 				},
 			},
 		}

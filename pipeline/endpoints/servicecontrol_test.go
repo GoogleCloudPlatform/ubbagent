@@ -28,6 +28,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/servicecontrol/v1"
 )
@@ -110,7 +111,7 @@ func TestServiceControlEndpoint(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(1, 0),
 				Value: metrics.MetricValue{
-					Int64Value: 10,
+					Int64Value: util.NewInt64(10),
 				},
 			},
 		})
@@ -168,7 +169,7 @@ func TestServiceControlEndpoint(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(1, 0),
 				Value: metrics.MetricValue{
-					Int64Value: 10,
+					Int64Value: util.NewInt64(10),
 				},
 			},
 		})
@@ -202,7 +203,7 @@ func TestServiceControlEndpoint(t *testing.T) {
 				StartTime: time.Unix(2, 0),
 				EndTime:   time.Unix(3, 0),
 				Value: metrics.MetricValue{
-					DoubleValue: 20,
+					DoubleValue: util.NewFloat64(20),
 				},
 				Labels: map[string]string{
 					"foo": "bar",

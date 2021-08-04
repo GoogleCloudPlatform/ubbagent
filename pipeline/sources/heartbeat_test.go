@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 func TestHeartbeat(t *testing.T) {
@@ -30,7 +31,7 @@ func TestHeartbeat(t *testing.T) {
 		Metric:          "instanceSeconds",
 		IntervalSeconds: 10,
 		Value: metrics.MetricValue{
-			Int64Value: 10,
+			Int64Value: util.NewInt64(10),
 		},
 		Labels: map[string]string{
 			"foo": "bar",

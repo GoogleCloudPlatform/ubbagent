@@ -25,6 +25,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 	"github.com/golang/glog"
 )
 
@@ -227,10 +228,21 @@ func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 	if mr.Name != ar.Name || !reflect.DeepEqual(mr.Labels, ar.Labels) {
 		return false, nil
 	}
-	// Only one of these values should be non-zero. We rely on prior validation to ensure the proper
+
+	// Only one of these values should be non-nil. We rely on prior validation to ensure the proper
 	// value (i.e., the one specified in the metrics.Definition) is provided.
-	ar.Value.Int64Value += mr.Value.Int64Value
-	ar.Value.DoubleValue += mr.Value.DoubleValue
+	if mr.Value.Int64Value != nil {
+		if ar.Value.Int64Value != nil {
+			ar.Value.Int64Value = util.NewInt64(0)
+		}
+		*ar.Value.Int64Value += *mr.Value.Int64Value
+	} else if mr.Value.DoubleValue != nil {
+		if ar.Value.Int64Value != nil { 
+			ar.Value.DoubleValue = util.NewFloat64(0)
+		}
+		*ar.Value.DoubleValue += *mr.Value.DoubleValue
+	}
+
 	// Expand the aggregated start time if the given MetricReport has ealier start time.
 	if mr.StartTime.Before(ar.StartTime) {
 		ar.StartTime = mr.StartTime

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 func TestMetricReport_Validate(t *testing.T) {
@@ -39,9 +40,10 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}
+
 		if err := m.Validate(int_metric); err != nil {
 			t.Fatalf("Unexpected error: %+v", err)
 		}
@@ -54,7 +56,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}
 		if err := m.Validate(int_metric); err == nil || err.Error() != "incorrect metric name: foo" {
@@ -69,7 +71,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}
 		if err := m.Validate(int_metric); err == nil || !strings.Contains(err.Error(), "StartTime > EndTime") {
@@ -84,7 +86,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				DoubleValue: 10.3,
+				DoubleValue: util.NewFloat64(10.3),
 			},
 		}
 		if err := m.Validate(int_metric); err == nil || !strings.Contains(err.Error(), "double value specified") {
@@ -99,7 +101,7 @@ func TestMetricReport_Validate(t *testing.T) {
 			EndTime:   time.Unix(1, 0),
 			Labels:    map[string]string{"Key": "Value"},
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}
 		if err := m.Validate(double_metric); err == nil || !strings.Contains(err.Error(), "integer value specified") {

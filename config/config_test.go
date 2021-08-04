@@ -20,6 +20,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 	"github.com/ghodss/yaml"
 )
 
@@ -164,6 +165,7 @@ filters:
 				},
 			},
 		},
+
 		Sources: []config.Source{
 			{
 				Name: "instance-seconds",
@@ -171,7 +173,7 @@ filters:
 					Metric:          "int-metric",
 					IntervalSeconds: 10,
 					Value: metrics.MetricValue{
-						Int64Value: 10,
+						Int64Value: util.NewInt64(10),
 					},
 					Labels: map[string]string{"foo": "bar"},
 				},

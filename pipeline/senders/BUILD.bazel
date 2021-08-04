@@ -27,6 +27,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//:util",
         "//metrics:go_default_library",
         "//persistence:go_default_library",
         "//pipeline:go_default_library",

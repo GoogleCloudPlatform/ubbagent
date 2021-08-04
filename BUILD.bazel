@@ -18,6 +18,15 @@ go_library(
     ],
 )
 
+go_library(
+    name = "util",
+    srcs = ["util.go"],
+    importpath = "github.com/GoogleCloudPlatform/ubbagent/util",
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)
+
 go_binary(
     name = "ubbagent",
     embed = [":go_default_library"],
