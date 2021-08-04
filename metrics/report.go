@@ -65,23 +65,7 @@ func (mr MetricReport) Equal(other MetricReport) bool {
 		mr.StartTime.Equal(other.StartTime) &&
 		mr.EndTime.Equal(other.EndTime) &&
 		reflect.DeepEqual(mr.Labels, other.Labels) &&
-		mr.Value.Equal(other.Value)
-}
-
-func (mv MetricValue) Equal(other MetricValue) bool {
-	// if mv.Int64Value == nil {
-	// 	if other.Int64Value != nil { return false }
-	// } else {
-	// 	if *mv.Int64Value != *other.Int64Value { return false }
-	// }
-
-	// if mv.Int64Value == nil {
-	// 	if other.DoubleValue != nil { return false }
-	// } else {
-	// 	if *mv.Int64Value != *other.Int64Value { return false }
-	// }
-
-	return true
+		reflect.DeepEqual(mr.Value, other.Value)
 }
 
 // Validate returns an error if the report does not match its definition.

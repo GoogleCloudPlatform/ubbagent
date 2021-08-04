@@ -19,7 +19,7 @@ go_test(
     srcs = ["heartbeat_test.go"],
     embed = [":go_default_library"],
     deps = [
-        "//:util",
+        "//util:go_default_library",
         "//config:go_default_library",
         "//metrics:go_default_library",
         "//testlib:go_default_library",

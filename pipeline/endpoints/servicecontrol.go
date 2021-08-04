@@ -28,6 +28,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/servicecontrol/v1"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 const (
@@ -123,8 +124,11 @@ func (ep *ServiceControlEndpoint) format(r pipeline.EndpointReport) *servicecont
 		EndTime:   r.EndTime.UTC().Format(time.RFC3339Nano),
 	}
 
-	value.Int64Value = r.Value.Int64Value
-	value.DoubleValue = r.Value.DoubleValue
+	if r.Value.Int64Value != nil {
+		value.Int64Value = util.NewInt64(*r.Value.Int64Value)
+	} else if r.Value.DoubleValue != nil {
+		value.DoubleValue = util.NewFloat64(*r.Value.DoubleValue)
+	}
 
 	op := &servicecontrol.Operation{
 		OperationId: r.Id,

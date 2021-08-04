@@ -232,12 +232,12 @@ func (ar *aggregatedReport) accept(mr metrics.MetricReport) (bool, error) {
 	// Only one of these values should be non-nil. We rely on prior validation to ensure the proper
 	// value (i.e., the one specified in the metrics.Definition) is provided.
 	if mr.Value.Int64Value != nil {
-		if ar.Value.Int64Value != nil {
+		if ar.Value.Int64Value == nil {
 			ar.Value.Int64Value = util.NewInt64(0)
 		}
 		*ar.Value.Int64Value += *mr.Value.Int64Value
 	} else if mr.Value.DoubleValue != nil {
-		if ar.Value.Int64Value != nil { 
+		if ar.Value.DoubleValue == nil {
 			ar.Value.DoubleValue = util.NewFloat64(0)
 		}
 		*ar.Value.DoubleValue += *mr.Value.DoubleValue

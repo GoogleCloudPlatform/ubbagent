@@ -9,7 +9,7 @@ go_library(
     importpath = "github.com/GoogleCloudPlatform/ubbagent/pipeline/inputs",
     visibility = ["//visibility:public"],
     deps = [
-        "//:util",
+        "//util:go_default_library",
         "//clock:go_default_library",
         "//metrics:go_default_library",
         "//persistence:go_default_library",
@@ -27,7 +27,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//:util",
+        "//util:go_default_library",
         "//metrics:go_default_library",
         "//persistence:go_default_library",
         "//pipeline:go_default_library",

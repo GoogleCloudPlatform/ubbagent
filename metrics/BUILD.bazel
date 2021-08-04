@@ -16,6 +16,6 @@ go_test(
     srcs = ["report_test.go"],
     embed = [":go_default_library"],
     deps = [
-        "//:util",
+        "//util:go_default_library",
     ]
 )
