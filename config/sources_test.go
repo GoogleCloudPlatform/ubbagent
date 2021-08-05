@@ -19,6 +19,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/ubbagent/config"
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 func TestSources_Validate(t *testing.T) {
@@ -50,7 +51,7 @@ func TestSources_Validate(t *testing.T) {
 		Metric:          "int-metric",
 		IntervalSeconds: 10,
 		Value: metrics.MetricValue{
-			Int64Value: 10,
+			Int64Value: util.NewInt64(10),
 		},
 	}
 
@@ -81,6 +82,7 @@ func TestSources_Validate(t *testing.T) {
 			{0, "source test: intervalSeconds must be > 0"},
 			{1, ""},
 		}
+
 		for _, c := range cases {
 			invalidType := config.Sources{
 				{
@@ -89,7 +91,7 @@ func TestSources_Validate(t *testing.T) {
 						Metric:          "int-metric",
 						IntervalSeconds: c.val,
 						Value: metrics.MetricValue{
-							Int64Value: 10,
+							Int64Value: util.NewInt64(10),
 						},
 					},
 				},
@@ -112,7 +114,7 @@ func TestSources_Validate(t *testing.T) {
 				Metric:          "int-metric",
 				IntervalSeconds: 10,
 				Value: metrics.MetricValue{
-					Int64Value: 10,
+					Int64Value: util.NewInt64(10),
 				},
 			},
 		}
@@ -127,7 +129,7 @@ func TestSources_Validate(t *testing.T) {
 				Metric:          "int-metric",
 				IntervalSeconds: 10,
 				Value: metrics.MetricValue{
-					DoubleValue: 10,
+					DoubleValue: util.NewFloat64(10),
 				},
 			},
 		}

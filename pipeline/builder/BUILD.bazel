@@ -24,6 +24,7 @@ go_test(
     srcs = ["builder_test.go"],
     embed = [":go_default_library"],
     deps = [
+        "//util:go_default_library",
         "//config:go_default_library",
         "//metrics:go_default_library",
         "//persistence:go_default_library",

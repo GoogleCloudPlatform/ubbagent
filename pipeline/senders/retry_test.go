@@ -23,6 +23,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 const (
@@ -35,7 +36,7 @@ func TestRetryingSender(t *testing.T) {
 		Id: "report1",
 		MetricReport: metrics.MetricReport{
 			Name:      "int-metric",
-			Value:     metrics.MetricValue{Int64Value: 10},
+			Value:     metrics.MetricValue{Int64Value: util.NewInt64(10)},
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(1, 0),
 		},
@@ -44,7 +45,7 @@ func TestRetryingSender(t *testing.T) {
 		Id: "report2",
 		MetricReport: metrics.MetricReport{
 			Name:      "int-metric",
-			Value:     metrics.MetricValue{Int64Value: 30},
+			Value:     metrics.MetricValue{Int64Value: util.NewInt64(30)},
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
 		},
@@ -53,7 +54,7 @@ func TestRetryingSender(t *testing.T) {
 		Id: "report3",
 		MetricReport: metrics.MetricReport{
 			Name:      "int-metric",
-			Value:     metrics.MetricValue{Int64Value: 30},
+			Value:     metrics.MetricValue{Int64Value: util.NewInt64(30)},
 			StartTime: time.Unix(20, 0),
 			EndTime:   time.Unix(21, 0),
 		},

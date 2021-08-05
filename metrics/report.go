@@ -23,26 +23,27 @@ import (
 )
 
 // MetricValue holds a single named metric value. Only one of the individual type fields should
-// be non-zero.
+// be non-nil.
 type MetricValue struct {
-	Int64Value  int64   `json:"int64Value"`
-	DoubleValue float64 `json:"doubleValue"`
+	Int64Value  *int64   `json:"int64Value,omitempty"`
+	DoubleValue *float64 `json:"doubleValue,omitempty"`
 }
 
 // Validate returns an error if the metric value does not match its definition.
 func (mv MetricValue) Validate(def Definition) error {
 	switch def.Type {
 	case IntType:
-		if mv.DoubleValue != 0 {
-			return fmt.Errorf("double value specified for integer metric: %v", mv.DoubleValue)
+		if mv.DoubleValue != nil {
+			return fmt.Errorf("double value specified for integer metric: %v", *mv.DoubleValue)
 		}
 		break
 	case DoubleType:
-		if mv.Int64Value != 0 {
-			return fmt.Errorf("integer value specified for double metric: %v", mv.Int64Value)
+		if mv.Int64Value != nil {
+			return fmt.Errorf("integer value specified for double metric: %v", *mv.Int64Value)
 		}
 		break
 	}
+
 	return nil
 }
 

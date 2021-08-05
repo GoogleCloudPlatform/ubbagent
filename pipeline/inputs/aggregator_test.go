@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 func TestNewAggregator(t *testing.T) {
@@ -40,7 +41,7 @@ func TestNewAggregator(t *testing.T) {
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(1, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 			Labels: map[string]string{
 				"key": "value1",
@@ -52,7 +53,7 @@ func TestNewAggregator(t *testing.T) {
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 333,
+				Int64Value: util.NewInt64(333),
 			},
 			Labels: map[string]string{
 				"key": "value2",
@@ -64,7 +65,7 @@ func TestNewAggregator(t *testing.T) {
 			StartTime: time.Unix(100, 0),
 			EndTime:   time.Unix(110, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 555,
+				Int64Value: util.NewInt64(555),
 			},
 			Labels: map[string]string{
 				"key": "value3",
@@ -169,7 +170,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(1, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -184,7 +185,7 @@ func TestAggregator_AddReport(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(1, 0),
 				Value: metrics.MetricValue{
-					Int64Value: 10,
+					Int64Value: util.NewInt64(10),
 				},
 			},
 		}
@@ -207,7 +208,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(1, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -217,7 +218,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(2, 0),
 			EndTime:   time.Unix(3, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 5,
+				Int64Value: util.NewInt64(5),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -232,7 +233,7 @@ func TestAggregator_AddReport(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(3, 0),
 				Value: metrics.MetricValue{
-					Int64Value: 15,
+					Int64Value: util.NewInt64(15),
 				},
 			},
 		}
@@ -258,7 +259,7 @@ func TestAggregator_AddReport(t *testing.T) {
 				"key1": "value1",
 			},
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -271,7 +272,7 @@ func TestAggregator_AddReport(t *testing.T) {
 				"key1": "value2",
 			},
 			Value: metrics.MetricValue{
-				Int64Value: 5,
+				Int64Value: util.NewInt64(5),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -289,7 +290,7 @@ func TestAggregator_AddReport(t *testing.T) {
 					"key1": "value1",
 				},
 				Value: metrics.MetricValue{
-					Int64Value: 10,
+					Int64Value: util.NewInt64(10),
 				},
 			},
 			{
@@ -300,7 +301,7 @@ func TestAggregator_AddReport(t *testing.T) {
 					"key1": "value2",
 				},
 				Value: metrics.MetricValue{
-					Int64Value: 5,
+					Int64Value: util.NewInt64(5),
 				},
 			},
 		}
@@ -326,7 +327,7 @@ func TestAggregator_AddReport(t *testing.T) {
 				"key1": "value1",
 			},
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err == nil || !strings.Contains(err.Error(), "StartTime > EndTime") {
 			t.Fatalf("Expected error containing \"StartTime > EndTime\", got: %+v", err.Error())
@@ -345,7 +346,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(1, 0),
 			EndTime:   time.Unix(3, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -355,7 +356,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(3, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 5,
+				Int64Value: util.NewInt64(5),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -365,7 +366,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(2, 0),
 			EndTime:   time.Unix(4, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 7,
+				Int64Value: util.NewInt64(7),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -380,7 +381,7 @@ func TestAggregator_AddReport(t *testing.T) {
 				StartTime: time.Unix(0, 0),
 				EndTime:   time.Unix(4, 0),
 				Value: metrics.MetricValue{
-					Int64Value: 22,
+					Int64Value: util.NewInt64(22),
 				},
 			},
 		}
@@ -403,7 +404,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(1, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -413,7 +414,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(2, 0),
 			EndTime:   time.Unix(3, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 			Labels: map[string]string{
 				"foo": "bar",
@@ -436,7 +437,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(4, 0),
 			EndTime:   time.Unix(5, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)
@@ -446,7 +447,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(6, 0),
 			EndTime:   time.Unix(7, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 			Labels: map[string]string{
 				"foo": "bar",
@@ -477,7 +478,7 @@ func TestAggregator_AddReport(t *testing.T) {
 			StartTime: time.Unix(0, 0),
 			EndTime:   time.Unix(1, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 10,
+				Int64Value: util.NewInt64(10),
 			},
 		}); err != nil {
 			t.Fatalf("Unexpected error when adding report: %+v", err)

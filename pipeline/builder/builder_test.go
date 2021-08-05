@@ -24,6 +24,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/persistence"
 	"github.com/GoogleCloudPlatform/ubbagent/stats"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 // TestBuild tests that a Pipeline can be created and shutdown successfully.
@@ -81,7 +82,7 @@ func TestBuild(t *testing.T) {
 					Metric:          "int-metric",
 					IntervalSeconds: 10,
 					Value: metrics.MetricValue{
-						Int64Value: 10,
+						Int64Value: util.NewInt64(10),
 					},
 					Labels: map[string]string{"foo": "bar"},
 				},

@@ -16,7 +16,7 @@ package main
 
 /*
 struct InitResult {
-	// If the error_message is a nullptr then the operation was a success. 
+	// If the error_message is a nullptr then the operation was a success.
 	// If not a nullptr, then error_message contains the error.
 	char* error_message;
 	// The id of the agent. This id should be used in future requests.
@@ -24,7 +24,7 @@ struct InitResult {
 };
 
 struct Result {
-	// If the error_message is a nullptr then the operation was a success. 
+	// If the error_message is a nullptr then the operation was a success.
 	// If not a nullptr, then error_message contains the error.
 	char* error_message;
 };
@@ -34,7 +34,7 @@ struct CurrentStatus {
 	int total_failure_count;
 	// Unix time UTC
 	long last_report_success;
-	// error_message indicates whether there was an error getting the status of the ubbagent. 
+	// error_message indicates whether there was an error getting the status of the ubbagent.
 	char* error_message;
 };
 */
@@ -66,12 +66,12 @@ func AgentInit(config *C.char, state_dir *C.char) C.struct_InitResult {
 
 	agent, err := sdk.NewAgent(goConfig, goStateDir)
 	if err != nil {
-		return C.struct_InitResult{ error_message: C.CString(err.Error()) }
+		return C.struct_InitResult{error_message: C.CString(err.Error())}
 	}
 
 	agents[num] = agent
 
-	return C.struct_InitResult{ id: num }
+	return C.struct_InitResult{id: num}
 }
 
 //export AgentShutdown
@@ -88,7 +88,6 @@ func AgentShutdown(agent_id C.int) {
 	agent.Shutdown()
 }
 
-
 //export AgentAddReport
 func AgentAddReport(agent_id C.int, report *C.char) C.struct_Result {
 	agentsmu.RLock()
@@ -98,17 +97,16 @@ func AgentAddReport(agent_id C.int, report *C.char) C.struct_Result {
 
 	agent, exists := agents[agent_id]
 	if !exists {
-		return C.struct_Result{ error_message: C.CString("Agent does not exist") }
+		return C.struct_Result{error_message: C.CString("Agent does not exist")}
 	}
 
 	if err := agent.AddReportJson(goReportData); err != nil {
-		return C.struct_Result{ error_message: C.CString(err.Error()) }
+		return C.struct_Result{error_message: C.CString(err.Error())}
 	}
 
 	// Added report successfully.
 	return C.struct_Result{}
 }
-
 
 //export AgentGetStatus
 func AgentGetStatus(agent_id C.int) C.struct_CurrentStatus {
@@ -117,14 +115,14 @@ func AgentGetStatus(agent_id C.int) C.struct_CurrentStatus {
 
 	agent, exists := agents[agent_id]
 	if !exists {
-		return C.struct_CurrentStatus{ error_message: C.CString("Agent does not exist") }
+		return C.struct_CurrentStatus{error_message: C.CString("Agent does not exist")}
 	}
 
 	stats := agent.GetStatus()
 
-	return C.struct_CurrentStatus{ current_failure_count: C.int(stats.CurrentFailureCount),
-									total_failure_count: C.int(stats.TotalFailureCount),
-									last_report_success: C.long(stats.LastReportSuccess.Unix()) }
+	return C.struct_CurrentStatus{current_failure_count: C.int(stats.CurrentFailureCount),
+		total_failure_count: C.int(stats.TotalFailureCount),
+		last_report_success: C.long(stats.LastReportSuccess.Unix())}
 }
 
 // Required empty func

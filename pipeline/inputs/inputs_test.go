@@ -22,6 +22,7 @@ import (
 	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
 	"github.com/GoogleCloudPlatform/ubbagent/testlib"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -34,7 +35,7 @@ func TestSelector(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			Int64Value: 1,
+			Int64Value: util.NewInt64(1),
 		},
 	}
 
@@ -43,7 +44,7 @@ func TestSelector(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			Int64Value: 1,
+			Int64Value: util.NewInt64(1),
 		},
 	}
 
@@ -52,7 +53,7 @@ func TestSelector(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			Int64Value: 1,
+			Int64Value: util.NewInt64(1),
 		},
 	}
 
@@ -143,7 +144,7 @@ func TestCallbackInput(t *testing.T) {
 		StartTime: time.Unix(10, 0),
 		EndTime:   time.Unix(11, 0),
 		Value: metrics.MetricValue{
-			Int64Value: 1,
+			Int64Value: util.NewInt64(1),
 		},
 	}
 
@@ -200,7 +201,7 @@ func TestLabelingInput(t *testing.T) {
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 1,
+				Int64Value: util.NewInt64(1),
 			},
 			Labels: map[string]string{
 				"foo3": "test3",
@@ -234,7 +235,7 @@ func TestLabelingInput(t *testing.T) {
 			StartTime: time.Unix(10, 0),
 			EndTime:   time.Unix(11, 0),
 			Value: metrics.MetricValue{
-				Int64Value: 1,
+				Int64Value: util.NewInt64(1),
 			},
 		}
 
