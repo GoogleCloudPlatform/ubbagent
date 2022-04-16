@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 	"github.com/google/uuid"
 )
 
@@ -66,6 +67,18 @@ func (mr MetricReport) Equal(other MetricReport) bool {
 		mr.EndTime.Equal(other.EndTime) &&
 		reflect.DeepEqual(mr.Labels, other.Labels) &&
 		reflect.DeepEqual(mr.Value, other.Value)
+}
+
+// Copy returns a copy of the MetricReport
+func (mr MetricReport) Copy() MetricReport {
+	dup := mr
+	if mr.Value.Int64Value != nil {
+		dup.Value.Int64Value = util.NewInt64(*mr.Value.Int64Value)
+	}
+	if mr.Value.DoubleValue != nil {
+		dup.Value.DoubleValue = util.NewFloat64(*mr.Value.DoubleValue)
+	}
+	return dup
 }
 
 // Validate returns an error if the report does not match its definition.
