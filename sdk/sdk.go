@@ -73,7 +73,7 @@ func (agent *Agent) Shutdown() error {
 
 // AddReport adds a new usage report.
 func (agent *Agent) AddReport(report metrics.MetricReport) error {
-	return agent.input.AddReport(report)
+	return agent.input.AddReport(report.Copy())
 }
 
 // AddReportJson adds a new usage report after fist unmarshalling it from JSON.

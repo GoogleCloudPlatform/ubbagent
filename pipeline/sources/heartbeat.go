@@ -61,7 +61,7 @@ func (h *heartbeat) run(start time.Time) {
 				Value:     h.hb.Value,
 				Labels:    h.hb.Labels,
 			}
-			err := h.input.AddReport(report)
+			err := h.input.AddReport(report.Copy())
 			if err != nil {
 				glog.Errorf("heartbeat: error sending report: %+v", err)
 			}

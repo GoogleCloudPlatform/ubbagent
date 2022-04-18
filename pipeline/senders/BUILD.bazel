@@ -27,11 +27,11 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//util:go_default_library",
         "//metrics:go_default_library",
         "//persistence:go_default_library",
         "//pipeline:go_default_library",
         "//stats:go_default_library",
         "//testlib:go_default_library",
+        "//util:go_default_library",
     ],
 )

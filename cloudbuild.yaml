@@ -33,7 +33,6 @@ steps:
   - -exc
   - |
     make setup
-    make deps
     make build
     make test
     make -j2 test-sdk-python2 test-sdk-python3

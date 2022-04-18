@@ -275,6 +275,7 @@ func (b *bucket) addReport(mr metrics.MetricReport) error {
 			return nil
 		}
 	}
+
 	b.Reports[mr.Name] = append(b.Reports[mr.Name], (*aggregatedReport)(&mr))
 	return nil
 }

@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.FROM golang:1.9.2-alpine3.7 AS build
 
-FROM golang:1.9.2-alpine3.7 AS build
+FROM golang:1.18-alpine3.15 AS build
 
 COPY . /ubbagent-src/
 WORKDIR /ubbagent-src/
 
 RUN apk add --no-cache make git
 RUN rm -rf /ubbagent-src/.git
-RUN make clean setup deps build
+RUN make clean setup build
 
-FROM alpine:3.7
+FROM alpine:3.15
 RUN apk add --update libintl ca-certificates && \
     apk add --virtual build_deps gettext && \
     cp /usr/bin/envsubst /usr/local/bin/envsubst && \
