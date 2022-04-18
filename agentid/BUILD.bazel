@@ -14,8 +14,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["agentid_test.go"],
-    deps = [
-        ":go_default_library",
-        "//persistence:go_default_library",
-    ],
+    embed = [":go_default_library"],
+    deps = ["//persistence:go_default_library"],
 )

@@ -15,9 +15,6 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = [
-        "disk_test.go",
-        "persistence_test.go",
-    ],
+    srcs = ["persistence_test.go"],
     embed = [":go_default_library"],
 )
