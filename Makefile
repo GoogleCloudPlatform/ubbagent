@@ -117,8 +117,8 @@ setup: clean .GOPATH/.ok
 	    echo "/.GOPATH" >> .gitignore; \
 	    echo "/bin" >> .gitignore; \
 	fi
-	go install golang.org/x/tools/cmd/goimports@v0.1.10
-	- go install github.com/wadey/gocovmerge@latest
+	go get golang.org/x/tools/cmd/goimports@v0.1.10
+	- go get github.com/wadey/gocovmerge@latest
 
 DATE             := $(shell date -u '+%Y-%m-%d-%H%M UTC')
 VERSION_FLAGS    := -ldflags='-X "main.BuildTime=$(DATE)"'
