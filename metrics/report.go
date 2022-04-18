@@ -69,7 +69,7 @@ func (mr MetricReport) Equal(other MetricReport) bool {
 		reflect.DeepEqual(mr.Value, other.Value)
 }
 
-// Copy returns a copy of the MetricReport
+// Copy returns a deep copy of the MetricReport
 func (mr MetricReport) Copy() MetricReport {
 	dup := mr
 	if mr.Value.Int64Value != nil {
