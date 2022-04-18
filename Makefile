@@ -17,7 +17,6 @@ help:
 	@echo
 	@echo "To get started:"
 	@echo "  make setup"
-	@echo "  make deps"
 	@echo "  make build"
 	@echo
 	@echo "A successful build will generate a bin/ubbagent executable."
@@ -28,7 +27,6 @@ help:
 	@echo "  build-sdk-python3 - Build the python3 agent module."
 	@echo "  clean             - Clean build artifacts."
 	@echo "  cover             - Display code coverage."
-	@echo "  deps              - Fetch or update dependencies."
 	@echo "  help              - Display this help message."
 	@echo "  setup             - Install required build tools."
 	@echo "  test              - Run unit tests."
@@ -57,15 +55,6 @@ test-sdk-python2: build-sdk-python2
 test-sdk-python3: build-sdk-python3
 	$Q PYTHONPATH=bin/python3 python3 sdk/python3/test.py
 
-.PHONY: deps
-deps: .GOPATH/.ok
-	@test -x ./bin/dep || \
-	    { echo "dep not found, try running 'make setup'..."; exit 1; }
-# Make .GOPATH unreadable so that dep does not traverse into it.
-	@chmod -r $(GOPATH)
-	-$Q ( cd $(GOPATH)/src/$(IMPORT_PATH) \
-	    && bin/dep ensure -vendor-only )
-	@chmod +r $(GOPATH)
 
 ### Code not in the repository root? Another binary? Add to the path like this.
 # .PHONY: otherbin
@@ -128,11 +117,8 @@ setup: clean .GOPATH/.ok
 	    echo "/.GOPATH" >> .gitignore; \
 	    echo "/bin" >> .gitignore; \
 	fi
-	go get -u github.com/golang/dep/cmd/dep
-	- go get -u golang.org/x/tools/cmd/goimports
-	- go get -u github.com/wadey/gocovmerge
-	@test -f Gopkg.toml || \
-		(cd $(CURDIR)/.GOPATH/src/$(IMPORT_PATH) && ./bin/dep init)
+	go install golang.org/x/tools/cmd/goimports@v0.1.10
+	- go install github.com/wadey/gocovmerge@latest
 
 DATE             := $(shell date -u '+%Y-%m-%d-%H%M UTC')
 VERSION_FLAGS    := -ldflags='-X "main.BuildTime=$(DATE)"'
