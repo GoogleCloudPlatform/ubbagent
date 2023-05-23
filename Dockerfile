@@ -10,9 +10,9 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.FROM golang:1.9.2-alpine3.7 AS build
+# limitations under the License.
 
-FROM golang:1.19-alpine3.17 AS build
+FROM golang:1.20-alpine3.18 AS build
 
 COPY . /ubbagent-src/
 WORKDIR /ubbagent-src/
@@ -21,7 +21,7 @@ RUN apk add --no-cache make git
 RUN rm -rf /ubbagent-src/.git
 RUN make clean setup build
 
-FROM alpine:3.17
+FROM alpine:3.18
 RUN apk add --update libintl ca-certificates && \
     apk add --virtual build_deps gettext && \
     cp /usr/bin/envsubst /usr/local/bin/envsubst && \

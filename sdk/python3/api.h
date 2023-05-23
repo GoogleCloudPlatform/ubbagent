@@ -30,4 +30,4 @@ PyObject *AgentGetStatus(Agent *self, PyObject *unused);
 void AgentDealloc(Agent *self);
 
 // Custom error object used for Agent exceptions.
-PyObject *AgentError;
+extern PyObject *AgentError;
