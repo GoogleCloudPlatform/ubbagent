@@ -15,6 +15,8 @@
 #include <Python.h>
 #include "api.h"
 
+PyObject *AgentError;
+
 static PyMethodDef Agent_methods[] = {
     {"shutdown", (PyCFunction)AgentShutdown, METH_NOARGS, "Destroy an agent."},
     {"add_report", (PyCFunction)AgentAddReport, METH_O, "Add a usage report."},
