@@ -1,25 +1,22 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_binary(
     name = "api",
-    srcs = ["api.go"],
-    cgo = 1,
+    embed = [":go_default_library"],
     linkmode = "c-archive",
-    deps = [
-        "//sdk:go_default_library",
-    ],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
     name = "agent",
-    hdrs = ["agent.h"],
     srcs = ["agent.cc"],
+    hdrs = ["agent.h"],
+    visibility = ["//visibility:public"],
     deps = [
         ":api.cc",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_test(
@@ -31,5 +28,19 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
         "@com_jsoncpp//:json",
-    ]
+    ],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "agent.cc",
+        "agent.h",
+        "agent_test.cc",
+        "api.go",
+    ],
+    cgo = True,
+    importpath = "github.com/GoogleCloudPlatform/ubbagent/sdk/cpp",
+    visibility = ["//visibility:private"],
+    deps = ["//sdk:go_default_library"],
 )
