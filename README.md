@@ -22,6 +22,13 @@ The BUILD.bazel files can be regenerated with:
 bazel run //:gazelle
 ```
 
+To update WORKSPACE go_repository rules from a go.mod file:
+
+```
+bazel run //:gazelle -- update-repos -from_file=go.mod
+```
+
+
 To build, test and run with bazel:
 
 ```
