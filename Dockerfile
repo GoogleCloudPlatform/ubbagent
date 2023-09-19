@@ -17,12 +17,14 @@ FROM golang:1.20-alpine3.18 AS build
 COPY . /ubbagent-src/
 WORKDIR /ubbagent-src/
 
-RUN apk add --no-cache make git
-RUN rm -rf /ubbagent-src/.git
-RUN make clean setup build
+RUN apk update && \
+    apk add --no-cache make git busybox=1.36.1-r2 && \
+    rm -rf /ubbagent-src/.git && \
+    make clean setup build
 
 FROM alpine:3.18
-RUN apk add --update libintl ca-certificates && \
+RUN apk update && \
+    apk add --update libintl ca-certificates busybox=1.36.1-r2 && \
     apk add --virtual build_deps gettext && \
     cp /usr/bin/envsubst /usr/local/bin/envsubst && \
     apk del build_deps && \
