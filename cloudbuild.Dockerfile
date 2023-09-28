@@ -2,4 +2,4 @@
 # on Google Cloud Build.
 FROM gcr.io/cloud-builders/go:debian-1.20
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python2-dev python3-dev
+    && apt-get install -y --no-install-recommends python3-dev
