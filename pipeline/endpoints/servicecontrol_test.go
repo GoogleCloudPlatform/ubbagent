@@ -60,8 +60,40 @@ func (e mockNetError) Timeout() bool {
 
 func (h *recordingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.req = r
+
+	var err error
+	h.body, err = ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	var respJson []byte
 	if strings.Contains(r.RequestURI, ":check") {
 		h.checkCount++
+		req := &servicecontrol.CheckRequest{}
+		err := json.Unmarshal(h.body, req)
+		if err != nil {
+			h.t.Fatalf("Unable to parse check request %+v", err)
+		}
+
+		resp := &servicecontrol.CheckResponse{}
+
+		if req.Operation.OperationId == "billing-disabled" {
+			resp.CheckErrors = []*servicecontrol.CheckError{{
+				Code: "BILLING_DISABLED",
+			}}
+		}
+
+		if req.Operation.OperationId == "check-unknown-error" {
+			resp.CheckErrors = []*servicecontrol.CheckError{{
+				Code: "UNKNOWN",
+			}}
+		}
+
+		respJson, err = resp.MarshalJSON()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	if strings.Contains(r.RequestURI, ":report") {
@@ -69,18 +101,28 @@ func (h *recordingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if h.checkCount == 0 {
 			h.t.Fatalf("Check should be called before Report")
 		}
+
+		req := &servicecontrol.ReportRequest{}
+		err := json.Unmarshal(h.body, req)
+		if err != nil {
+			h.t.Fatalf("Unable to parse report request %+v", err)
+		}
+
+		resp := &servicecontrol.ReportResponse{}
+		if req.Operations[0].OperationId == "report-error" {
+			resp.ReportErrors = []*servicecontrol.ReportError{{
+				Status: &servicecontrol.Status{
+					Message: "Unknown report error",
+				},
+			}}
+		}
+
+		respJson, err = resp.MarshalJSON()
+		if err != nil {
+			panic(err)
+		}
 	}
 
-	var err error
-	h.body, err = ioutil.ReadAll(r.Body)
-	if err != nil {
-		panic(err)
-	}
-	resp := &servicecontrol.ReportResponse{}
-	respJson, err := resp.MarshalJSON()
-	if err != nil {
-		panic(err)
-	}
 	w.Write(respJson)
 }
 
@@ -194,6 +236,68 @@ func TestServiceControlEndpoint(t *testing.T) {
 		}
 	})
 
+	t.Run("Check error BILLING_DISABLED returns non-retriable error", func(t *testing.T) {
+		ep.nextCheck = time.Now().Add(time.Minute * -1)
+
+		// Test a single report write
+		report, err := ep.BuildReport(metrics.StampedMetricReport{
+			Id: "billing-disabled",
+			MetricReport: metrics.MetricReport{
+				Name:      "int-metric1",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+				Value: metrics.MetricValue{
+					Int64Value: util.NewInt64(10),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error building report: %+v", err)
+		}
+
+		err = ep.Send(report)
+		if err == nil {
+			t.Fatalf("expected error sending report")
+		}
+
+		checkErr := err.(*checkError)
+		if checkErr.transient {
+			t.Fatalf("expected billing disabled to not be a transient error")
+		}
+
+	})
+
+	t.Run("Unknown check error returns retriable error", func(t *testing.T) {
+		ep.nextCheck = time.Now().Add(time.Minute * -1)
+
+		// Test a single report write
+		report, err := ep.BuildReport(metrics.StampedMetricReport{
+			Id: "check-unknown-error",
+			MetricReport: metrics.MetricReport{
+				Name:      "int-metric1",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+				Value: metrics.MetricValue{
+					Int64Value: util.NewInt64(10),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error building report: %+v", err)
+		}
+
+		err = ep.Send(report)
+		if err == nil {
+			t.Fatalf("expected error sending report")
+		}
+
+		checkErr := err.(*checkError)
+		if !checkErr.transient {
+			t.Fatalf("expected transient error")
+		}
+
+	})
+
 	t.Run("Sent contents are correct", func(t *testing.T) {
 		// Test a single report write
 		report1, err := ep.BuildReport(metrics.StampedMetricReport{
@@ -268,6 +372,37 @@ func TestServiceControlEndpoint(t *testing.T) {
 		}
 	})
 
+	t.Run("ReportError returns transient error", func(t *testing.T) {
+		// Test a single report write
+		report, err := ep.BuildReport(metrics.StampedMetricReport{
+			Id: "report-error",
+			MetricReport: metrics.MetricReport{
+				Name:      "int-metric1",
+				StartTime: time.Unix(0, 0),
+				EndTime:   time.Unix(1, 0),
+				Value: metrics.MetricValue{
+					Int64Value: util.NewInt64(10),
+				},
+			},
+		})
+		if err != nil {
+			t.Fatalf("error building report: %+v", err)
+		}
+
+		err = ep.Send(report)
+		if err == nil {
+			t.Fatalf("expected error sending report")
+		}
+
+		if !ep.IsTransient(err) {
+			t.Fatalf("expected transient error")
+		}
+
+		if !strings.Contains(err.Error(), "Unknown report error") {
+			t.Fatalf("expected unknown report error")
+		}
+	})
+
 	t.Run("IsTransient tests", func(t *testing.T) {
 		cases := []struct {
 			err       error
@@ -285,6 +420,8 @@ func TestServiceControlEndpoint(t *testing.T) {
 			{mockNetError{temporary: true, timeout: false}, true},
 			{mockNetError{temporary: false, timeout: true}, true},
 			{mockNetError{temporary: true, timeout: true}, true},
+			{&checkError{err: errors.New("foo"), transient: true}, true},
+			{&checkError{err: errors.New("foo"), transient: false}, false},
 		}
 		for _, c := range cases {
 			if want, got := c.transient, ep.IsTransient(c.err); want != got {
