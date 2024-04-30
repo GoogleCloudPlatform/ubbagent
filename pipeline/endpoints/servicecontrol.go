@@ -16,19 +16,19 @@ package endpoints
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
-	"github.com/GoogleCloudPlatform/ubbagent/metrics"
-
 	"github.com/GoogleCloudPlatform/ubbagent/clock"
+	"github.com/GoogleCloudPlatform/ubbagent/metrics"
 	"github.com/GoogleCloudPlatform/ubbagent/pipeline"
+	"github.com/GoogleCloudPlatform/ubbagent/util"
 	"github.com/golang/glog"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/servicecontrol/v1"
-	"github.com/GoogleCloudPlatform/ubbagent/util"
 )
 
 const (
@@ -47,6 +47,11 @@ type ServiceControlEndpoint struct {
 	tracker     pipeline.UsageTracker
 	nextCheck   time.Time
 	clock       clock.Clock
+}
+
+type checkError struct {
+	err       error
+	transient bool
 }
 
 // NewServiceControlEndpoint creates a new ServiceControlEndpoint.
@@ -98,19 +103,34 @@ func (ep *ServiceControlEndpoint) Send(report pipeline.EndpointReport) error {
 		checkReq := &servicecontrol.CheckRequest{
 			Operation: &opNoLabels,
 		}
-		_, err := ep.service.Services.Check(ep.serviceName, checkReq).Do()
+		checkResp, err := ep.service.Services.Check(ep.serviceName, checkReq).Do()
 		if err != nil && !googleapi.IsNotModified(err) {
 			return err
 		}
+
+		if len(checkResp.CheckErrors) > 0 {
+			return checkErrorsToError(checkResp.CheckErrors)
+		}
+
 		ep.nextCheck = ep.clock.Now().Add(checkCacheTimeout)
 	}
 
-	_, err := ep.service.Services.Report(ep.serviceName, req).Do()
+	resp, err := ep.service.Services.Report(ep.serviceName, req).Do()
 	if err != nil && !googleapi.IsNotModified(err) {
 		return err
 	}
+
+	// This will retry reporting all operations.
+	// However, identical operations are de-duped for billing
+	if len(resp.ReportErrors) > 0 {
+		var errs []error
+		for _, reportErr := range resp.ReportErrors {
+			errs = append(errs, reportErrorToError(reportErr))
+		}
+		return errors.Join(errs...)
+	}
+
 	glog.V(2).Infoln("ServiceControlEndpoint:Send(): success")
-	// TODO(volkman): Handle potential per-operation errors in response body
 	return nil
 }
 
@@ -175,9 +195,38 @@ func (ep *ServiceControlEndpoint) IsTransient(err error) bool {
 	case net.Error:
 		// Return true if this error is considered temporary or a timeout.
 		return v.Temporary() || v.Timeout()
+	case *checkError:
+		return v.transient
 	default:
 		// Some non-http error (perhaps a connection refused or timeout?)
 		// We'll retry.
 		return true
 	}
+}
+
+func checkErrorsToError(checkErrors []*servicecontrol.CheckError) error {
+	var errs []error
+	var transient = true
+	for _, checkError := range checkErrors {
+		fmt.Println("Check error", checkError.Code)
+		switch checkError.Code {
+		// These errors indicate customer disabling billing and
+		// is not retriable. See: https://cloud.google.com/marketplace/docs/partners/integrated-saas/backend-integration#for_usage-based_pricing_reporting_usage_to_google
+		case "BILLING_DISABLED", "SERVICE_NOT_ACTIVATED", "PROJECT_DELETED":
+			transient = false
+			fmt.Println("Transient")
+		}
+		bytes, _ := checkError.MarshalJSON()
+		errs = append(errs, errors.New(string(bytes)))
+	}
+	return &checkError{err: errors.Join(errs...), transient: transient}
+}
+
+func (ce checkError) Error() string {
+	return ce.err.Error()
+}
+
+func reportErrorToError(reportError *servicecontrol.ReportError) error {
+	bytes, _ := reportError.MarshalJSON()
+	return errors.New(string(bytes))
 }
