@@ -208,13 +208,11 @@ func checkErrorsToError(checkErrors []*servicecontrol.CheckError) error {
 	var errs []error
 	var transient = true
 	for _, checkError := range checkErrors {
-		fmt.Println("Check error", checkError.Code)
 		switch checkError.Code {
 		// These errors indicate customer disabling billing and
 		// is not retriable. See: https://cloud.google.com/marketplace/docs/partners/integrated-saas/backend-integration#for_usage-based_pricing_reporting_usage_to_google
 		case "BILLING_DISABLED", "SERVICE_NOT_ACTIVATED", "PROJECT_DELETED":
 			transient = false
-			fmt.Println("Transient")
 		}
 		bytes, _ := checkError.MarshalJSON()
 		errs = append(errs, errors.New(string(bytes)))
