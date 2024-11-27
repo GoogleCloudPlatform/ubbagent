@@ -20,8 +20,6 @@ steps:
   - build
   - --tag
   - runtime:local
-  - -f
-  - cloudbuild.Dockerfile
   - '.'
 
 - id: &Test Test
