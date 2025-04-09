@@ -25,7 +25,7 @@ steps:
 - id: &Test Test
   waitFor:
   - *BuildRuntime
-  name: gcr.io/cloud-builders/gcloud
+  name: runtime:local
   entrypoint: bash
   args:
   - -exc

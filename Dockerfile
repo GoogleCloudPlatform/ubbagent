@@ -17,7 +17,7 @@ FROM golang:1.23.0-alpine3.20 AS build
 COPY . /ubbagent-src/
 WORKDIR /ubbagent-src/
 
-RUN apk add --no-cache make git
+RUN apk add --no-cache bash make git
 RUN rm -rf /ubbagent-src/.git
 RUN make clean setup build
 
