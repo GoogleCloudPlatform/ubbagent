@@ -25,21 +25,20 @@ steps:
 - id: &Test Test
   waitFor:
   - *BuildRuntime
-  name: runtime:local
-  entrypoint: make
-  args: ["setup", "build", "test"]
-
-- id: &TestSDK TestSDK
-  waitFor:
-  - *Test
-  name: runtime:local
-  entrypoint: make
-  args: ["-j2", "test-sdk-python3"]
+  name: gcr.io/cloud-builders/bazel:7.3.2
+  entrypoint: bash
+  args:
+  - -exc
+  - |
+    make setup
+    make build
+    make test
+    make -j2 test-sdk-python3
 
 - id: &BuildImage Build Image
   name: gcr.io/cloud-builders/docker
   waitFor:
-  - *TestSDK
+  - *Test
   args:
   - build
   - --tag
