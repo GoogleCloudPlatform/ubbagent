@@ -25,7 +25,7 @@ steps:
 - id: &Test Test
   waitFor:
   - *BuildRuntime
-  name: gcr.io/cloud-builders/bazel:7.3.2
+  name: gcr.io/cloud-builders/gcloud
   entrypoint: bash
   args:
   - -exc
