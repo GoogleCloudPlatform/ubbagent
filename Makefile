@@ -63,11 +63,11 @@ test: .GOPATH/.ok
 #	$Q go test $(if $V,-v) -i -race $(allpackages) # install -race libs to speed up next run
 ifndef CI
 	$Q go vet $(allpackages)
-	$Q GOEXPERIMENT=cgocheck2 go test -race $(allpackages)
+	$Q go test -race $(allpackages)
 else
 	$Q ( go vet $(allpackages); echo $$? ) | \
 	    tee .GOPATH/test/vet.txt | sed '$$ d'; exit $$(tail -1 .GOPATH/test/vet.txt)
-	$Q ( GOEXPERIMENT=cgocheck2 go test -v -race $(allpackages); echo $$? ) | \
+	$Q ( go test -v -race $(allpackages); echo $$? ) | \
 	    tee .GOPATH/test/output.txt | sed '$$ d'; exit $$(tail -1 .GOPATH/test/output.txt)
 endif
 
