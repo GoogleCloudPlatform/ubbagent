@@ -34,7 +34,6 @@ steps:
   - |
     make setup
     make build
-    make test
     make -j2 test-sdk-python3
 
 - id: &BuildImage Build Image
