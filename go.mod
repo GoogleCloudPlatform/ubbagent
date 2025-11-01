@@ -1,19 +1,18 @@
 module github.com/GoogleCloudPlatform/ubbagent
 
-go 1.23
+go 1.23.0
 
 require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/glog v1.1.1
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
-	golang.org/x/oauth2 v0.8.0
+	golang.org/x/oauth2 v0.27.0
 	google.golang.org/api v0.124.0
 )
 
 require (
-	cloud.google.com/go/compute v1.19.1 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
