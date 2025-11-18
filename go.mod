@@ -5,7 +5,7 @@ toolchain go1.24.1
 
 require (
 	github.com/ghodss/yaml v1.0.0
-	github.com/golang/glog v1.1.1
+	github.com/golang/glog v1.2.4
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
 	golang.org/x/oauth2 v0.8.0
