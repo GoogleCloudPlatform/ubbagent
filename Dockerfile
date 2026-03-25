@@ -14,6 +14,8 @@
 
 FROM golang:1.26.1-alpine3.23 AS build
 
+RUN apk update && apk upgrade --no-cache
+
 COPY . /ubbagent-src/
 WORKDIR /ubbagent-src/
 
@@ -22,7 +24,8 @@ RUN rm -rf /ubbagent-src/.git
 RUN make clean setup build
 
 FROM alpine:3.23
-RUN apk add --update libintl ca-certificates && \
+RUN apk update && apk upgrade --no-cache && \
+    apk add --update libintl ca-certificates && \
     apk add --virtual build_deps gettext && \
     cp /usr/bin/envsubst /usr/local/bin/envsubst && \
     apk del build_deps && \
