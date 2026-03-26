@@ -1192,7 +1192,7 @@ go_repository(
     name = "org_golang_x_crypto",
     importpath = "golang.org/x/crypto",
     sum = "h1:MDRAIl0xIo9Io2xV565hzXHw3zVseKrJKodhohM5CjU=",
-    version = "v0.1.0",
+    version = "v0.35.0",
 )
 
 go_repository(
