@@ -15,7 +15,7 @@ cc_library(
     hdrs = ["agent.h"],
     srcs = ["agent.cc"],
     deps = [
-        ":api.cc",
+        ":api",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
     ],
@@ -28,7 +28,7 @@ cc_test(
     linkopts = ["-lresolv"],
     deps = [
         ":agent",
-        ":api.cc",
+        ":api",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
         "@com_jsoncpp//:json",
