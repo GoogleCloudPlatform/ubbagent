@@ -24,8 +24,8 @@ jobs:
           echo "Latest tag found: $LATEST_TAG"
           
           if [ -z "$LATEST_TAG" ]; then
-            # Fallback if no tags exist
-            NEW_TAG="0.1.0"
+            echo "Error: No SemVer tags found in the repository. Cannot calculate next patch release." >&2
+            exit 1
           else
             # Parse SemVer and increment patch version
             IFS='.' read -r major minor patch <<< "$LATEST_TAG"
