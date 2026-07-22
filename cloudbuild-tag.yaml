@@ -23,6 +23,43 @@ steps:
     docker pull gcr.io/$_STAGING_PROJECT_ID/metering/ubbagent:sha_$COMMIT_SHA
     docker tag gcr.io/$_STAGING_PROJECT_ID/metering/ubbagent:sha_$COMMIT_SHA gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME
 
+- id: Manage Public Image Tags
+  name: gcr.io/cloud-builders/gcloud
+  waitFor:
+  - *PublishImages
+  entrypoint: bash
+  args:
+  - -ceux
+  - |
+    # Check if the tag is a non-prerelease SemVer version
+    if [[ -z "$(echo "$TAG_NAME" | egrep '^[0-9]+\.[0-9]+\.[0-9]+$')" ]]; then
+      echo "Prerelease tag $TAG_NAME. Skipping public image tag updates."
+      exit 0
+    fi
+
+    # Find the old image version currently tagged as public-image-*
+    OLD_PUBLIC_TAG=$(gcloud container images list-tags "gcr.io/$PROJECT_ID/metering/ubbagent" \
+      --filter="tags:public-image-*" --format="value(tags)" \
+      | tr ',' '\n' | grep '^public-image-' | head -n 1)
+
+    if [[ -n "$OLD_PUBLIC_TAG" ]]; then
+      OLD_VERSION=${OLD_PUBLIC_TAG#public-image-}
+      OLD_DIGEST=$(gcloud container images list-tags "gcr.io/$PROJECT_ID/metering/ubbagent" \
+        --filter="tags:$OLD_PUBLIC_TAG" --format="value(digest)")
+      
+      echo "Found old public image version: $OLD_VERSION (digest: $OLD_DIGEST)"
+      
+      # Remove old public-image-$OLD_VERSION tag
+      gcloud container images untag "gcr.io/$PROJECT_ID/metering/ubbagent:$OLD_PUBLIC_TAG" --quiet
+      
+      # Add deprecated-public-image-$OLD_VERSION tag to the old digest
+      gcloud container images add-tag "gcr.io/$PROJECT_ID/metering/ubbagent@$OLD_DIGEST" "gcr.io/$PROJECT_ID/metering/ubbagent:deprecated-public-image-$OLD_VERSION" --quiet
+    fi
+
+    # Tag the new image ($TAG_NAME) locally and push it
+    docker tag gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME gcr.io/$PROJECT_ID/metering/ubbagent:public-image-$TAG_NAME
+    docker push gcr.io/$PROJECT_ID/metering/ubbagent:public-image-$TAG_NAME
+
 - id: &DetermineShouldTagLatest Determine if images should be tagged latest
   name: gcr.io/cloud-builders/gcloud
   waitFor:
