@@ -8,9 +8,14 @@ on:
       - closed
   workflow_dispatch: # Allows manual triggering
 
+permissions:
+  contents: read
+
 jobs:
   check-trigger:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     # Run if manual trigger OR (PR closed and actually merged)
     if: |
       github.event_name == 'workflow_dispatch' ||
