@@ -56,9 +56,8 @@ steps:
       gcloud container images add-tag "gcr.io/$PROJECT_ID/metering/ubbagent@$OLD_DIGEST" "gcr.io/$PROJECT_ID/metering/ubbagent:deprecated-public-image-$OLD_VERSION" --quiet
     fi
 
-    # Tag the new image ($TAG_NAME) locally and push it
-    docker tag gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME gcr.io/$PROJECT_ID/metering/ubbagent:public-image-$TAG_NAME
-    docker push gcr.io/$PROJECT_ID/metering/ubbagent:public-image-$TAG_NAME
+    # Tag the new image ($TAG_NAME) as public-image-$TAG_NAME registry-side
+    gcloud container images add-tag "gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME" "gcr.io/$PROJECT_ID/metering/ubbagent:public-image-$TAG_NAME" --quiet
 
 - id: &DetermineShouldTagLatest Determine if images should be tagged latest
   name: gcr.io/cloud-builders/gcloud
