@@ -44,8 +44,8 @@ steps:
 
     if [[ -n "$OLD_PUBLIC_TAG" ]]; then
       OLD_VERSION=${OLD_PUBLIC_TAG#public-image-}
-      OLD_DIGEST=$(gcloud container images list-tags "gcr.io/$PROJECT_ID/metering/ubbagent" \
-        --filter="tags:$OLD_PUBLIC_TAG" --format="value(digest)")
+      OLD_DIGEST=$(gcloud container images describe "gcr.io/$PROJECT_ID/metering/ubbagent:$OLD_PUBLIC_TAG" \
+        --format="value(image_summary.digest)")
       
       echo "Found old public image version: $OLD_VERSION (digest: $OLD_DIGEST)"
       
