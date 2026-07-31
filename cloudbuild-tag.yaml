@@ -81,5 +81,3 @@ steps:
       echo "Not tagging latest"
     fi
 
-images:
-- gcr.io/$PROJECT_ID/metering/ubbagent:$TAG_NAME
