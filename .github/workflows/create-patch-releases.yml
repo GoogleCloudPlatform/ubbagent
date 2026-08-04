@@ -1,16 +1,64 @@
 name: Create Patch Release
 
 on:
-  workflow_dispatch: # Manual trigger only
+  pull_request:
+    branches:
+      - master
+    types:
+      - closed
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: read
 
 jobs:
+  check-trigger:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    # Run if manual trigger OR (PR closed and actually merged)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    outputs:
+      should_release: ${{ steps.decide.outputs.should_release }}
+    steps:
+      - name: Determine if release is needed
+        id: decide
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Manual trigger. Proceeding with release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Checking comments for PR #$PR_NUMBER in $REPO..."
+          
+          # Fetch comments using GitHub CLI
+          COMMENTS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments --jq '.comments[].body')
+          
+          if echo "$COMMENTS" | grep -Fq "/cve-fix"; then
+            echo "Found /cve-fix comment. Proceeding with release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "/cve-fix comment not found. Skipping release."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
   create-release:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write # Required to create tags and releases
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           fetch-depth: 0 # Fetch all history and tags
 
@@ -37,14 +85,17 @@ jobs:
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
 
       - name: Create and Push Tag
+        env:
+          NEW_TAG: ${{ steps.calculate_tag.outputs.NEW_TAG }}
         run: |
-          git tag "${{ steps.calculate_tag.outputs.NEW_TAG }}"
-          git push origin "${{ steps.calculate_tag.outputs.NEW_TAG }}"
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_TAG: ${{ steps.calculate_tag.outputs.NEW_TAG }}
         run: |
-          gh release create "${{ steps.calculate_tag.outputs.NEW_TAG }}" \
-            --title "${{ steps.calculate_tag.outputs.NEW_TAG }}" \
+          gh release create "$NEW_TAG" \
+            --title "$NEW_TAG" \
             --generate-notes
