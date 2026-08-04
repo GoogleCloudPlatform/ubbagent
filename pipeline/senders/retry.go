@@ -225,7 +225,8 @@ func (rs *RetryingSender) maybeSend(now time.Time) {
 		// In either scenario, the report is removed from the queue and the retry delay is reset.
 		if poperr := rs.queue.Dequeue(nil); poperr != nil {
 			// We failed to pop the sent entry off the queue. This isn't recoverable.
-			panic("RetryingSender.maybeSend: dequeuing from retry queue: " + poperr.Error())
+			glog.Errorf("RetryingSender.maybeSend: dequeuing from retry queue: " + poperr.Error() + " we've either successfully sent the report or encountered a non-transient error")
+			return
 		}
 
 		rs.lastAttempt = now
