@@ -1185,8 +1185,8 @@ go_repository(
 go_repository(
     name = "org_golang_google_grpc",
     importpath = "google.golang.org/grpc",
-    sum = "h1:VnnIIZ88UzOOKLukQi+ImGz8O1Wdp8nAGGnvOfEIWQQ=",
-    version = "v1.81.1",
+    sum = "h1:HIO0+BEtBP6soyqvqC8sNUjZ7bTs+0hFQuFF+RAy++Y=",
+    version = "v1.83.1",
 )
 
 go_repository(
@@ -1423,43 +1423,43 @@ go_repository(
 go_repository(
     name = "io_opentelemetry_go_otel",
     importpath = "go.opentelemetry.io/otel",
-    sum = "h1:mYIM03dnh5zfN7HautFE4ieIig9amkNANT+xcVxAj9I=",
-    version = "v1.43.0",
+    sum = "h1:JjwHmHpA4iZ3wBxluu2fbbE7j4kqlE8jXyAyPXH7HqU=",
+    version = "v1.44.0",
 )
 
 go_repository(
     name = "io_opentelemetry_go_otel_metric",
     importpath = "go.opentelemetry.io/otel/metric",
-    sum = "h1:d7638QeInOnuwOONPp4JAOGfbCEpYb+K6DVWvdxGzgM=",
-    version = "v1.43.0",
+    sum = "h1:1w0gILTcHdr3YI+ixLyjemwrVnsMURbTZFrSYCdDdmc=",
+    version = "v1.44.0",
 )
 
 go_repository(
     name = "io_opentelemetry_go_otel_sdk",
     importpath = "go.opentelemetry.io/otel/sdk",
-    sum = "h1:pi5mE86i5rTeLXqoF/hhiBtUNcrAGHLKQdhg4h4V9Dg=",
-    version = "v1.43.0",
+    sum = "h1:nHYwb9lK+fJPU/dnT6s7W7Z8itMWyqrnVfbheVYrZ58=",
+    version = "v1.44.0",
 )
 
 go_repository(
     name = "io_opentelemetry_go_otel_sdk_metric",
     importpath = "go.opentelemetry.io/otel/sdk/metric",
-    sum = "h1:S88dyqXjJkuBNLeMcVPRFXpRw2fuwdvfCGLEo89fDkw=",
-    version = "v1.43.0",
+    sum = "h1:3LlKgI+VjbVsjNRFZJZAJ30WjXC5VkNRks6si09iEfI=",
+    version = "v1.44.0",
 )
 
 go_repository(
     name = "io_opentelemetry_go_otel_trace",
     importpath = "go.opentelemetry.io/otel/trace",
-    sum = "h1:BkNrHpup+4k4w+ZZ86CZoHHEkohws8AY+WTX09nk+3A=",
-    version = "v1.43.0",
+    sum = "h1:jxF5CsGYCe74MCRx2X4g7WsY/VBKRqqpNvXlX/6gtIk=",
+    version = "v1.44.0",
 )
 
 go_repository(
     name = "org_golang_google_genproto_googleapis_api",
     importpath = "google.golang.org/genproto/googleapis/api",
-    sum = "h1:41r6JMbpzBMen0R/4TZeeAmGXSJC7DftGINUodzTkPI=",
-    version = "v0.0.0-20260319201613-d00831a3d3e7",
+    sum = "h1:Kjn0N0tCrDgiAFW+lGO4JZ3ck44CehvJQMAwj9QF0G8=",
+    version = "v0.0.0-20260526163538-3dc84a4a5aaa",
 )
 
 go_repository(

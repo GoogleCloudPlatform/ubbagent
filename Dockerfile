@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.26.5-alpine3.23 AS build
+FROM golang:1.26.6-alpine3.23 AS build
 
 RUN apk update && apk upgrade --no-cache
 
@@ -25,7 +25,7 @@ RUN make clean setup build
 
 FROM alpine:3.23
 RUN apk update && apk upgrade --no-cache && \
-    apk add --update libintl ca-certificates && \
+    apk add --update libintl ca-certificates 'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0' && \
     apk add --virtual build_deps gettext && \
     cp /usr/bin/envsubst /usr/local/bin/envsubst && \
     apk del build_deps && \
