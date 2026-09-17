@@ -41,18 +41,18 @@ steps:
       --filter="tags:public-image-*" --format="value(tags)" \
       | tr ',' '\n' | grep '^public-image-' | head -n 1)
 
-    if [[ -n "$OLD_PUBLIC_TAG" ]]; then
-      OLD_VERSION=${OLD_PUBLIC_TAG#public-image-}
-      OLD_DIGEST=$(gcloud container images describe "gcr.io/$PROJECT_ID/metering/ubbagent:$OLD_PUBLIC_TAG" \
+    if [[ -n "$$OLD_PUBLIC_TAG" ]]; then
+      OLD_VERSION=$${OLD_PUBLIC_TAG#public-image-}
+      OLD_DIGEST=$(gcloud container images describe "gcr.io/$PROJECT_ID/metering/ubbagent:$$OLD_PUBLIC_TAG" \
         --format="value(image_summary.digest)")
       
-      echo "Found old public image version: $OLD_VERSION (digest: $OLD_DIGEST)"
+      echo "Found old public image version: $$OLD_VERSION (digest: $$OLD_DIGEST)"
       
-      # Remove old public-image-$OLD_VERSION tag
-      gcloud container images untag "gcr.io/$PROJECT_ID/metering/ubbagent:$OLD_PUBLIC_TAG" --quiet
+      # Remove old public-image-$$OLD_VERSION tag
+      gcloud container images untag "gcr.io/$PROJECT_ID/metering/ubbagent:$$OLD_PUBLIC_TAG" --quiet
       
-      # Add deprecated-public-image-$OLD_VERSION tag to the old digest
-      gcloud container images add-tag "gcr.io/$PROJECT_ID/metering/ubbagent@$OLD_DIGEST" "gcr.io/$PROJECT_ID/metering/ubbagent:deprecated-public-image-$OLD_VERSION" --quiet
+      # Add deprecated-public-image-$$OLD_VERSION tag to the old digest
+      gcloud container images add-tag "gcr.io/$PROJECT_ID/metering/ubbagent@$$OLD_DIGEST" "gcr.io/$PROJECT_ID/metering/ubbagent:deprecated-public-image-$$OLD_VERSION" --quiet
     fi
 
     # Tag the new image ($TAG_NAME) as public-image-$TAG_NAME registry-side
