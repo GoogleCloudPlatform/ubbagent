@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.26.6-alpine3.23 AS build
+FROM golang:1.26.9-alpine3.23 AS build
 
 RUN apk update && apk upgrade --no-cache
 
