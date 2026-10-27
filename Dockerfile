@@ -25,7 +25,7 @@ RUN make clean setup build
 
 FROM alpine:3.23
 RUN apk update && apk upgrade --no-cache && \
-    apk add --update libintl ca-certificates 'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0' && \
+    apk add --update libintl ca-certificates 'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0' 'musl>=1.2.5-r24' && \
     apk add --virtual build_deps gettext && \
     cp /usr/bin/envsubst /usr/local/bin/envsubst && \
     apk del build_deps && \
