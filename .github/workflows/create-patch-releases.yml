@@ -1,18 +1,96 @@
 name: Create Patch Release
 
 on:
-  workflow_dispatch: # Manual trigger only
+  pull_request:
+    branches:
+      - master
+    types:
+      - closed
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: read
 
 jobs:
-  create-release:
+  check-trigger:
     runs-on: ubuntu-latest
     permissions:
+      pull-requests: read
+    # Run if manual trigger OR (PR closed and actually merged)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    outputs:
+      should_release: ${{ steps.decide.outputs.should_release }}
+    steps:
+      - name: Determine if release is needed
+        id: decide
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Manual trigger. Proceeding with release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Checking comments for PR #$PR_NUMBER in $REPO..."
+          
+          # Fetch comments using GitHub CLI
+          # Only consider comments from maintainers (owners, org members, collaborators).
+          COMMENTS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments \
+            --jq '.comments[] | select(.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR") | .body')
+          
+          # Require /cve-fix as a standalone line so prose mentions don't trigger a release.
+          if echo "$COMMENTS" | grep -Eq '^[[:space:]]*/cve-fix[[:space:]]*$'; then
+            echo "Found /cve-fix comment. Proceeding with release."
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "/cve-fix comment not found. Skipping release."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
+  create-release:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_release == 'true'
+    # Serialize releases so concurrent runs don't compute the same NEW_TAG.
+    concurrency:
+      group: create-patch-release
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
       contents: write # Required to create tags and releases
+      checks: read    # Required to wait for the Cloud Build candidate image
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # Fetch all history and tags
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Wait for Cloud Build candidate image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          for i in $(seq 1 60); do
+            CONCLUSION=$(gh api "repos/$REPO/commits/$SHA/check-runs" \
+              --jq '[.check_runs[] | select(.app.slug == "google-cloud-build" and (.name | startswith("Trigger:")))] | first | .conclusion // "pending"')
+            case "$CONCLUSION" in
+              success) echo "Cloud Build candidate image is ready."; exit 0 ;;
+              failure|cancelled|timed_out|action_required|neutral|skipped|stale)
+                echo "Cloud Build did not succeed for $SHA ($CONCLUSION); not releasing." >&2; exit 1 ;;
+            esac
+            echo "Cloud Build not finished yet ($CONCLUSION), waiting 30s..."
+            sleep 30
+          done
+          echo "Timed out waiting for Cloud Build on $SHA." >&2
+          exit 1
 
       - name: Calculate Next Tag
         id: calculate_tag
