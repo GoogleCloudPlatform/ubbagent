@@ -39,19 +39,31 @@ jobs:
           
           echo "Checking comments for PR #$PR_NUMBER in $REPO..."
           
-          # Fetch comments using GitHub CLI
-          # Only consider comments from maintainers (owners, org members, collaborators).
-          COMMENTS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments \
-            --jq '.comments[] | select(.authorAssociation == "OWNER" or .authorAssociation == "MEMBER" or .authorAssociation == "COLLABORATOR") | .body')
+          # Find who posted /cve-fix as a standalone line, so prose mentions don't
+          # trigger a release.
+          AUTHORS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json comments \
+            --jq '.comments[] | select(.body | split("\n") | any(test("^\\s*/cve-fix\\s*$"))) | .author.login // empty' | sort -u)
           
-          # Require /cve-fix as a standalone line so prose mentions don't trigger a release.
-          if echo "$COMMENTS" | grep -Eq '^[[:space:]]*/cve-fix[[:space:]]*$'; then
-            echo "Found /cve-fix comment. Proceeding with release."
-            echo "should_release=true" >> $GITHUB_OUTPUT
-          else
-            echo "/cve-fix comment not found. Skipping release."
-            echo "should_release=false" >> $GITHUB_OUTPUT
-          fi
+          # Only honor comments from users with write or admin access to the repo.
+          # authorAssociation doesn't work here: with GITHUB_TOKEN it reports
+          # CONTRIBUTOR for org members whose membership is private.
+          while IFS= read -r LOGIN; do
+            [ -n "$LOGIN" ] || continue
+            PERMISSION=$(gh api "repos/$REPO/collaborators/$LOGIN/permission" --jq .permission) || PERMISSION=""
+            case "$PERMISSION" in
+              admin|write)
+                echo "Found /cve-fix comment from $LOGIN ($PERMISSION). Proceeding with release."
+                echo "should_release=true" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+              *)
+                echo "Ignoring /cve-fix comment from $LOGIN (permission: ${PERMISSION:-unknown})."
+                ;;
+            esac
+          done <<< "$AUTHORS"
+          
+          echo "No /cve-fix comment from a maintainer. Skipping release."
+          echo "should_release=false" >> "$GITHUB_OUTPUT"
 
   create-release:
     needs: check-trigger
